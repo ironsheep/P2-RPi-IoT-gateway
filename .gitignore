@@ -8,6 +8,10 @@ __pycache__/
 
 # macOS bad stuff
 .DS_Store
+*.swp
+
+# files we don't want to version
+rpi-p2-gw-config.ini
 
 # VSCode bad stuff
 .history
