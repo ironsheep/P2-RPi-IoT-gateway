@@ -1,0 +1,23 @@
+[Unit]
+Description=P2 RPi IoT Gateway Client/Daemon
+Documentation=https://github.com/ironsheep/P2-RPi-ioT-gateway
+After=network.target mosquitto.service network-online.target
+Wants=network-online.target
+Requires=network.target
+
+[Service]
+Type=notify
+User=daemon
+Group=daemon
+WorkingDirectory=/opt/P2-RPi-ioT-gateway/
+ExecStart=/usr/bin/python3 -u /opt/P2-RPi-ioT-gateway/P2-RPi-ioT-gw-daemon.py
+StandardOutput=null
+#StandardOutput=syslog
+#SyslogIdentifier=P2RPiGW
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

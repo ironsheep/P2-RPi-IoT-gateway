@@ -6,6 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
+# macOS bad stuff
+.DS_Store
+
+# VSCode bad stuff
+.history
+
 # Distribution / packaging
 .Python
 build/
