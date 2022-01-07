@@ -37,8 +37,6 @@ if False:
     print_line('Sorry, this script requires a python3 runtime environment.', file=sys.stderr)
     os._exit(1)
 
-sg.theme('GreenMono')
-
 # Logging function
 def print_line(text, error=False, warning=False, info=False, verbose=False, debug=False, console=True):
     timestamp = strftime('%Y-%m-%d %H:%M:%S', localtime())
