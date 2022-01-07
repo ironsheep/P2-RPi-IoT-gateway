@@ -17,12 +17,12 @@ When you first open new Raspberry Pi getting it operational for use can be daunt
 When setting up the new RPi you will be doing:
 
 1. Unbox and place into case, add keyboard and HDMI display
-- Locate and initialize a uSD card with your desired OS
-- Boot the RPi after insterting the uSD card
-- Configure the RPi to join your network
-- Configure services you need 
-- Install the latest software updates (OS, security patches, etc.)
-- DONE. Congratulations! You are ready to use this RPi as a gateway!
+1. Locate and initialize a uSD card with your desired OS
+1. Boot the RPi after insterting the uSD card
+1. Configure the RPi to join your network
+1. Configure services you need 
+1. Install the latest software updates (OS, security patches, etc.)
+1. DONE. Congratulations! You are ready to use this RPi as a gateway!
 
 ## Unbox and place into case, add keyboard, mouse and HDMI display
 
