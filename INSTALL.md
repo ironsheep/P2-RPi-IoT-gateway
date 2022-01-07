@@ -153,15 +153,31 @@ $ daemon : daemon dialout
 #                 ^^^^^^^ now it is present
 ```
    
-### (all RPi3 models) enable /dev/serial0
+### If /dev/serial0 is not present, enable /dev/serial0
+
+We need to enable the serial0 device which are daemon script is expecting. Which serial device are present at boot time has been changin over time. Check for presense of /dev/serial0 with:
+
+```shell
+# ls /dev/serial0
+ls: /dev/serial0: No such file or directory
+```
+
+If you get the message above (No such file or directory) you need to enable **/dev/serial0**.
+
+In order to enable **/dev/serial0** we need to:
+
+1. add lines to **/boot/config.txt**
+1. change RPi settings using **raspi-config**
+
+So, edit the **/boot/config.txt** using:
 
 ```shell
 # edit /boot/config.txt
 sudo vi /boot/config.txt
 ```
 	
-in **/boot/config.txt** add the following lines and reboot your RPi.  /dev/serial0 should now appear.
-   
+while in **/boot/config.txt** add the following lines:    
+
 ```shell
 # fix our serial clock freq so we can do 2Mb/s
 # ref: https://github.com/ironsheep/RPi-P2D2-Support#serial-boot-time-configuration
@@ -169,8 +185,12 @@ init_uart_clock=32000000
 	
 # and condition which uart is present
 enable_uart=1
-
 ```
+
+(*Exit vi by entering ':', 'x', \<return\>*)
+
+After the file is saved then reboot your RPi.  **/dev/serial0** should now appear.
+
    
 ***TBD** add instructions to run sudo raspi-config to disable console but enable serial port!
 
