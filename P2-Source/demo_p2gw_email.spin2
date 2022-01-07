@@ -50,11 +50,14 @@ PUB main()
     '' let's have our RPi send an email for us
     gw.startx(RX_GW, TX_GW, GW_BAUDRATE)
 
-    ' tell the RPi about how to identify this hardware
-    gw.identify(@p2HardwareID)
+    repeat 50   ' serial testing...
+        ' tell the RPi about how to identify this hardware
+        gw.identify(@p2HardwareID)
 
-    ' tell the RPi to send an email message
-    gw.sendEmail(@emailTo, @emailFrom, @emailSubj, @emailBody)
+        ' tell the RPi to send an email message
+        gw.sendEmail(@emailTo, @emailFrom, @emailSubj, @emailBody)
+
+        waitms(125)     ' 1/8 second between loop iterations
 
     ' terminate communiation with our gateway RPi
     gw.stop()
