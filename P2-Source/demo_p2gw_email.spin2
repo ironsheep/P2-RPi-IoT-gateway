@@ -1,13 +1,13 @@
 '' =================================================================================================
 ''
-''   File....... RPi-IoT-gw.spin2
-''   Purpose.... Provide IoT access methods
+''   File....... demo_p2gw_email.spin2
+''   Purpose.... Demonstrate sending an email message
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Jan 2022
-''   Updated.... 03 Jan 2022
+''   Updated.... 06 Jan 2022
 ''
 '' =================================================================================================
 
@@ -23,40 +23,35 @@ CON { fixed io pins }
   SF_SDO   = 59  { O }
   SF_SDI   = 58  { I }
 
+CON { RPi Gateway io pins }
+
+  RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
+  TX_GW    = 24  { O }
+
+  GW_BAUDRATE = 2_000_000   ' 2Mb/s
+
 OBJ { Objects Used by this Object }
 
-    sio         : "jm_serial"                                   ' serial I/O
-    nstr        : "jm_nstr"                                     ' number-to-string
+    gw         : "RPi-IoT-gw"                                   ' serial I/O
 
-var { pin info saves }
+DAT { our email and hardware ID strings }
 
-    long    rx_pin
-    long    tx_pin
+p2HardwareID  BYTE    "P2 Edge - GWDemo",0
 
-PUB null()
-'' This is not a top level object
+emailTo         byte    "stephen@ironsheep.biz",0
+emailFrom       byte    "stephen@moraco.us",0
+emailSubj       byte    "Hello from P2!",0
+emailBody       byte    "hi,\n  This is being sent from the P2 via the RPi gateway\n\nRegards,\nYour friendly P2!\n",0
 
-pub startx(rxpin, txpin, baud)
-'' Start RPi gateway serial coms on rxpin and txpin at baud
-    rx_pin := rxpin
-    tx_pin := txpin
-    sio.startx(rxpin, txpin, baud)                              ' use user serial port
+PUB main()
+    '' let's have our RPi send an email for us
+    gw.startx(RX_GW, RX_GW, GW_BAUDRATE)
 
-pub stop()
-'' release the serial pins (if needed)
-    sio.rxflush()   ' git rid of any pending input
-    ' free the pins used
-    pinf(rx_pin)    ' de-assert
-    pinf(tx_pin)    ' de-assert
+    gw.identify(@p2HardwareID)
 
-pub identify(pHardwareId)
-'' tell the RPi the name of this device (for email signature, etc.)
+    gw.sendEmail(@emailTo, @emailFrom, @emailSubj, @emailBody)
 
-pub sendEmail(pEmailTo, pEmailFrom, pEmailSubj, pEmailBody)
-'' tell the RPi to send an email given these specifics
-
-pub sendSMS(pSmsPhoneNbr, pSmsTextMessage)
-'' tell the RPi to send an SMS text message given these specifics
+    gw.stop()
 
 CON { license }
 
