@@ -125,6 +125,7 @@ def taskProcessInput():
             received_data = ser.readline()              #read serial port
             currLine = received_data.decode('utf-8').rstrip()
             if len(currLine) > 0:
+                print_line('TASK-RX({})'.format(currLine), debug=True)
                 pushLine(currLine)
 
 
@@ -145,6 +146,7 @@ def mainLoop():
         currLine = popLine()
 
         if len(currLine) > 0:
+            print_line('DO-LINE({})'.format(currLine), debug=True)
             processDebugLine(currLine)
 
 
