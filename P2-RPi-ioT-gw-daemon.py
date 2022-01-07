@@ -123,7 +123,7 @@ def taskProcessInput():
         ser = serial.Serial ("/dev/serial0", 2000000, timeout=1)    #Open port with baud rate & timeout
         while True:
             received_data = ser.readline()              #read serial port
-            currLine = received_data.decode('utf-8').rstrip()
+            currLine = received_data.decode('ISO-8859-1').rstrip()
             if len(currLine) > 0:
                 pushLine(currLine)
 
