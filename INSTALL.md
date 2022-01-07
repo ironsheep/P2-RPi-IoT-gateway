@@ -164,7 +164,7 @@ in **/boot/config.txt** add the following lines and reboot your RPi.  /dev/seria
    
 ```shell
 # fix our serial clock freq so we can do 2Mb/s
-# ref: https://github.com/ironsheep/RPi-P2D2-Support
+# ref: https://github.com/ironsheep/RPi-P2D2-Support#serial-boot-time-configuration
 init_uart_clock=32000000
 	
 # and condition which uart is present
