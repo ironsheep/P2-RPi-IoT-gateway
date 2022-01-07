@@ -135,23 +135,44 @@ In order to have your HA system know if your RPi is online/offline and when it l
 
 But first, we need to grant access to some hardware for the user account under which the sevice will run.
 
-### Set up daemon account to allow access to GPIO - serial I/O
+### Set up daemon account to allow access to serial I/O
 
-By default this script is run as user:group  **daemon:daemon**.  As this script requires access to the GPU you'll want to add access to it for the daemon user as follows:
+By default this script is run as user:group  **daemon:daemon**.  As this script requires access to the serial uart you'll want to add access to it for the daemon user as follows (note: serial access is controlled by the 'dialout' group/permission):
 
-   ```shell
-   # list current groups
-   groups daemon
-   $ daemon : daemon
+```shell
+# list current groups
+groups daemon
+$ daemon : daemon
 
-   # add video if not present
-   sudo usermod daemon -a -G gpio
+# add video if not present
+sudo usermod daemon -a -G dialout
 
-   # list current groups
-   groups daemon
-   $ daemon : daemon gpio
-   #                 ^^^^^ now it is present
-   ```
+# list current groups
+groups daemon
+$ daemon : daemon dialout
+#                 ^^^^^^^ now it is present
+```
+   
+### (all RPi3 models) enable /dev/serial0
+
+```shell
+# edit /boot/config.txt
+sudo vi /boot/config.txt
+```
+	
+in **/boot/config.txt** add the following lines and reboot your RPi.  /dev/serial0 should now appear.
+   
+```shell
+# fix our serial clock freq so we can do 2Mb/s
+# ref: https://github.com/ironsheep/RPi-P2D2-Support
+init_uart_clock=32000000
+	
+# and condition which uart is present
+enable_uart=1
+
+```
+   
+***TBD** add instructions to run sudo raspi-config to disable console but enable serial port!
 
 ### Choose Run Style
 
@@ -210,7 +231,7 @@ Like most active developers, we periodically upgrade our script. Use one of the 
 If you are setup in the systemd form, you can update to the latest we've published by following these steps:
 
    ```shell
-   # go to local repo
+   # go to local copy of repo
    cd /opt/P2-RPi-ioT-gateway
 
    # stop the service
@@ -235,7 +256,7 @@ If you are setup in the systemd form, you can update to the latest we've publish
 If you are setup in the Sys V init script form, you can update to the latest we've published by following these steps:
 
    ```shell
-   # go to local repo
+   # go to local copy of repo
    cd /opt/P2-RPi-ioT-gateway
 
    # stop the service

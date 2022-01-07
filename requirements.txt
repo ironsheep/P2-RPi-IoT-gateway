@@ -6,4 +6,4 @@ Unidecode>=0.4.21
 colorama>=0.4.3
 tzlocal>=2.1.0
 sendgrid>=6.9.3
-
+pysimplegui>=4.56.0
