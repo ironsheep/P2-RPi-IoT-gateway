@@ -45,6 +45,7 @@ Found on this Page:
 
 Additional pages:
 
+- [Unbox & setup new RPI](RPI-SETUP.md) - (*if this is your first time or you just want a reminder*)
 - [Install Gateway project on RPi](INSTALL.md) w/[Connecting the P2 to the RPi](https://github.com/ironsheep/P2-RPi-ioT-gateway/blob/main/INSTALL.md#wiring-our-serial-connection)
 - [Configure Email Service](SETUP-EMAIL.md)
 - Configure Twitter Service - *TBA*
