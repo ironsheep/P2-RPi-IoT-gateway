@@ -19,11 +19,19 @@ import PySimpleGUI as sg
 from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE,SIG_DFL)
 
-script_version = "0.0.1"
-script_name = 'P2-RPi-ioT-gw-daemon.py'
-script_info = '{} v{}'.format(script_name, script_version)
-project_name = 'P2-RPi-IoT-gw'
-project_url = 'https://github.com/ironsheep/P2-RPi-ioT-gateway'
+script_version  = "0.0.1"
+script_name     = 'P2-RPi-ioT-gw-daemon.py'
+script_info     = '{} v{}'.format(script_name, script_version)
+project_name    = 'P2-RPi-IoT-gw'
+project_url     = 'https://github.com/ironsheep/P2-RPi-IoT-gateway'
+
+# -------------------------------
+# the following are identical to that found in our gateway .spin2 object
+#   (!!!they must be kept in sync!!!)
+parm_sep    = '^|^'     # chars that will not be found in user data
+body_start  = 'emailStart'
+body_end    = 'emailEnd'
+# -------------------------------
 
 if False:
     # will be caught by python 2.7 to be illegal syntax

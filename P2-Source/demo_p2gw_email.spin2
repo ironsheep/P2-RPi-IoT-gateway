@@ -32,11 +32,11 @@ CON { RPi Gateway io pins }
 
 OBJ { Objects Used by this Object }
 
-    gw         : "RPi-IoT-gw"                                   ' serial I/O
+    gw  :   "RPi-IoT-gw"                                        ' serial I/O
 
 DAT { our email and hardware ID strings }
 
-p2HardwareID  BYTE    "P2 Edge - GWDemo",0
+p2HardwareID    byte    "P2 Edge - GWDemo",0
 
 emailTo         byte    "stephen@ironsheep.biz",0
 emailFrom       byte    "stephen@moraco.us",0
@@ -45,12 +45,15 @@ emailBody       byte    "hi,\n  This is being sent from the P2 via the RPi gatew
 
 PUB main()
     '' let's have our RPi send an email for us
-    gw.startx(RX_GW, RX_GW, GW_BAUDRATE)
+    gw.startx(RX_GW, TX_GW, GW_BAUDRATE)
 
+    ' tell the RPi about how to identify this hardware
     gw.identify(@p2HardwareID)
 
+    ' tell the RPi to send an email message
     gw.sendEmail(@emailTo, @emailFrom, @emailSubj, @emailBody)
 
+    ' terminate communiation with our gateway RPi
     gw.stop()
 
 CON { license }

@@ -32,14 +32,14 @@ CON { RPi Gateway io pins }
 
 OBJ { Objects Used by this Object }
 
-    gw         : "RPi-IoT-gw"                                   ' serial I/O
+    gw  :   "RPi-IoT-gw"                                        ' serial I/O
 
 DAT { our email and hardware ID strings }
 
-p2HardwareID  BYTE    "P2 Edge - GWDemo",0
+p2HardwareID    byte    "P2 Edge - GWDemo",0
 
-smsPhoneNbr         byte    "7199303881",0
-smsTextMessage       byte    "hi,\n  This is being sent from the P2 via the RPi gateway\n\nRegards,\nYour friendly P2!\n",0
+smsPhoneNbr     byte    "7199303881",0
+smsTextMessage  byte    "hi,\n  This is being sent from the P2 via the RPi gateway\n\nRegards,\nYour friendly P2!\n",0
 
 PUB main()
     '' let's have our RPi send a text message

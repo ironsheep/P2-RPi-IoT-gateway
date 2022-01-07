@@ -25,13 +25,25 @@ CON { fixed io pins }
 
 OBJ { Objects Used by this Object }
 
-    sio         : "jm_serial"                                   ' serial I/O
+    RPi         : "jm_serial"                                   ' serial I/O
     nstr        : "jm_nstr"                                     ' number-to-string
 
-var { pin info saves }
+VAR { pin info saves }
 
     long    rx_pin
     long    tx_pin
+
+DAT { string constants }
+
+spin2ver    byte    "0.0.1",0
+
+' -------------------------------
+' the following are identical to that found in our deamon python script
+'   (!!!they must be kept in sync!!!)
+parmSep     byte    "^|^",0     ' chars that will not be found in user data
+bodyStart   byte    "emailStart",0
+bodyEnd     byte    "emailEnd",0
+' -------------------------------
 
 PUB null()
 '' This is not a top level object
@@ -40,23 +52,27 @@ pub startx(rxpin, txpin, baud)
 '' Start RPi gateway serial coms on rxpin and txpin at baud
     rx_pin := rxpin
     tx_pin := txpin
-    sio.startx(rxpin, txpin, baud)                              ' use user serial port
+    RPi.startx(rxpin, txpin, baud)                              ' use user serial port
 
 pub stop()
 '' release the serial pins (if needed)
-    sio.rxflush()   ' git rid of any pending input
+    RPi.rxflush()   ' git rid of any pending input
     ' free the pins used
     pinf(rx_pin)    ' de-assert
     pinf(tx_pin)    ' de-assert
 
 pub identify(pHardwareId)
 '' tell the RPi the name of this device (for email signature, etc.)
+    RPi.fstr3(string("ident:hwName=%s%sobjVer=v%s\n"), pHardwareId, @parmSep, @spin2ver)
 
 pub sendEmail(pEmailTo, pEmailFrom, pEmailSubj, pEmailBody)
 '' tell the RPi to send an email given these specifics
+    RPi.fstr5(string("email-send:to=%s%sfm=%s%ssu=%s\n"), pEmailTo, @parmSep, pEmailFrom, @parmSep, pEmailSubj)
+    RPi.fstr3(string("%s\n%s\n%s\n"), @bodyStart, pEmailBody, @bodyEnd)
 
 pub sendSMS(pSmsPhoneNbr, pSmsTextMessage)
 '' tell the RPi to send an SMS text message given these specifics
+    RPi.fstr3(string("sms-send:phone=%s%smessage=%s\n"), pSmsPhoneNbr, @parmSep, pSmsTextMessage)
 
 CON { license }
 
