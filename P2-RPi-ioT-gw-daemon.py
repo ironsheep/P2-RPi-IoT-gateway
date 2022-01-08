@@ -110,7 +110,7 @@ def popLine():
 #  TASK: dedicated serial listener
 # -----------------------------------------------------------------------------
 
-def taskProcessInput():
+def taskProcessInput(ser):
     print_line('Thread: taskProcessInput() started', verbose=True)
     # process lies from serial or from test file
     if opt_useTestFile == True:
@@ -120,7 +120,6 @@ def taskProcessInput():
             pushLine(currLine)
             #sleep(0.1)
     else:
-        ser = serial.Serial ("/dev/serial0", 2000000, timeout=1)    #Open port with baud rate & timeout
         while True:
             received_data = ser.readline()              #read serial port
             currLine = received_data.decode('utf-8').rstrip()
@@ -140,7 +139,7 @@ def opJustLogIt(cmdString):
 def processDebugLine(newLine):
     opJustLogIt(newLine)
 
-def mainLoop():
+def mainLoop(ser):
     while True:             # Event Loop
         # process an incoming line - creates our windows as needed
         currLine = popLine()
@@ -150,17 +149,24 @@ def mainLoop():
             processDebugLine(currLine)
 
 
+        ser.write(b'hello\n')
+        sleep(1)
+
+
+
 
 # -----------------------------------------------------------------------------
 #  Main loop
 # -----------------------------------------------------------------------------
 
 # start our input task
-_thread.start_new_thread(taskProcessInput, ( ))
+ser = serial.Serial ("/dev/serial0", 2000000, timeout=1)    #Open port with baud rate & timeout
+
+_thread.start_new_thread(taskProcessInput, ( ser ))
 
 # run our loop
 try:
-    mainLoop()
+    mainLoop(ser)
 
 finally:
     # normal shutdown
