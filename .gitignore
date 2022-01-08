@@ -12,6 +12,9 @@ __pycache__/
 
 # files we don't want to version
 rpi-p2-gw-config.ini
+config.ini
+put
+get
 
 # VSCode bad stuff
 .history

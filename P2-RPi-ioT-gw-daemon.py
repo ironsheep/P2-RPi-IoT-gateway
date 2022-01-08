@@ -132,27 +132,87 @@ def taskProcessInput(ser):
 # -----------------------------------------------------------------------------
 #  Main loop
 # -----------------------------------------------------------------------------
+cmdIdentifyHW  = "ident:"
+cmdSendEmail = "email-send:"
+cmdSendSMS = "sms-send:"
 
-def opJustLogIt(cmdString):
-    print_line('opJustLogIt({})'.format(cmdString), debug=True)
+def getNameValuePairs(strRequest, cmdStr):
+    # isolate name-value pairs found within {strRequest} (after removing prefix {cmdStr})
+    rmdr = strRequest.replace(cmdStr,'')
+    nameValuePairs = rmdr.split(parm_sep)
+    print_line('getNameValuePairs nameValuePairs({})=({})'.format(len(nameValuePairs), nameValuePairs), debug=True)
+    return nameValuePairs
 
-def processDebugLine(newLine):
-    opJustLogIt(newLine)
+def processNameValuePairs(nameValuePairsAr):
+    for nameValueStr in nameValuePairsAr:
+        if '=' in nameValueStr:
+            name,value = nameValueStr.split('=', 1)
+            print_line('  [{}]=[{}]'.format(name, value), verbose=True)
+        else:
+            print_line('processNameValuePairs nameValueStr({})=({}) ! missing "=" !'.format(len(nameValueStr), nameValueStr), warning=True)
 
-def mainLoop(ser):
-    while True:             # Event Loop
+# global state parameter for building email
+gatheringEmailBody = False
+emailBodyText = ""
+
+def processIncomingRequest(newLine):
+    global gatheringEmailBody
+    global emailBodyText
+
+    print_line('Incoming line({})=({})'.format(len(newLine), newLine), debug=True)
+
+    if gatheringEmailBody == True:
+        emailBodyText += newLine
+
+    if newLine.startswith(cmdIdentifyHW):
+        print_line('* HANDLE id P2 Hardware', info=True)
+        nameValuePairs = getNameValuePairs(newLine, cmdIdentifyHW)
+        if len(nameValuePairs) > 0:
+            processNameValuePairs(nameValuePairs)
+        # TODO: now record the hardware info for later use
+
+    if newLine.startswith(cmdSendEmail):
+        print_line('* HANDLE send email', info=True)
+        nameValuePairs = getNameValuePairs(newLine, cmdSendEmail)
+        if len(nameValuePairs) > 0:
+            processNameValuePairs(nameValuePairs)
+
+    if newLine.startswith(cmdSendSMS):
+        print_line('* HANDLE send SMS', info=True)
+        nameValuePairs = getNameValuePairs(newLine, cmdSendSMS)
+        if len(nameValuePairs) > 0:
+            processNameValuePairs(nameValuePairs)
+        # TODO: now send the SMS
+
+    if newLine.startswith(body_start):
+        gatheringEmailBody = True
+        emailBodyText = ""
+
+    if newLine.startswith(body_end):
+        gatheringEmailBody = False
+        print_line('Incoming emailBodyText({})=[{}]'.format(len(emailBodyText), emailBodyText), verbose=True)
+        # TODO: now send the email
+
+def processInput():
+    while True:             # get Loop (if something, get another)
         # process an incoming line - creates our windows as needed
         currLine = popLine()
 
         if len(currLine) > 0:
-            print_line('DO-LINE({})'.format(currLine), debug=True)
-            processDebugLine(currLine)
+            processIncomingRequest(currLine)
+        else:
+            break
 
+def genSomeOutput(Ser):
+    newOutLine = b'Hello p2\n'
+    print_line('genSomeOutput line({})=({})'.format(len(newOutLine), newOutLine), debug=True)
+    ser.write(newOutLine)
 
-        ser.write(b'hello\n')
+def mainLoop(ser):
+    while True:             # Event Loop
+        processInput()
+        genSomeOutput(ser)
         sleep(1)
-
-
 
 
 # -----------------------------------------------------------------------------
@@ -160,9 +220,9 @@ def mainLoop(ser):
 # -----------------------------------------------------------------------------
 
 # start our input task
-ser = serial.Serial ("/dev/serial0", 2000000, timeout=1)    #Open port with baud rate & timeout
+ser = serial.Serial ("/dev/serial0", 1000000, timeout=1)    #Open port with baud rate & timeout
 
-_thread.start_new_thread(taskProcessInput, ( ser ))
+_thread.start_new_thread(taskProcessInput, ( ser, ))
 
 # run our loop
 try:
@@ -171,3 +231,15 @@ try:
 finally:
     # normal shutdown
     print_line('Done', info=True)
+
+
+
+# ser = serial.Serial ("/dev/serial0", 1000000, timeout=1)    #Open port with baud rate & timeout
+# while True:
+#     received_data = ser.read()              #read serial port
+#     sleep(0.03)
+#     data_left = ser.inWaiting()             #check for remaining byte
+#     received_data += ser.read(data_left)
+#     print (received_data)                   #print received data
+#     print_line('TEST-LOOP line({})=[{}]'.format(len(received_data), received_data), debug=True)
+#     ser.write(received_data)                #transmit data serially
