@@ -14,6 +14,7 @@ from colorama import init as colorama_init
 from colorama import Fore, Back, Style
 import serial
 from time import sleep
+from configparser import ConfigParser
 
 from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE,SIG_DFL)
@@ -72,11 +73,13 @@ parser = argparse.ArgumentParser(description=project_name, epilog='For further d
 parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
 parser.add_argument("-d", "--debug", help="show debug output", action="store_true")
 parser.add_argument("-t", "--test", help="run from canned test file", action="store_true")
+parser.add_argument("-c", '--config_dir', help='set directory where config.ini is located', default=sys.path[0])
 parse_args = parser.parse_args()
 
-opt_debug = parse_args.debug
 opt_verbose = parse_args.verbose
+opt_debug = parse_args.debug
 opt_useTestFile = parse_args.test
+config_dir = parse_args.config_dir
 
 print_line(script_info, info=True)
 if opt_verbose:
@@ -85,6 +88,27 @@ if opt_debug:
     print_line('Debug enabled', debug=True)
 if opt_useTestFile:
     print_line('TEST: debug stream is test file', debug=True)
+
+# -----------------------------------------------------------------------------
+#  Config File parsing
+# -----------------------------------------------------------------------------
+config = ConfigParser(delimiters=('=', ), inline_comment_prefixes=('#'))
+config.optionxform = str
+try:
+    with open(os.path.join(config_dir, 'config.ini')) as config_file:
+        config.read_file(config_file)
+except IOError:
+    print_line('No configuration file "config.ini"', error=True, sd_notify=True)
+    sys.exit(1)
+
+default_api_key = ''
+
+use_sendgrid = config['EMAIL'].getboolean('use_sendgrid', False)
+sendgrid_api_key = config['EMAIL'].get('sendgrid_api_key', default_api_key)
+
+print_line('CONFIG: use sendgrid={}'.format(use_sendgrid), debug=True)
+print_line('CONFIG: sendgrid_api_key=[{}]'.format(sendgrid_api_key), debug=True)
+
 
 # -----------------------------------------------------------------------------
 #  Circular queue for serial input lines & serial listener
