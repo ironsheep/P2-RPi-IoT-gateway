@@ -15,6 +15,8 @@ from colorama import Fore, Back, Style
 import serial
 from time import sleep
 from configparser import ConfigParser
+from email.mime.text import MIMEText
+from subprocess import Popen, PIPE
 
 from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE,SIG_DFL)
@@ -111,6 +113,77 @@ print_line('CONFIG: sendgrid_api_key=[{}]'.format(sendgrid_api_key), debug=True)
 
 
 # -----------------------------------------------------------------------------
+#  Maintain Runtime Configuration values
+# -----------------------------------------------------------------------------
+keyHwName = "hwName"
+keyObjVer = "objVer"
+#
+keyEmailTo = "to"
+keyEmailFrom = "fm"
+keyEmailCC = "cc"
+keyEmailBCC = "bc"
+keyEmailSubj = "su"
+keyEmailBody = "bo"
+#
+keySmsPhone = "phone"
+keySmsMessage = "message"
+
+configRequiredEmailKeys = [ keyEmailTo, keyEmailSubj, keyEmailBody ]
+
+configOptionalEmailKeys =[ keyEmailFrom, keyEmailCC, keyEmailBCC ]
+
+#  searchable list of keys
+configKnownKeys = [ keyHwName, keyObjVer,
+                   keyEmailTo, keyEmailFrom, keyEmailCC, keyEmailBCC, keyEmailSubj, keyEmailBody,
+                   keySmsPhone, keySmsMessage ]
+
+configDictionary = {}   # initially empty
+
+def haveNeededEmailKeys():
+    # check if we have a minimum set of email specs to be able to send. Return T/F here T means we can send!
+    global configDictionary
+    global configRequiredEmailKeys
+    foundMinimumKeysStatus = True
+    for key in configRequiredEmailKeys:
+        if key not in configDictionary.keys():
+            foundMinimumKeysStatus = False
+
+    print_line('CONFIG-Dict: have email keys=[{}]'.format(foundMinimumKeysStatus), debug=True)
+    return foundMinimumKeysStatus
+
+def validateKey(name):
+    # ensure a key we are trying to set/get is expect by this system
+    #   generate warning if NOT
+    if name not in configKnownKeys:
+        print_line('CONFIG-Dict: Unexpected key=[{}]!!'.format(name), warning=True)
+
+def setConfigNamedVarValue(name, value):
+    # set a config value for name
+    global configDictionary
+    validateKey(name)   # warn if key isn't a know key
+    foundKey = False
+    if name in configDictionary.keys():
+        oldValue = configDictionary[name]
+        foundKey = True
+    configDictionary[name] = value
+    if foundKey and oldValue != value:
+        print_line('CONFIG-Dict: [{}]=[{}]->[{}]'.format(name, oldValue, value), debug=True)
+    else:
+        print_line('CONFIG-Dict: [{}]=[{}]'.format(name, value), debug=True)
+
+def getValueForConfigVar(name):
+    # return a config value for name
+    print_line('CONFIG-Dict: get({})'.format(name), debug=True)
+    validateKey(name)   # warn if key isn't a know key
+    dictValue = ""
+    if name in configDictionary.keys():
+        dictValue = configDictionary[name]
+        print_line('CONFIG-Dict: [{}]=[{}]'.format(name, dictValue), debug=True)
+    else:
+        print_line('CONFIG-Dict: [{}] NOT FOUND'.format(name, dictValue), warning=True)
+    return dictValue
+
+# -----------------------------------------------------------------------------
 #  Circular queue for serial input lines & serial listener
 # -----------------------------------------------------------------------------
 
@@ -152,6 +225,35 @@ def taskProcessInput(ser):
                 pushLine(currLine)
 
 
+# -----------------------------------------------------------------------------
+#  Email Handler
+# -----------------------------------------------------------------------------
+
+def crateAndSendEmail(emailTo, emailFrom, emailSubj, emailText):
+    # send a email via the selected interface
+    print_line('crateAndSendEmail to=[{}], from=[{}], subj=[{}], body=[{}]'.format(emailTo, emailFrom, emailSubj, emailText), debug=True)
+    if use_sendgrid:
+        var = False # do nothing for now...
+    else:
+        msg = MIMEText(emailText)
+        if len(emailFrom) > 0:
+            msg["From"] = emailFrom
+        msg["To"] = emailTo
+        msg["Subject"] = emailSubj
+        mailProcess = Popen(["/usr/sbin/sendmail", "-t", "-oi"], stdin=PIPE)
+        # Both Python 2.X and 3.X
+        mailProcess.communicate(msg.as_bytes() if sys.version_info >= (3,0) else msg.as_string())
+
+
+def sendEmailFromConfig():
+    # gather email details then create and send a email via the selected interface
+    tmpTo =  getValueForConfigVar(keyEmailTo)
+    tmpFrom = getValueForConfigVar(keyEmailFrom)
+    tmpSubject = getValueForConfigVar(keyEmailSubj)
+    tmpBody = getValueForConfigVar(keyEmailBody)
+    # TODO: wire up BCC, CC ensure that multiple, To, Cc, and Bcc work too!
+    print_line('sendEmailFromConfig to=[{}], from=[{}], subj=[{}], body=[{}]'.format(tmpTo, tmpFrom, tmpSubject, tmpBody), debug=True)
+    crateAndSendEmail(tmpTo, tmpFrom, tmpSubject, tmpBody)
 
 # -----------------------------------------------------------------------------
 #  Main loop
@@ -168,12 +270,16 @@ def getNameValuePairs(strRequest, cmdStr):
     return nameValuePairs
 
 def processNameValuePairs(nameValuePairsAr):
+    # parse the name value pairs - return of dictionary of findings
+    findingsDict = {}
     for nameValueStr in nameValuePairsAr:
         if '=' in nameValueStr:
             name,value = nameValueStr.split('=', 1)
             print_line('  [{}]=[{}]'.format(name, value), verbose=True)
+            findingsDict[name] = value
         else:
             print_line('processNameValuePairs nameValueStr({})=({}) ! missing "=" !'.format(len(nameValueStr), nameValueStr), warning=True)
+    return findingsDict
 
 # global state parameter for building email
 gatheringEmailBody = False
@@ -182,40 +288,60 @@ emailBodyText = ""
 def processIncomingRequest(newLine):
     global gatheringEmailBody
     global emailBodyText
+    global keyEmailBody
 
     print_line('Incoming line({})=({})'.format(len(newLine), newLine), debug=True)
 
+    if newLine.startswith(body_end):
+        gatheringEmailBody = False
+        print_line('Incoming emailBodyText({})=[{}]'.format(len(emailBodyText), emailBodyText), verbose=True)
+        setConfigNamedVarValue(keyEmailBody, emailBodyText)
+        # Send the email if we know enough to do so...
+        if haveNeededEmailKeys() == True:
+            sendEmailFromConfig()
+
     if gatheringEmailBody == True:
         emailBodyText += newLine
-
-    if newLine.startswith(cmdIdentifyHW):
-        print_line('* HANDLE id P2 Hardware', info=True)
-        nameValuePairs = getNameValuePairs(newLine, cmdIdentifyHW)
-        if len(nameValuePairs) > 0:
-            processNameValuePairs(nameValuePairs)
-        # TODO: now record the hardware info for later use
-
-    if newLine.startswith(cmdSendEmail):
-        print_line('* HANDLE send email', info=True)
-        nameValuePairs = getNameValuePairs(newLine, cmdSendEmail)
-        if len(nameValuePairs) > 0:
-            processNameValuePairs(nameValuePairs)
-
-    if newLine.startswith(cmdSendSMS):
-        print_line('* HANDLE send SMS', info=True)
-        nameValuePairs = getNameValuePairs(newLine, cmdSendSMS)
-        if len(nameValuePairs) > 0:
-            processNameValuePairs(nameValuePairs)
-        # TODO: now send the SMS
 
     if newLine.startswith(body_start):
         gatheringEmailBody = True
         emailBodyText = ""
 
-    if newLine.startswith(body_end):
-        gatheringEmailBody = False
-        print_line('Incoming emailBodyText({})=[{}]'.format(len(emailBodyText), emailBodyText), verbose=True)
-        # TODO: now send the email
+    if newLine.startswith(cmdIdentifyHW):
+        print_line('* HANDLE id P2 Hardware', info=True)
+        nameValuePairs = getNameValuePairs(newLine, cmdIdentifyHW)
+        if len(nameValuePairs) > 0:
+            findingsDict = processNameValuePairs(nameValuePairs)
+            # Record the hardware info for later use
+            if len(findingsDict) > 0:
+                for key in findingsDict:
+                    setConfigNamedVarValue(key, findingsDict[key])
+            else:
+                print_line('processIncomingRequest nameValueStr({})=({}) ! missing hardware keys !'.format(len(newLine), newLine), warning=True)
+
+    if newLine.startswith(cmdSendEmail):
+        print_line('* HANDLE send email', info=True)
+        nameValuePairs = getNameValuePairs(newLine, cmdSendEmail)
+        if len(nameValuePairs) > 0:
+            findingsDict = processNameValuePairs(nameValuePairs)
+            if len(findingsDict) > 0:
+                for key in findingsDict:
+                    setConfigNamedVarValue(key, findingsDict[key])
+            else:
+                print_line('processIncomingRequest nameValueStr({})=({}) ! missing email params !'.format(len(newLine), newLine), warning=True)
+
+    if newLine.startswith(cmdSendSMS):
+        print_line('* HANDLE send SMS', info=True)
+        nameValuePairs = getNameValuePairs(newLine, cmdSendSMS)
+        if len(nameValuePairs) > 0:
+            findingsDict = processNameValuePairs(nameValuePairs)
+            if len(findingsDict) > 0:
+                for key in findingsDict:
+                    setConfigNamedVarValue(key, findingsDict[key])
+            else:
+                print_line('processIncomingRequest nameValueStr({})=({}) ! missing SMS params !'.format(len(newLine), newLine), warning=True)
+            # TODO: now send the SMS
+
 
 def processInput():
     while True:             # get Loop (if something, get another)
