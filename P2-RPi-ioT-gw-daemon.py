@@ -173,7 +173,7 @@ def setConfigNamedVarValue(name, value):
 
 def getValueForConfigVar(name):
     # return a config value for name
-    print_line('CONFIG-Dict: get({})'.format(name), debug=True)
+    # print_line('CONFIG-Dict: get({})'.format(name), debug=True)
     validateKey(name)   # warn if key isn't a know key
     dictValue = ""
     if name in configDictionary.keys():
@@ -229,13 +229,34 @@ def taskProcessInput(ser):
 #  Email Handler
 # -----------------------------------------------------------------------------
 
+newLine = '\n'
+
 def crateAndSendEmail(emailTo, emailFrom, emailSubj, emailText):
     # send a email via the selected interface
     print_line('crateAndSendEmail to=[{}], from=[{}], subj=[{}], body=[{}]'.format(emailTo, emailFrom, emailSubj, emailText), debug=True)
+    #
+    # build message footer
+    # =================================
+    #
+    #  --
+    #  Sent From: {objName} {objVer}
+    #        Via: {daemonName} {daemonVer}
+    #       Host: RPIName - os name, version
+    # =================================
+    footer = '\n\n--\n'
+    objName = getValueForConfigVar(keyHwName)
+    objVer = getValueForConfigVar(keyObjVer)
+    footer += '  Sent From: {} v{}\n'.format(objName, objVer)
+    footer += '        Via: {}\n'.format(script_info)
+    body = ''
+    for line in emailText.split('\n'):
+        body += '{}\n'.format(line)
+
     if use_sendgrid:
         var = False # do nothing for now...
     else:
-        msg = MIMEText(emailText)
+        #
+        msg = MIMEText(emailText + footer)  # failed attempt to xlate...
         if len(emailFrom) > 0:
             msg["From"] = emailFrom
         msg["To"] = emailTo
@@ -252,7 +273,7 @@ def sendEmailFromConfig():
     tmpSubject = getValueForConfigVar(keyEmailSubj)
     tmpBody = getValueForConfigVar(keyEmailBody)
     # TODO: wire up BCC, CC ensure that multiple, To, Cc, and Bcc work too!
-    print_line('sendEmailFromConfig to=[{}], from=[{}], subj=[{}], body=[{}]'.format(tmpTo, tmpFrom, tmpSubject, tmpBody), debug=True)
+    # print_line('sendEmailFromConfig to=[{}], from=[{}], subj=[{}], body=[{}]'.format(tmpTo, tmpFrom, tmpSubject, tmpBody), debug=True)
     crateAndSendEmail(tmpTo, tmpFrom, tmpSubject, tmpBody)
 
 # -----------------------------------------------------------------------------
