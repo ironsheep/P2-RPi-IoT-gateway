@@ -26,7 +26,26 @@ When setting up the new RPi you will be doing:
 
 ## Unbox and place into case, add keyboard, mouse and HDMI display
 
+TO start you'll need a Raspberry Pi. I have a fair number of them so here's some hints at how I've learned to acquire mine. First of all I tend to buy kits that have cases. Sometimes the kits with larger uSD cards are more expensive so i'll go for the kits with smaller uSD cards and then I just replace the uSD card with my own.  Here are some example kits ($50 to $150 at Amazon):
+
+![RPi Kits](Docs/images/Typical-RPi-Kits-wCase.png)
+
+I tend to run my RPi's headless, meaning they are network attached (wired or wireless) and then I access them remotely via SSH (command-line) or VNC (remote desktop).  Both of these forms are natively supported by [**Raspberry Pi OS**](https://www.raspberrypi.com/software/operating-systems/) (a debian derivative OS for Rasperry Pi.)  But after initial turn-on you have to enable SSH and VNC before you can connect.  This brings us to the issue of needing, at least temporarily, a display and keyboard w/mouse or touchpad so you can initially configure your new RPi.  Here's what I keep readily avaialable for when I need to turn on a new RPi:
+
+![Turn-on Keyboard/Display](Docs/images/kbd-hdmi-7in.png)
+
+This is a [Logitech k400 series Keyboard with touchpad](https://www.amazon.com/Logitech-Wireless-Keyboard-Touchpad-PC-connected/dp/B014EUQOGK) ~$40 and a something like [7" LCD display with HDMI input](https://www.amazon.com/Loncevon-Portable-Computer-Raspberry-Headphone/dp/B06XQJVXHL) ~$65.  Neighter of these link are what I have since I purchased mine so long ago but these should work if you need to purchase them.
+
+
 ## Locate and initialize a uSD card with your desired OS
+
+Ok, my choice for uSD cards is 32GB for normal use, 64GB if I'm planning generate on the RPi. My other consideration is frequent writing of files (camera or video use.) Then in this case I'll opt for uSD cards that support frequent writing.  
+
+[Typical 32GB uSD at Amazon](https://www.amazon.com/s?k=32gb+microsd&i=electronics&crid=221J1V0JO07YL&sprefix=32gb+microsd%2Celectronics%2C104&ref=nb_sb_noss) - from $7 ea.
+
+Next we have to load the RPi operating system on to the card. I download the [**Raspberry Pi OS Desktop version**](https://www.raspberrypi.com/software/operating-systems/) as it is smaller but supports full desktop when i use VNC to access the RPi. However, I save download time and uSD space as this doesn't have all the extra desktop applications of the larger version.
+
+
 
 ## Boot the RPi after insterting the uSD card
 
