@@ -132,8 +132,85 @@ After you've answered these questions the system ...
 
 ### Configure services you need 
 
+Now, let's use raspi-config to enable SSH and VNC.
+
+```bash
+$ sudo raspi-config
+```
+
+
 ### Install the latest software updates (OS, security patches, etc.)
 
+Now that are RPi is fully set up and is a proper citizen of your network it's time to set up some script which will help you keep your RPi up-to-date with latest versions of the OS Kernal, all installed packages and of course will apply security updates to our packages.
+
+I always create a user script directory  **~/bin** in our home directory. I then also tell the shell that I can find unknonw commands in this bin directory. First let's make the directory:
+
+```bash
+$ mkdir ~/bin  # create bin directory
+```
+
+Lets create two tiny (empty) scripts placing them into the **~/bin** directory.
+
+```bash
+touch ~/bin/upd     # make empty script file
+touch ~/bin/autorm  # make empty script file
+chmod +x ~/bin/upd ~/bin/autorm
+```
+
+Next, edit the **~/bin/upd** file and copy the following into it then save it.
+
+Copy this **upd** script content:
+
+```bash
+#!/bin/bash
+SCRIPT=${0##*/}
+SCRIPT_VERSION="1.0"
+
+(set -x;sudo apt-get update)
+(set -x;sudo apt-get dist-upgrade)
+```
+
+Now, edit the **~/bin/autorm** file and copy the following into it then save it.
+
+Copy this **autorm** script content:
+
+```bash
+#!/bin/bash
+SCRIPT=${0##*/}
+SCRIPT_VERSION="1.0"
+
+(set -x;sudo apt-get --purge autoremove)
+```
+
+Lastly we'll check to see the the ~/bin directory will be searched when looking for things to run. 
+
+my **~/.profile** file has the following in it:
+
+```bash
+. 
+. {file content before this section}
+
+# set PATH so it includes user's private bin if it exists
+if [ -d "$HOME/bin" ] ; then
+    PATH="$HOME/bin:$PATH"
+    CDPATH="$HOME:$CDPATH"
+fi
+
+. {possible file content after this section}
+. 
+```
+
+If you had to add this content then rerun the **~/.profile** file using:
+
+```bash
+$ source .profile  # reread and process the .profile content
+```
+
+Once this is done you should be able to run the update (upd) command simply by typing in the `upd` script name. Let's run **upd** to install the latest and apply any security updates as well.
+
+Well, that's it. Your new Raspberry Pi is set up and ready for you to install our gateway package.  Youu can return to the README then navigate to the script install instructions.  Good Job!
+
+### ...
 
 ---
 
