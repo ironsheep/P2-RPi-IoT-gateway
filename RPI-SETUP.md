@@ -233,7 +233,7 @@ $ autorm   # run script to remove packages no longer needed by other installed p
 ```
 
 
-Well, that's it. Your new Raspberry Pi is set up and ready for you to install our gateway package.  Youu can return to the README then navigate to the script install instructions.  Good Job!
+Well, that's it. Your new Raspberry Pi is set up and ready for you to install our gateway package.  You can return to the [README](https://github.com/ironsheep/P2-RPi-IoT-gateway) then navigate to the script install instructions.  Good Job!
 
 ### ...
 
