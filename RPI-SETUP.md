@@ -34,12 +34,12 @@ I tend to run my RPi's headless, meaning they are network attached (wired or wir
 
 ![Turn-on Keyboard/Display](Docs/images/kbd-hdmi-7in.png)
 
-This is a [Logitech k400 series Keyboard with touchpad](https://www.amazon.com/Logitech-Wireless-Keyboard-Touchpad-PC-connected/dp/B014EUQOGK) ~$40 and a something like [7" LCD display with HDMI input](https://www.amazon.com/Loncevon-Portable-Computer-Raspberry-Headphone/dp/B06XQJVXHL) ~$65.  Neighter of these link are what I have since I purchased mine so long ago but these should work if you need to purchase them.
+This is a [Logitech k400 series Keyboard with touchpad](https://www.amazon.com/Logitech-Wireless-Keyboard-Touchpad-PC-connected/dp/B014EUQOGK) ~$40 and a something like [7" LCD display with HDMI input](https://www.amazon.com/Loncevon-Portable-Computer-Raspberry-Headphone/dp/B06XQJVXHL) ~$65.  Neighter of these links are what I have since I purchased mine so long ago but these should work if you need to purchase equipment like what I use.
 
 
 ## Locate and initialize a uSD card with your desired OS
 
-Ok, my choice for uSD cards is 32GB for normal use, 64GB if I'm planning generate on the RPi. My other consideration is frequent writing of files (camera or video use.) Then in this case I'll opt for uSD cards that support frequent writing.  Here's a summary:
+Ok, my choice for uSD cards is 32GB for normal use, 64GB if I'm planning generate data on the RPi. My other consideration is frequent writing of files (camera or video use.) Then, in this case, I'll opt for uSD cards that support frequent writing.  Here's a summary:
 
 | Size/Capability | Notes - Why |
 |---- | --- |
@@ -49,7 +49,7 @@ Ok, my choice for uSD cards is 32GB for normal use, 64GB if I'm planning generat
 
 [Typical 32GB uSD at Amazon](https://www.amazon.com/s?k=32gb+microsd&i=electronics&crid=221J1V0JO07YL&sprefix=32gb+microsd%2Celectronics%2C104&ref=nb_sb_noss) - from $7 ea.
 
-Next we have to load the RPi operating system on to the card. I download the [**Raspberry Pi OS Desktop version**](https://www.raspberrypi.com/software/operating-systems/) as it is smaller but supports full desktop when i use VNC to access the RPi. However, I save download time and uSD space as this doesn't have all the extra desktop applications of the larger version.
+Next we have to load the RPi operating system onto the card. I download the [**Raspberry Pi OS Desktop version**](https://www.raspberrypi.com/software/operating-systems/) as it is smaller but supports full desktop when i use VNC to access the RPi. However, I save download time and uSD space as this doesn't have all the extra desktop applications of the larger version.
 
 Now you'll want to copy the downloaded image to the new uSD card. The Raspberry Pi site offers solutions/tools for doing this from any Operating System you may be working from. To quote their site: [Raspberry Pi Imager](https://www.raspberrypi.com/software/) is the quick and easy way to install an operating system to a microSD card ready to use with your Raspberry Pi.
 
