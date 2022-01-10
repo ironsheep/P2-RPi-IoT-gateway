@@ -130,6 +130,9 @@ When you first start your RPi the file system on the SD card will be expanded to
 
 After you've answered these questions the system ...
 
+... Instructions TBA ...
+
+
 ### Configure services you need 
 
 Now, let's use raspi-config to enable SSH and VNC.
@@ -138,12 +141,13 @@ Now, let's use raspi-config to enable SSH and VNC.
 $ sudo raspi-config
 ```
 
+... Instructions TBA ...
 
 ### Install the latest software updates (OS, security patches, etc.)
 
-Now that are RPi is fully set up and is a proper citizen of your network it's time to set up some script which will help you keep your RPi up-to-date with latest versions of the OS Kernal, all installed packages and of course will apply security updates to our packages.
+Now that your RPi is fully set up and is a proper citizen of your network it's time to set up a couple of scripts which will help you keep your RPi up-to-date with latest versions of the OS Kernal, all installed packages and of course will apply security updates to our packages.
 
-I always create a user script directory  **~/bin** in our home directory. I then also tell the shell that I can find unknonw commands in this bin directory. First let's make the directory:
+I always create a user script directory  **~/bin** in our home directory. I then also tell the shell that it can find unknown commands in this **~/bin** directory. First let's make the directory:
 
 ```bash
 $ mkdir ~/bin  # create bin directory
@@ -157,7 +161,7 @@ touch ~/bin/autorm  # make empty script file
 chmod +x ~/bin/upd ~/bin/autorm
 ```
 
-Next, edit the **~/bin/upd** file and copy the following into it then save it.
+Next, edit the **~/bin/upd** file and copy the following into it then save it. (Use **vi** or **nano** - whichever editor you prefer, to edit these files.)
 
 Copy this **upd** script content:
 
@@ -200,6 +204,12 @@ fi
 . 
 ```
 
+**NOTE** this says to add **~/bin** to the PATH environment variable and to add **~/** to the CDPATH variable which allows you to be able to cd(1) to the **~/bin** directory by simply entering:
+
+```bash
+$ cd bin
+```
+
 If you had to add this content then rerun the **~/.profile** file using:
 
 ```bash
@@ -207,6 +217,21 @@ $ source .profile  # reread and process the .profile content
 ```
 
 Once this is done you should be able to run the update (upd) command simply by typing in the `upd` script name. Let's run **upd** to install the latest and apply any security updates as well.
+
+```bash
+$ upd   # run script to update our system 
+```
+
+**NOTE** this script will prompt if there is work to be done!  The correct answer after reviewing and if you with what it is planning to do is simple press return.  If you want to abort the update instead, simple enter `<ctrl>-C` to abort the script.
+
+Wait! What's this `autorm` thing about?  Ok, sometimes after running an `upd` command you will see output that says something to the affect that there are one or more packages can can be removed since they are no longer needed.  Most people take a guess at how to remove them but most often their guess leaves configuration files and other cruft around after this remove. This `autorm` script is the more correct way to remove the packages as it will also remove the extra files normally left around.  *I "remember" best-practices like this by putting what i've learned into scripts like this so I don't have to remember the details.*
+
+Whan you want to run it, simple do:
+
+```bash
+$ autorm   # run script to remove packages no longer needed by other installed packages
+```
+
 
 Well, that's it. Your new Raspberry Pi is set up and ready for you to install our gateway package.  Youu can return to the README then navigate to the script install instructions.  Good Job!
 
