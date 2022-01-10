@@ -57,11 +57,13 @@ If you are new to this then I suggest you follow their instructions.
 
 **HEADS UP!!!** If you are new to all of this please SKIP the next sections headed with **"Reference ONLY..."** as these are for advanced users only!  As a beginner you can skip to the section **[Boot the RPi after insterting the uSD card](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/RPI-SETUP.md#boot-the-rpi-after-insterting-the-usd-card)** after copying the new image to your uSD card.
 
+**--->>> Begin SKIP <<<---**
+
 ---
 
-**WARNING** *The following is provided as a detailed reference only.  These are not steps to be followed and are certainly not for use if this is one of your first times doing this!*
-
 ### Reference ONLY - My Process
+
+**WARNING** *The following is provided as a detailed reference only.  These are not steps to be followed and are certainly not for use if this is one of your first times doing this!*
 
 *Please note: this is NOT for the faint-of-heart as one could easily wipe your MAC/Windows boot disk.  When i'm in administrator mode doing this kind of thing i've put away all concerns mentally and I go into a mode where I'm double- and tripple-checking each step i take before I take it. (and just don't attempt this stuff when you are sleepy. Yes, experience is an unforgiving teacher ;-)*
 
@@ -112,6 +114,8 @@ $ ./chksha 2021-10-30-raspios-bullseye-armhf.sha
 ```
 
 ---
+**--->>> End SKIP <<<---**
+
 
 *ok, now, it is really easy to be impatient here. Let's resist this urge and go through the following steps before we try to install the gateway project.*
 
