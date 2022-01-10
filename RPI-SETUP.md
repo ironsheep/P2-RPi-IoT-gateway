@@ -55,10 +55,13 @@ Now you'll want to copy the downloaded image to the new uSD card. The Raspberry 
 
 If you are new to this then I suggest you follow their instructions. 
 
+**HEADS UP!!!** If you are new to all of this please SKIP the next sections headed with **"Reference ONLY..."** as these are for advanced users only!  As a beginner you can skip to the section **[Boot the RPi after insterting the uSD card](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/RPI-SETUP.md#boot-the-rpi-after-insterting-the-usd-card)** after copying the new image to your uSD card.
 
 ---
 
-### Reference ONLY
+**WARNING** *The following is provided as a detailed reference only.  These are not steps to be followed and are certainly not for use if this is one of your first times doing this!*
+
+### Reference ONLY - My Process
 
 *Please note: this is NOT for the faint-of-heart as one could easily wipe your MAC/Windows boot disk.  When i'm in administrator mode doing this kind of thing i've put away all concerns mentally and I go into a mode where I'm double- and tripple-checking each step i take before I take it. (and just don't attempt this stuff when you are sleepy. Yes, experience is an unforgiving teacher ;-)*
 
@@ -71,7 +74,7 @@ My main desktops are MACs not Windows machines. I actually configure the uSD car
 1. Copy the .img to the uSD card (I use the [dd(1)](https://man7.org/linux/man-pages/man1/dd.1.html) command)
 1. Insert the uSD card into the RPi which is now already in its' case
 
-### Example file SHA256 check steps
+### Reference ONLY - Example file SHA256 check steps
 
 Let's say I downloaded **2021-10-30-raspios-bullseye-armhf.zip**
 
@@ -119,9 +122,9 @@ At this point we need to make the RPi a good citizen on your network, configure 
 
 ### Configure the RPi to join your network
 
-When you first start your RPi the file system on the SD card will be expanded to take up the entire size of the SD card. The filesystem you copied to this card was smaller intentionally. So the RPi detects this and adjust to the size of the card you chose. Now it boots the desktop but you are be prompted to set your locale (*I'm in the USA, in the Denver timezone*) so I choose US Keyboard / layout and choose the Denver timezone. 
+When you first start your RPi the file system on the SD card will be expanded to take up the entire size of the SD card. The filesystem you copied to this card was smaller intentionally. So the RPi detects this and adjusts the filesystem on the uSD to the size of the card you chose. Now it boots the desktop but you are first prompted to set your locale (*I'm in the USA, in the Denver timezone*) so I choose US Keyboard / layout and choose the Denver timezone. 
 
-After you've answered these questions the system 
+After you've answered these questions the system ...
 
 ### Configure services you need 
 
