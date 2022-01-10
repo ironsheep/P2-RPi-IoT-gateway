@@ -213,7 +213,7 @@ $ cd bin
 If you had to add this content then rerun the **~/.profile** file using:
 
 ```bash
-$ source .profile  # reread and process the .profile content
+$ source ~/.profile  # reread and process the .profile content
 ```
 
 Once this is done you should be able to run the update (upd) command simply by typing in the `upd` script name. Let's run **upd** to install the latest and apply any security updates as well.
