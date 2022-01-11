@@ -64,34 +64,37 @@ The Daemon script can, if so configured, keep logs of activity, keep copies of a
 
 Initially, we envision that this IoT gateway will support the features/services shown in the table below. However, this project is meant to be a gathering place for all such interfacing to the outside connected world. If more serivices are identified as useful then they can and should be added here as the community decides what they want.
 
-| Service Type              | Description |
-| ------------------ | --------- | 
-| Web Server| |
-| | P2 sends values that are shown on a web page served from RPi (using file services)|
-| | P2 Gets values sent from web page to the P2 (controls touched, text entered)
-| File Operations ||
-| | P2 reads values from file(s) on RPi
-| | P2 writes values to file(s) on RPi
-| | P2 can delete own file(s) from RPi
-| SMS (texting) | |
-| | P2 asks RPi to send a text message to the phone number
-| | (Maybe? have to see if possible) P2 gets text message contents relayed from RPi
-| Twitter | |
-| | P2 asks RPi to send a message to a Twitter account
-| | P2 gets Twitter message contents relayed from RPi
-| | RPi collects Twitter feed content into file allowing it to be accessed later by P2 or RPI web page
+| Service Type | Description | Imple. Status |
+| ------------ | ----------- | ------------- | 
 | Email | |
-| | P2 asks RPi to send an email message to one or more recipients, providing full/partial content for email
-| | RPi logs outgoing email from P2 (allowing display on web backend, etc.)
+| | P2 asks RPi to send an email message to one or more recipients, providing full/partial content for email | WORKING
+| | RPi logs outgoing email from P2 (allowing display on web backend, etc.) | in-progress
+| File Operations ||
+| | P2 reads values from file(s) on RPi | in-progress
+| | P2 writes values to file(s) on RPi | in-progress
+| | P2 can delete own file(s) from RPi | in-progress
+| Web Server| |
+| | P2 sends values that are shown on a web page served from RPi (using file services)| up-next
+| | P2 Gets values sent from web page to the P2 (controls touched, text entered)| up-next
+| SMS (texting) | |
+| | P2 asks RPi to send a text message to the phone number | waiting
+| | (Maybe? have to see if possible) P2 gets text message contents relayed from RPi | waiting
 
-### Possible Feature Additions
+### Upcoming/Possible Feature Additions
 
-| Service Type              | Description |
-| ------------------ | --- |
+| Service Type  | Description |
+| ------------- | ----------- |
+| Twitter | |
+| | P2 asks RPi to send a message to a Twitter account 
+| | P2 gets Twitter message contents relayed from RPi 
+| | RPi collects Twitter feed content into file allowing it to be accessed later by P2 or RPI web page
 | MQTT Operations |
-|| Send value changes to topic |
-|| Monitor topic for control / setup changes |
-|| Announce hardware status value types to service (**Home Assistant** support) |
+|| P2 sends values which are then forwarded within topic to MQTT Broker 
+|| Monitor topic for control / configuration changes - report these to P2 
+| HA via MQTT Operations | -- support for [Home Assistant](https://www.home-assistant.io/) --
+|| Announce hardware status value types to service (*Enables HA Discovery*) 
+|| P2 sends values which are then forwarded within topic to MQTT Broker
+|| Monitor topic for control / configuration changes - report these to P2 
 
 ## Gateway Services
 
@@ -107,12 +110,6 @@ The email service allows the P2 to send email text messages.  Attachments may be
 With simple method call in spin the user identifies the email addressee, the subject and the body text of the email to be sent.
 
 *IDEA: does your P2 project need a way to tell you significant status changes or test results?  Have it send an email to you!*
-
-### Twitter Send/Receive
-
-The Twitter service allows the P2 to send Twitter messaages to and receive Twitter message from the configured Twitter account. Access is provided to the Twitter API by using a user specific API Key which you obtain and then place in the **config.ini** file.
-
-*IDEA: Imagine using our LED Matrix display to create a live display of Twitter traffic for a specific account!*
 
 ### SMS (Text Messages) Send/Receive
 
@@ -156,6 +153,12 @@ We are choosing to use known folders rather than provide access to the entire fi
 | PROC | /proc like readonly files which provide RPi configuration information.
 
 The actual location within the RPi file system for each of the folders is specified in the **config.ini**. Default locations are provided and each default can be overridden.
+
+### (Future) Twitter Send/Receive
+
+The Twitter service allows the P2 to send Twitter messaages to and receive Twitter message from the configured Twitter account. Access is provided to the Twitter API by using a user specific API Key which you obtain and then place in the **config.ini** file.
+
+*IDEA: Imagine using our LED Matrix display to create a live display of Twitter traffic for a specific account!*
 
 ### (Future) MQTT Send/Receive
 
