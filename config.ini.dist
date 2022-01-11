@@ -1,7 +1,8 @@
 # Configuration file for P2-RPi-ioT-gw-daemon
 # Source: https://github.com/ironsheep/P2-RPi-ioT-gateway
 #
-# Uncomment and adapt all settings as needed.
+# Uncomment and adjust all settings as needed.
+#
 # Some settings can be configured by environment variables.
 # If an env variable is set, it takes precedence over settings in this file
 
@@ -23,15 +24,14 @@
 #   False means directly use the sendmail app
 #   True means to use an external sendgrid account (this requires that the 'sendgrid_api_key' be configured!)
 #
-# by default we use the sendmail built-in command
-
-#  uncomment the following two lines to enabled use of SendGrid account
-#   and, of course, fill in your own API key in the 2nd line
+# by default (use_sendgrid = false) we use the sendmail(1) built-in command
+#
+#  uncomment the use_sendgrid, sendgrid_api_key, & sendgrid_api_key to enable use of SendGrid account
+#   and, of course, fill in your own API key and From email address!
 
 # use_sendgrid = true
-
 # sendgrid_api_key = {api_key}
-
+# sendgrid_from_addr = {sendgridFromAddress}
 
 [MQTT]
 
@@ -47,7 +47,7 @@
 #keepalive = 60
 
 # by default Home Assistant listens to the /homeassistant but it can be changed for a given installation
-#  likewise, by default this script advertises on the same default topic. If you use a different 
+#  likewise, by default this script advertises on the same default topic. If you use a different
 #  discovery prefix then specify yours here.  [default: homeassistant]
 #discovery_prefix = homeassistant
 
@@ -61,7 +61,7 @@
 #sensor_name = rpi-{hostname}
 
 
-# The MQTT broker authentification credentials (Default: no authentication)
+# The MQTT broker authentication credentials (Default: no authentication)
 # Will also read from MQTT_USERNAME and MQTT_PASSWORD environment variables
 #username = user
 #password = pwd123

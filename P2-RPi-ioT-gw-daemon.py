@@ -17,6 +17,8 @@ from time import sleep
 from configparser import ConfigParser
 from email.mime.text import MIMEText
 from subprocess import Popen, PIPE
+import sendgrid
+from sendgrid.helpers.mail import Content, Email, Mail
 
 from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE,SIG_DFL)
@@ -103,14 +105,104 @@ except IOError:
     print_line('No configuration file "config.ini"', error=True, sd_notify=True)
     sys.exit(1)
 
+# default domain when hostname -f doesn't return it
+default_domain = ''
+fallback_domain = config['Daemon'].get('fallback_domain', default_domain).lower()
+
 default_api_key = ''
+default_from_addr = ''
 
 use_sendgrid = config['EMAIL'].getboolean('use_sendgrid', False)
 sendgrid_api_key = config['EMAIL'].get('sendgrid_api_key', default_api_key)
-
+sendgrid_from_addr = config['EMAIL'].get('sendgrid_from_addr', default_from_addr)
 print_line('CONFIG: use sendgrid={}'.format(use_sendgrid), debug=True)
 print_line('CONFIG: sendgrid_api_key=[{}]'.format(sendgrid_api_key), debug=True)
+print_line('CONFIG: sendgrid_from_addr=[{}]'.format(sendgrid_from_addr), debug=True)
 
+
+# -----------------------------------------------------------------------------
+#  methods indetifying RPi hardware host
+# -----------------------------------------------------------------------------
+rpi_model = '??'
+rpi_model_raw = '??'
+rpi_linux_release = '??'
+rpi_linux_version = '??'
+rpi_hostname = '??'
+rpi_fqdn = '??'
+
+def idenitfyRPiHost():
+    global rpi_model
+    global rpi_model_raw
+    global rpi_linux_release
+    global rpi_linux_version
+    global rpi_hostname
+    global rpi_fqdn
+    rpi_model, rpi_model_raw = getDeviceModel()
+    rpi_linux_release = getLinuxRelease()
+    rpi_linux_version = getLinuxVersion()
+    rpi_hostname, rpi_fqdn = getHostnames()
+
+def getDeviceModel():
+    out = subprocess.Popen("/bin/cat /proc/device-tree/model | /bin/sed -e 's/\\x0//g'",
+                           shell=True,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT)
+    stdout, _ = out.communicate()
+    model_raw = stdout.decode('utf-8')
+    # now reduce string length (just more compact, same info)
+    model = model_raw.replace('Raspberry ', 'R').replace(
+        'i Model ', 'i 1 Model').replace('Rev ', 'r').replace(' Plus ', '+ ')
+
+    print_line('rpi_model_raw=[{}]'.format(model_raw), debug=True)
+    print_line('rpi_model=[{}]'.format(model), debug=True)
+    return model, model_raw
+
+def getLinuxRelease():
+    out = subprocess.Popen("/bin/cat /etc/apt/sources.list | /bin/egrep -v '#' | /usr/bin/awk '{ print $3 }' | /bin/grep . | /usr/bin/sort -u",
+                           shell=True,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT)
+    stdout, _ = out.communicate()
+    linux_release = stdout.decode('utf-8').rstrip()
+    print_line('rpi_linux_release=[{}]'.format(linux_release), debug=True)
+    return linux_release
+
+
+def getLinuxVersion():
+    out = subprocess.Popen("/bin/uname -r",
+                           shell=True,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT)
+    stdout, _ = out.communicate()
+    linux_version = stdout.decode('utf-8').rstrip()
+    print_line('rpi_linux_version=[{}]'.format(linux_version), debug=True)
+    return linux_version
+
+
+def getHostnames():
+    out = subprocess.Popen("/bin/hostname -f",
+                           shell=True,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT)
+    stdout, _ = out.communicate()
+    fqdn_raw = stdout.decode('utf-8').rstrip()
+    print_line('fqdn_raw=[{}]'.format(fqdn_raw), debug=True)
+    lcl_hostname = fqdn_raw
+    if '.' in fqdn_raw:
+        # have good fqdn
+        nameParts = fqdn_raw.split('.')
+        lcl_fqdn = fqdn_raw
+        tmpHostname = nameParts[0]
+    else:
+        # missing domain, if we have a fallback apply it
+        if len(fallback_domain) > 0:
+            lcl_fqdn = '{}.{}'.format(fqdn_raw, fallback_domain)
+        else:
+            lcl_fqdn = lcl_hostname
+
+    print_line('rpi_fqdn=[{}]'.format(lcl_fqdn), debug=True)
+    print_line('rpi_hostname=[{}]'.format(lcl_hostname), debug=True)
+    return lcl_hostname, lcl_fqdn
 
 # -----------------------------------------------------------------------------
 #  Maintain Runtime Configuration values
@@ -231,9 +323,9 @@ def taskProcessInput(ser):
 
 newLine = '\n'
 
-def crateAndSendEmail(emailTo, emailFrom, emailSubj, emailText):
+def crateAndSendEmail(emailTo, emailFrom, emailSubj, emailTextLines):
     # send a email via the selected interface
-    print_line('crateAndSendEmail to=[{}], from=[{}], subj=[{}], body=[{}]'.format(emailTo, emailFrom, emailSubj, emailText), debug=True)
+    print_line('crateAndSendEmail to=[{}], from=[{}], subj=[{}], body=[{}]'.format(emailTo, emailFrom, emailSubj, emailTextLines), debug=True)
     #
     # build message footer
     # =================================
@@ -248,15 +340,42 @@ def crateAndSendEmail(emailTo, emailFrom, emailSubj, emailText):
     objVer = getValueForConfigVar(keyObjVer)
     footer += '  Sent From: {} v{}\n'.format(objName, objVer)
     footer += '        Via: {}\n'.format(script_info)
+    # rpi_model_raw=[Raspberry Pi 3 Model B Plus Rev 1.3]
+    # rpi_model=[RPi 3 Model B+ r1.3]
+    # rpi_linux_release=[bullseye]
+    # rpi_linux_version=[5.10.63-v7+]
+    # fqdn_raw=[pip2iotgw]
+    # rpi_fqdn=[pip2iotgw.home]
+    # rpi_hostname=[pip2iotgw]
+    footer += '       Host: {} - {}\n'.format(rpi_fqdn, rpi_model)
+    footer += '    Running: Kernel v{} ({})\n'.format(rpi_linux_version, rpi_linux_release)
+
     body = ''
-    for line in emailText.split('\n'):
+    for line in emailTextLines:
         body += '{}\n'.format(line)
 
+    emailBody = body + footer
+
     if use_sendgrid:
-        var = False # do nothing for now...
+        #
+        # compose our email and send via our SendGrid account
+        #  # ,
+        sgCli = sendgrid.SendGridAPIClient(sendgrid_api_key)
+        newEmail = Mail(from_email = sendgrid_from_addr,
+                    to_emails = emailTo,
+                    subject = emailSubj,
+                    plain_text_content = emailBody)
+        response = sgCli.client.mail.send.post(request_body=newEmail.get())
+
+        #  included for debugging purposes
+        print_line('SG status_code [{}]'.format(response.status_code), debug=True)
+        print_line('SG body [{}]'.format(response.body), debug=True)
+        print_line('SG headers [{}]'.format(response.headers), debug=True)
     else:
         #
-        msg = MIMEText(emailText + footer)  # failed attempt to xlate...
+        # compose our email and send using sendmail directly
+        #
+        msg = MIMEText(emailBody)  # failed attempt to xlate...
         if len(emailFrom) > 0:
             msg["From"] = emailFrom
         msg["To"] = emailTo
@@ -304,29 +423,30 @@ def processNameValuePairs(nameValuePairsAr):
 
 # global state parameter for building email
 gatheringEmailBody = False
-emailBodyText = ""
+emailBodyTextAr = []
 
 def processIncomingRequest(newLine):
     global gatheringEmailBody
-    global emailBodyText
-    global keyEmailBody
+    global emailBodyTextAr
 
     print_line('Incoming line({})=({})'.format(len(newLine), newLine), debug=True)
 
     if newLine.startswith(body_end):
         gatheringEmailBody = False
-        print_line('Incoming emailBodyText({})=[{}]'.format(len(emailBodyText), emailBodyText), verbose=True)
-        setConfigNamedVarValue(keyEmailBody, emailBodyText)
+        print_line('Incoming emailBodyTextAr({})=[{}]'.format(len(emailBodyTextAr), emailBodyTextAr), verbose=True)
+        setConfigNamedVarValue(keyEmailBody, emailBodyTextAr)
         # Send the email if we know enough to do so...
         if haveNeededEmailKeys() == True:
             sendEmailFromConfig()
 
     if gatheringEmailBody == True:
-        emailBodyText += newLine
+        bodyLinesAr = newLine.split('\\n')
+        print_line('bodyLinesAr({})=[{}]'.format(len(bodyLinesAr), bodyLinesAr), verbose=True)
+        emailBodyTextAr += bodyLinesAr
 
     if newLine.startswith(body_start):
         gatheringEmailBody = True
-        emailBodyText = ""
+        emailBodyTextAr = []
 
     if newLine.startswith(cmdIdentifyHW):
         print_line('* HANDLE id P2 Hardware', info=True)
@@ -394,6 +514,8 @@ def mainLoop(ser):
 ser = serial.Serial ("/dev/serial0", 1000000, timeout=1)    #Open port with baud rate & timeout
 
 _thread.start_new_thread(taskProcessInput, ( ser, ))
+
+idenitfyRPiHost()
 
 # run our loop
 try:
