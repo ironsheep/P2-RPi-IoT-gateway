@@ -78,10 +78,11 @@ Be sure to perform the following prerequisites to complete this form of email se
 - Sign up for a SendGrid account.
 - Enable Two-factor authentication.
 - Create and SendGrid API Key with **Mail Send > Full Access** permissions.
-- Complete Domain Authentication.
+- Complete Domain or Single Sender Authentication.
 - Configure SendGrid use in the gateway **config.ini**:
- - Turn on SendGrid use by the gateway
- - Record your API Key in the **config.ini**
+ - Turn on SendGrid use by the gateway `use_sendgrid = true`
+ - Record your API Key `sendgrid_api_key = {api_key}`
+ - Record the From Email Address you reported to SendGrid `sendgrid_from_addr = {sendgridFromAddress}` 
 
 ### Sign up for a SendGrid account
 
@@ -91,10 +92,18 @@ When you sign up for a free [SendGrid account](https://signup.sendgrid.com/), yo
 
 Twilio SendGrid requires customers to enable Two-factor authentication (2FA). You can enable 2FA with SMS (direct texting your mobile device) or by using the [Authy](https://authy.com/) app. See the [2FA section of our authentication documentation](https://docs.sendgrid.com/ui/account-and-settings/two-factor-authentication) for instructions.
 
-### Create and store a SendGrid API key
+### Complete Domain or Single Sender Authentication.
+
+I use Create a "from sender" form of authentication to set up my account. After selecting this form of authentication you fill out the form. Press submit and then you'll be sent an email which you the click on the link in the verify email.
+
+When you fill in the form you specified a From Email Address. Take note of it as you will be asked to enter this email address into the Daemon **config.ini** in a later step.
+
+### Create a SendGrid API key
 Unlike a username and password — credentials that allow access to your full account — an API key is authorized to perform a limited scope of actions. If your API key is compromised, you can also cycle it (delete and create another) without changing your other account credentials.
 
-Visit our [API Key documentation](https://docs.sendgrid.com/ui/account-and-settings/api-keys) for instructions on creating an API key, ignore the storing your key sections we don't care about this aspect.
+**NOTE** this key must be created with **Mail Send > Full Access permissions** or this Daemon won't be able to send email.
+
+Visit the SendGrid [API Key documentation](https://docs.sendgrid.com/ui/account-and-settings/api-keys) for instructions on creating an API key, ignore the storing your key sections we don't care about this aspect.
 
 **WARNING Be real careful here!** *you have can only copy your API Key while the page showing your key is open. If you close this page without copying it you will have to generate a new key!*
 
@@ -102,16 +111,22 @@ Visit our [API Key documentation](https://docs.sendgrid.com/ui/account-and-setti
 
 Lastly, we need to tell the python script that it should use SendGrid for sending email.
 
-Ensure the following is set in your **config.ini**:
+Ensure the following lines are uncommented in your **config.ini**:
 
 ```bash
 [EMAIL]
 use_sendgrid = true
 
 sendgrid_api_key = {api_key}
+
+sendgrid_from_addr = {sendgridFromAddress}
 ```
 
-**NOTE**: replace **{api_key}** with your new API Key.
+**REPLACE**: 
+
+- replace **{api_key}** with your new API Key.
+
+- replace **{sendgridFromAddress}** with your sendgrid-registered from address.
 
 **TBA, UNDONE** (*add script to test email send and specify it's use here.*)
 
