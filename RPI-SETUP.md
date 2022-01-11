@@ -4,11 +4,6 @@ New to Raspberry Pi? This is your quick-start for setting getting a Raspberry Pi
 ![Project Maintenance][maintenance-shield]
 [![License][license-shield]](LICENSE) 
 
----
-
-**--------- This project currently UNDER DEVELOPMENT!  it is NOT yet ready for use! ---------**
-
----
 
 ## Raspberry Pi - Setup Overview
 

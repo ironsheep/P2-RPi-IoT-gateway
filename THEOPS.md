@@ -6,12 +6,6 @@ Enable an RPi to serve as an ioT gateway for our P2 Hardware - while dedicating 
 
 [![License][license-shield]](LICENSE) 
 
----
-
-**--------- This project currently UNDER DEVELOPMENT!  it is NOT yet ready for use! ---------**
-
----
-
 
 We have a Spin2/Pasm2 object that runs on the P2 which communicates over bi-directional serial with a connected Raspberry Pi (RPi) which is in-turn running a python script which handles the requests arriving from the P2.  These requests will provide access to many services which together provide a rich internet-of-things (ioT) capability to our P2.
 

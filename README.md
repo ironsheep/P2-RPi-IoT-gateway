@@ -5,12 +5,6 @@ Enable an RPi to serve as an IoT gateway for our P2 Hardware - while dedicating 
 
 [![License][license-shield]](LICENSE) 
 
----
-
-**--------- This project currently UNDER DEVELOPMENT!  it is NOT yet ready for use! ---------**
-
----
-
 
 ## The Project
 
