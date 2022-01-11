@@ -28,9 +28,9 @@ As this project progresses you will be able to find the following here in this r
 - This project will support use of any model of RPi.  Just select a large enough RPi to do what you need.
 - The P2 object developed for the project will be contributed to our community P2 Obex (Object Exchange)
 
-## Contents
+## Table of Contents
 
-Found on this Page:
+On this Page:
 
 - [System Diagram](https://github.com/ironsheep/P2-RPi-ioT-gateway#system-diagram) - quick visual overview
 - [Features](https://github.com/ironsheep/P2-RPi-ioT-gateway#features) - survey of capabilities (and tentative future plans)

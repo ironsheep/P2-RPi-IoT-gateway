@@ -6,13 +6,13 @@ Enable an RPi to serve as an ioT gateway for our P2 Hardware - while dedicating 
 [![License][license-shield]](LICENSE) 
 
 
-## Contents
+## Table of Contents
 
-Found on this Page:
+On this Page:
 
+- [Wiring](https://github.com/ironsheep/P2-RPi-ioT-gateway/blob/main/INSTALL.md#wiring-our-serial-connection) - Wire the serial connection between the P2 Development board and our RPi
 - [Installation](https://github.com/ironsheep/P2-RPi-ioT-gateway/blob/main/INSTALL.md#installation) - Install this project and supporting libraries on an RPi
 - [Configuration](https://github.com/ironsheep/P2-RPi-ioT-gateway/blob/main/INSTALL.md#configuration) - Initial configuration of gateway
-- [Wiring](https://github.com/ironsheep/P2-RPi-ioT-gateway/blob/main/INSTALL.md#wiring-our-serial-connection) - Wire the serial connection between the P2 Development board and our RPi
 - [Execution](https://github.com/ironsheep/P2-RPi-ioT-gateway/blob/main/INSTALL.md#execution) - Test the deamon configuration. Does it all run?
 - [Configure Daemon run Style]() - Configure this project to start at every boot 
 - [Update install to latest]() - Project updated? Update this RPis installation to get latest features 
@@ -27,6 +27,22 @@ Additional pages:
 
 ---
 
+## Wiring our Serial Connection
+
+The **P2-RPi-ioT-gw-daemon.py** script is built to use the main serial I/O channel at the RPi GPIO Interface.  These are GPIO pins 14 & 15. 
+
+**NOTE:** FYI a good reference is: [pinout diagram for RPi GPIO Pins](https://pinout.xyz/)
+
+**RPi Wiring for Daemon use:**
+
+| RPi Hdr Pin# | RPi GPIO Name| RPi Purpose | P2 Purpose | P2 Pin # |
+| --- | --- | --- | --- | --- |
+| 6 | GND | Signal ground| Signal ground | GND near Tx/Rx Pins|
+| 8 | GPIO 14 | Uart Tx | Serial Rx (from RPi) | 25
+| 10 | GPIO 15 | Uart Rx | Serial Tx (to RPi) | 24
+
+Pick two pins on your P2 dev board to be used for RPi serial communications. The demo files provided by this project define these two pins as 24, 25. Feel free to choose different pins. Just remember to adjust the constants in your code to use your pin choices.
+ 
 ## Installation
 
 On a modern Linux system just a few steps are needed to get the daemon working.
@@ -61,49 +77,40 @@ sudo pip3 install -r requirements.txt
 
 ## Configuration
 
-To match personal needs, all operational details can be configured by modifying entries within the file [`config.ini`](config.ini.dist).
-The file needs to be created first: (*in the following: if you don't have vim installed you might try nano*)
+To match personal needs, all Deamon operational details can be configured by creating and then modifying entries within the **config.ini** file. A template is provided [`config.ini.dist`](config.ini.dist).
+To create the file: (*in the following: if you don't have vim installed you might try nano*)
 
 ```shell
 sudo cp /opt/P2-RPi-ioT-gateway/config.{ini.dist,ini}
 sudo vim /opt/P2-RPi-ioT-gateway/config.ini
 ```
 
-You will likely want to locate and configure the following (at a minimum) in your config.ini:
+There are two reasons to adjust your **config.ini** at this release version:
 
-```shell
-fallback_domain = {if you have older RPis that dont report their fqdn correctly}
-# ...
-hostname = {your-mqtt-broker}
-# ...
-discovery_prefix = {if you use something other than 'homeassistant'}
-# ...
-base_topic = {your home-assistant base topic}
+1. `hostname --fqdn` returns only a machine name and no domain
+	- FIX: uncomment `fallback_domain` in [DAEMON] section and enter the domain for your RPi
 
-# ...
-username = {your mqtt username if your setup requires one}
-password = {your mqtt password if your setup requires one}
+   ```shell
+   fallback_domain = {if you have older RPis that dont report their fqdn correctly}
+   ```
 
-```
+2. You want to use a **SendGrid** account to send email instead of `Sendmail`
+	- FIX: uncomment sendgrid entries within the [EMAIL] section and fill in details of your sendgrid account
+
+
+   ```shell
+   use_sendgrid = true
+   # ...
+   sendgrid_api_key = {api_key}
+   # ...
+   sendgrid_from_addr = {sendgridFromAddress}
+
+   ```
+   
+**NOTE** If you are using SendGrid there are more complete setup instructions which you will follow in later steps when you get to the [Configure Email Service](SETUP-EMAIL.md) step.
 
 Now that your config.ini is setup let's test!
 
-## Wiring our Serial Connection
-
-The **P2-RPi-ioT-gw-daemon.py** script is built to use the main serial I/O channel at the RPi GPIO Interface.  These are GPIO pins 14 & 15. 
-
-**NOTE:** FYI a good reference is: [pinout diagram for RPi GPIO Pins](https://pinout.xyz/)
-
-**RPi Wiring for Daemon use:**
-
-| RPi Hdr Pin# | RPi GPIO Name| RPi Purpose | P2 Purpose | P2 Pin # |
-| --- | --- | --- | --- | --- |
-| 6 | GND | Signal ground| Signal ground | GND near Tx/Rx Pins|
-| 8 | GPIO 14 | Uart Tx | Serial Rx (from RPi) | 25
-| 10 | GPIO 15 | Uart Rx | Serial Tx (to RPi) | 24
-
-Pick two pins on your P2 dev board to be used for RPi serial communications. The demo files provided by this project define these two pins as 24, 25. Feel free to choose different pins. Just remember to adjust the constants in your code to use your pin choices.
- 
 ## Execution
 
 ### Initial Test
@@ -114,7 +121,9 @@ A first test run is as easy as:
 python3 /opt/P2-RPi-ioT-gateway/P2-RPi-ioT-gw-daemon.py
 ```
 
-**NOTE:** *it is a good idea to execute this script by hand this way each time you modify the config.ini.  By running after each modification the script can tell you through error messages if it had any problems with any values in the config.ini file, or any missing values. etc.*``
+**NOTE:** *it is a good idea to execute this script by hand this way each time you modify the config.ini.  By running after each modification the script can tell you through error messages if it had any problems with any values in the config.ini file, or any missing values. etc.*
+
+**NOTE2:** command line options `-d` and `-v` enable `debug` and `verbose` runtime options that can possibly provide more detail if you are experiencing problems!
 
 Using the command line argument `--config`, a directory where to read the config.ini file from can be specified, e.g.
 
