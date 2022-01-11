@@ -2,59 +2,52 @@
 ''
 ''   File....... jm_serial.spin2
 ''   Purpose.... True mode, unbuffererd serial coms using smart pins
-''               -- same features as original P1 FDS with minor enhancements/changes
+''               -- same features as original P1 FDS with minor enhancements
 ''   Authors.... Eric Smith, Chip Gracey, and Jon McPhalen
+''               -- formatted strings inspired by clib.spin for P1 (author unknown)
 ''               -- see below for terms of use
 ''   E-mail..... jon.mcphalen@gmail.com
 ''   Started....
-''   Updated.... 29 JUN 2020
+''   Updated.... 15 MAR 2020 (PNut v34n)
 ''
 '' =================================================================================================
-
-{
-
-   Note: The dec(), bin(), and hex() methods will no longer require the digits parameter as
-         in older versions of FullDuplexSerial. Use fwdec(), fwbin(), and fwhex() for code that
-         requires a specific field width.
-
-}
 
 
 con { fixed io pins }
 
-  RX1      = 63  { I }                                          ' programming / debug
-  TX1      = 62  { O }
+  RX1 = 63
+  TX1 = 62
 
-  SF_CS    = 61  { O }                                          ' serial flash
-  SF_SCK   = 60  { O }
-  SF_SDO   = 59  { O }
-  SF_SDI   = 58  { I }
+
+con { smart pin modes }
+
+  TX_MODE = %0000_0000_000_0000000000000_01_11110_0
+  RX_MODE = %0000_0000_000_0000000000000_00_11111_0
 
 
 con { pst formatting }
 
-  HOME     =  1
-  CRSR_XY  =  2
-  CRSR_LF  =  3
-  CRSR_RT  =  4
-  CRSR_UP  =  5
-  CRSR_DN  =  6
-  BELL     =  7
-  BKSP     =  8
-  TAB      =  9
-  LF       = 10
-  CLR_EOL  = 11
-  CLR_DN   = 12
-  CR       = 13
-  CRSR_X   = 14
-  CRSR_Y   = 15
-  CLS      = 16
+  HOME    =  1
+  CRSR_XY =  2
+  CRSR_LF =  3
+  CRSR_RT =  4
+  CRSR_UP =  5
+  CRSR_DN =  6
+  BELL    =  7
+  BKSP    =  8
+  TAB     =  9
+  LF      = 10
+  CLR_EOL = 11
+  CLR_DN  = 12
+  CR      = 13
+  CRSR_X  = 14
+  CRSR_Y  = 15
+  CLS     = 16
 
 
 obj
 
-  nstr : "jm_nstr"                                              ' number-to-string
-
+  nstr : "jm_nstrings"
 
 var
 
@@ -73,28 +66,27 @@ pub start(baudrate)
 
 '' Start simple serial coms on default pins at baudrate
 
-  startx(RX1, TX1, baudrate)                                    ' use programming port
+  startx(RX1, TX1, baudrate)
 
 
-pub startx(rxpin, txpin, baud) | bitmode
+pub startx(rxpin, txpin, baudrate) | bitperiod, bitmode
 
-'' Start simple serial coms on rxpin and txpin at baud
+'' Start simple serial coms on rxpin and txpin at baudrate
 
-  longmove(@rxp, @rxpin, 2)                                     ' save pins
+  longmove(@rxp, @rxpin, 2)
+  bitperiod := clkfreq / baudrate
 
-  bitmode := muldiv64(clkfreq, $1_0000, baud) & $FFFFFC00       ' set bit timing
-  bitmode |= 7                                                  ' set bits (8)
+  bitmode := 7 + (bitperiod << 16)
 
-  org
-                fltl      rxpin                                 ' configure rx smart pin
-                wrpin     ##P_ASYNC_RX, rxpin
-                wxpin     bitmode, rxpin
-                drvl      rxpin
-                fltl      txpin                                 ' configure tx smart pin
-                wrpin     ##(P_ASYNC_TX | P_OE), txpin
-                wxpin     bitmode, txpin
-                drvl      txpin
-  end
+  pinf(txpin)
+  wrpin(txpin, TX_MODE)
+  wxpin(txpin, bitmode)
+  pinl(txpin)
+
+  pinf(rxpin)
+  wrpin(rxpin, RX_MODE)
+  wxpin(rxpin, bitmode)
+  pinl(rxpin)
 
 
 pub rxflush()
@@ -197,15 +189,14 @@ pub padstr(p_str, width, pad)
 con { formatted strings }
 
 {{
-    Escaped characters
+    Escape sequences
 
       \\          backslash char
       \%          percent char
-      \q          double quote
-      \b          backspace
-      \t          tab (horizontal)
-      \n          new line (vertical tab)
       \r          carriage return
+      \n          new line (vertical tab)
+      \t          tab (horizontal)
+      \q          double quote
       \nnn        arbitrary ASCII value (nnn is decimal)
 
     Formatted arguments
@@ -220,14 +211,14 @@ con { formatted strings }
       %[w]c       print argument as character (
 
                   -- w is field width
-                     * positive w causes right alignment in field
-                     * negative w causes left alignment in field
-                  -- %ws aligns s in field (may truncate)
-                  -- %wc prints w copies of c
+                     * positive n causes right alignment in field
+                     * negative n causes left align ment in field
+                  -- %ns aligns s in field (may truncate)
+                  -- %nc prints n copies of c
                   -- p is precision characters
                      * number of characters to use, aligned in field
-                       -- prepends 0 if needed to match p
-                       -- for %w.pf, p is number of digits after decimal point
+                       -- for %n.pf, p is number of digits after dpoint
+
 }}
 
 
@@ -279,24 +270,6 @@ pub fstr6(p_str, arg1, arg2, arg3, arg4, arg5, arg6)
 
   format(p_str, @arg1)
 
-pub fstr7(p_str, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
-
-'' Emit string with formatting characters and seven arguments.
-
-  format(p_str, @arg1)
-
-pub fstr8(p_str, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
-
-'' Emit string with formatting characters and eight arguments.
-
-  format(p_str, @arg1)
-
-pub fstr9(p_str, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
-
-'' Emit string with formatting characters and nine arguments.
-
-  format(p_str, @arg1)
-
 
 pub format(p_str, p_args) | idx, c, asc, field, digits
 
@@ -318,16 +291,14 @@ pub format(p_str, p_args) | idx, c, asc, field, digits
         tx("\")
       elseif (c == "%")
         tx("%")
-      elseif (c == "q")
-        tx(34)
-      elseif (c == "b")
-        tx(BKSP)
-      elseif (c == "t")
-        tx(TAB)
-      elseif (c == "n")
-        tx(LF)
       elseif (c == "r")
         tx(CR)
+      elseif (c == "n")
+        tx(LF)
+      elseif (c == "t")
+        tx(TAB)
+      elseif (c == "q")
+        tx(34)
       elseif ((c >= "0") and (c <= "9"))
         --p_str
         p_str, asc, _ := get_nargs(p_str)
@@ -352,7 +323,7 @@ pub format(p_str, p_args) | idx, c, asc, field, digits
       elseif (c == "s")
         str(nstr.padstr(long[p_args][idx++], field, " "))
       elseif (c == "c")
-        txn(long[p_args][idx++], (abs field) #> 1)
+        txn(long[p_args][idx++], abs field)
 
     else
       tx(c)
@@ -408,6 +379,7 @@ pub dec(value)
 
 '' Emit value as decimal
 
+' str(nstr.dec(value, 0))
   str(nstr.itoa(value, 10, 0))
 
 
@@ -416,6 +388,7 @@ pub fwdec(value, digits)
 '' Emit value as decimal using fixed # of digits
 '' -- may add leading zeros
 
+' str(nstr.dec(value, digits))
   str(nstr.itoa(value, 10, digits))
 
 
@@ -436,6 +409,7 @@ pub dpdec(value, dp)
 '' -- dp is number of digits after decimal point
 
   str(nstr.dpdec(value, dp))
+
 
 
 pub jdpdec(value, dp, width, pad)
@@ -479,7 +453,7 @@ pub oct(value)
   str(nstr.itoa(value, 8, 0))
 
 
-pub foct(value, digits)
+pub fwoct(value, digits)
 
 '' Emit value as octal using fixed # of digits
 
@@ -502,7 +476,7 @@ pub qrt(value)
   str(nstr.itoa(value, 4, 0))
 
 
-pub fqrt(value, digits)
+pub fwqrt(value, digits)
 
 '' Emit value as quarternary using fixed # of digits
 
@@ -545,23 +519,24 @@ con { license }
 
 {{
 
-  Terms of Use: MIT License
+  MIT License
 
-  Permission is hereby granted, free of charge, to any person obtaining a copy of this
-  software and associated documentation files (the "Software"), to deal in the Software
-  without restriction, including without limitation the rights to use, copy, modify,
-  merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
-  permit persons to whom the Software is furnished to do so, subject to the following
-  conditions:
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
 
-  The above copyright notice and this permission notice shall be included in all copies
-  or substantial portions of the Software.
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
 
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-  PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-  HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-  CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
-  OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
 
 }}
