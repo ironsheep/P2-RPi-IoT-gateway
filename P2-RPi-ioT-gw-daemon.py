@@ -138,7 +138,7 @@ default_folder_tmp = '/tmp/P2-RPi-ioT-gateway'
 default_folder_var = '/var/P2-RPi-ioT-gateway'
 default_folder_control = '/var/P2-RPi-ioT-gateway/control'
 default_folder_status = '/var/P2-RPi-ioT-gateway/status'
-default_folder_log = '/var/log/P2-RPi-ioT-gateway/log'
+default_folder_log = '/var/log/P2-RPi-ioT-gateway'
 default_folder_mail = '/var/P2-RPi-ioT-gateway/mail'
 default_folder_proc = '/var/P2-RPi-ioT-gateway/proc'
 
