@@ -1,9 +1,9 @@
 # P2 RPi ioT Gateway - Setting up your 1st Raspberry Pi (RPi)
+
 New to Raspberry Pi? This is your quick-start for setting getting a Raspberry Pi ready to use as a P2 Gateway to the internet!
 
 ![Project Maintenance][maintenance-shield]
-[![License][license-shield]](LICENSE) 
-
+[![License][license-shield]](LICENSE)
 
 ## Raspberry Pi - Setup Overview
 
@@ -15,7 +15,7 @@ When setting up the new RPi you will be doing:
 1. Locate and initialize a uSD card with your desired OS
 1. Boot the RPi after insterting the uSD card
 1. Configure the RPi to join your network
-1. Configure services you need 
+1. Configure services you need
 1. Install the latest software updates (OS, security patches, etc.)
 1. DONE. Congratulations! You are ready to use this RPi as a gateway!
 
@@ -30,7 +30,6 @@ I tend to run my RPi's headless, meaning they are network attached (wired or wir
 ![Turn-on Keyboard/Display](Docs/images/kbd-hdmi-7in.png)
 
 This is a [Logitech k400 series Keyboard with touchpad](https://www.amazon.com/Logitech-Wireless-Keyboard-Touchpad-PC-connected/dp/B014EUQOGK) ~$40 and a something like [7" LCD display with HDMI input](https://www.amazon.com/Loncevon-Portable-Computer-Raspberry-Headphone/dp/B06XQJVXHL) ~$65.  Neighter of these links are what I have since I purchased mine so long ago but these should work if you need to purchase equipment like what I use.
-
 
 ## Locate and initialize a uSD card with your desired OS
 
@@ -48,7 +47,7 @@ Next we have to load the RPi operating system onto the card. I download the [**R
 
 Now you'll want to copy the downloaded image to the new uSD card. The Raspberry Pi site offers solutions/tools for doing this from any Operating System you may be working from. To quote their site: [Raspberry Pi Imager](https://www.raspberrypi.com/software/) is the quick and easy way to install an operating system to a microSD card ready to use with your Raspberry Pi.
 
-If you are new to this then I suggest you follow their instructions. 
+If you are new to this then I suggest you follow their instructions.
 
 **HEADS UP!!!** If you are new to all of this please SKIP the next sections headed with **"Reference ONLY..."** as these are for advanced users only!  As a beginner you can skip to the section **[Boot the RPi after insterting the uSD card](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/RPI-SETUP.md#boot-the-rpi-after-insterting-the-usd-card)** after copying the new image to your uSD card.
 
@@ -90,19 +89,19 @@ SCRIPT=${0##*/}
 SCRIPT_VERSION="1.0"
 
 # example:
-#   gsha256sum -c 2019-04-08-raspbian-stretch.sha 
+#   gsha256sum -c 2019-04-08-raspbian-stretch.sha
 
 FILE_TO_CHECK=$1
 if [ ! -f "${FILE_TO_CHECK}" ]; then
-	echo "$SCRIPT: ERROR- need \$1 as .sha filename" >&2
-	exit 2;
+    echo "$SCRIPT: ERROR- need \$1 as .sha filename" >&2
+    exit 2;
 fi
 
 (set -x; gsha256sum -c "${FILE_TO_CHECK}")
 exit 0
 ```
 
-which I run as: 
+which I run as:
 
 ```bash
 $ ./chksha 2021-10-30-raspios-bullseye-armhf.sha
@@ -110,7 +109,6 @@ $ ./chksha 2021-10-30-raspios-bullseye-armhf.sha
 
 ---
 **--->>> End SKIP <<<---**
-
 
 *ok, now, it is really easy to be impatient here. Let's resist this urge and go through the following steps before we try to install the gateway project.*
 
@@ -121,14 +119,13 @@ At this point we need to make the RPi a good citizen on your network, configure 
 
 ### Configure the RPi to join your network
 
-When you first start your RPi the file system on the SD card will be expanded to take up the entire size of the SD card. The filesystem you copied to this card was smaller intentionally. So the RPi detects this and adjusts the filesystem on the uSD to the size of the card you chose. Now it boots the desktop but you are first prompted to set your locale (*I'm in the USA, in the Denver timezone*) so I choose US Keyboard / layout and choose the Denver timezone. 
+When you first start your RPi the file system on the SD card will be expanded to take up the entire size of the SD card. The filesystem you copied to this card was smaller intentionally. So the RPi detects this and adjusts the filesystem on the uSD to the size of the card you chose. Now it boots the desktop but you are first prompted to set your locale (*I'm in the USA, in the Denver timezone*) so I choose US Keyboard / layout and choose the Denver timezone.
 
 After you've answered these questions the system ...
 
 ... Instructions TBA ...
 
-
-### Configure services you need 
+### Configure services you need
 
 Now, let's use raspi-config to enable SSH and VNC.
 
@@ -181,12 +178,12 @@ SCRIPT_VERSION="1.0"
 (set -x;sudo apt-get --purge autoremove)
 ```
 
-Lastly we'll check to see the the ~/bin directory will be searched when looking for things to run. 
+Lastly we'll check to see the the ~/bin directory will be searched when looking for things to run.
 
 my **~/.profile** file has the following in it:
 
 ```bash
-. 
+.
 . {file content before this section}
 
 # set PATH so it includes user's private bin if it exists
@@ -196,7 +193,7 @@ if [ -d "$HOME/bin" ] ; then
 fi
 
 . {possible file content after this section}
-. 
+.
 ```
 
 **NOTE** this says to add **~/bin** to the PATH environment variable and to add **~/** to the CDPATH variable which allows you to be able to cd(1) to the **~/bin** directory by simply entering:
@@ -214,7 +211,7 @@ $ source ~/.profile  # reread and process the .profile content
 Once this is done you should be able to run the update (upd) command simply by typing in the `upd` script name. Let's run **upd** to install the latest and apply any security updates as well.
 
 ```bash
-$ upd   # run script to update our system 
+$ upd   # run script to update our system
 ```
 
 **NOTE** this script will prompt if there is work to be done!  The correct answer after reviewing and if you with what it is planning to do is simple press return.  If you want to abort the update instead, simple enter `<ctrl>-C` to abort the script.
@@ -227,18 +224,17 @@ Whan you want to run it, simple do:
 $ autorm   # run script to remove packages no longer needed by other installed packages
 ```
 
-
 Well, that's it. Your new Raspberry Pi is set up and ready for you to install our gateway package.  You can return to the [README](https://github.com/ironsheep/P2-RPi-IoT-gateway) then navigate to the script install instructions.  Good Job!
 
 ### ...
 
 ---
 
-> If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices! 
-> 
+> If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices!
+>
 > [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep)
 
-----
+---
 
 ## Disclaimer and Legal
 
@@ -247,23 +243,22 @@ Well, that's it. Your new Raspberry Pi is set up and ready for you to install ou
 > *Parallax, Propeller Spin, and the Parallax and Propeller Hat logos* are trademarks of Parallax Inc., dba Parallax Semiconductor
 >
 > This project is a community project not for commercial use.
-> 
+>
 > This project is in no way affiliated with, authorized, maintained, sponsored or endorsed by *Raspberry Pi (Trading) Ltd.* or any of its affiliates or subsidiaries.
-> 
+>
 > Likewise, This project is in no way affiliated with, authorized, maintained, sponsored or endorsed by *Parallax Inc., dba Parallax Semiconductor* or any of its affiliates or subsidiaries.
 
 ---
 
 ## License
 
-Copyright © 2022 Iron Sheep Productions, LLC. All rights reserved.<br />
-Licensed under the MIT License. <br>
-<br>
+Copyright © 2022 Iron Sheep Productions, LLC. All rights reserved.
+
+Licensed under the MIT License.
+
 Follow these links for more information:
 
 ### [Copyright](copyright) | [License](LICENSE)
-
-
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep%2ebiz-blue.svg?style=for-the-badge
 

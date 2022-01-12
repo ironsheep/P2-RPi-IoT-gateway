@@ -17,6 +17,15 @@
 # default domain to use when hostname -f doesn't return a proper fqdn
 #fallback_domain = home
 
+# directories assigned to folder id's (uncomment and change to override)
+#folder_tmp= /tmp/P2-RPi-ioT-gateway
+#folder_var = /var/P2-RPi-ioT-gateway
+#folder_control = /var/P2-RPi-ioT-gateway/control
+#folder_status = /var/P2-RPi-ioT-gateway/status
+#folder_log = /var/log/P2-RPi-ioT-gateway/log
+#folder_mail = /var/P2-RPi-ioT-gateway/mail
+#folder_proc = /var/P2-RPi-ioT-gateway/proc
+
 [EMAIL]
 
 # email transport is supported in two forms:

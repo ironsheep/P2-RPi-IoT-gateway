@@ -3,8 +3,7 @@
 Enable an RPi to serve as an ioT gateway for our P2 Hardware - while dedicating only 2 pins for serial communication
 
 ![Project Maintenance][maintenance-shield]
-[![License][license-shield]](LICENSE) 
-
+[![License][license-shield]](LICENSE)
 
 ## Table of Contents
 
@@ -14,8 +13,8 @@ On this Page:
 - [Installation](https://github.com/ironsheep/P2-RPi-ioT-gateway/blob/main/INSTALL.md#installation) - Install this project and supporting libraries on an RPi
 - [Configuration](https://github.com/ironsheep/P2-RPi-ioT-gateway/blob/main/INSTALL.md#configuration) - Initial configuration of gateway
 - [Execution](https://github.com/ironsheep/P2-RPi-ioT-gateway/blob/main/INSTALL.md#execution) - Test the deamon configuration. Does it all run?
-- [Configure Daemon run Style]() - Configure this project to start at every boot 
-- [Update install to latest]() - Project updated? Update this RPis installation to get latest features 
+- [Configure Daemon run Style]() - Configure this project to start at every boot
+- [Update install to latest]() - Project updated? Update this RPis installation to get latest features
 
 Additional pages:
 
@@ -29,7 +28,7 @@ Additional pages:
 
 ## Wiring our Serial Connection
 
-The **P2-RPi-ioT-gw-daemon.py** script is built to use the main serial I/O channel at the RPi GPIO Interface.  These are GPIO pins 14 & 15. 
+The **P2-RPi-ioT-gw-daemon.py** script is built to use the main serial I/O channel at the RPi GPIO Interface.  These are GPIO pins 14 & 15.
 
 **NOTE:** FYI a good reference is: [pinout diagram for RPi GPIO Pins](https://pinout.xyz/)
 
@@ -42,7 +41,7 @@ The **P2-RPi-ioT-gw-daemon.py** script is built to use the main serial I/O chann
 | 10 | GPIO 15 | Uart Rx | Serial Tx (to RPi) | 24
 
 Pick two pins on your P2 dev board to be used for RPi serial communications. The demo files provided by this project define these two pins as 24, 25. Feel free to choose different pins. Just remember to adjust the constants in your code to use your pin choices.
- 
+
 ## Installation
 
 On a modern Linux system just a few steps are needed to get the daemon working.
@@ -74,7 +73,6 @@ sudo pip3 install -r requirements.txt
 
 ... need to have any mention of `/opt/P2-RPi-ioT-gateway` changed to your install location **before you can run this script as a service.**
 
-
 ## Configuration
 
 To match personal needs, all Deamon operational details can be configured by creating and then modifying entries within the **config.ini** file. A template is provided [`config.ini.dist`](config.ini.dist).
@@ -88,15 +86,14 @@ sudo vim /opt/P2-RPi-ioT-gateway/config.ini
 There are two reasons to adjust your **config.ini** at this release version:
 
 1. `hostname --fqdn` returns only a machine name and no domain
-	- FIX: uncomment `fallback_domain` in [DAEMON] section and enter the domain for your RPi
+  - FIX: uncomment `fallback_domain` in [DAEMON] section and enter the domain for your RPi
 
    ```shell
    fallback_domain = {if you have older RPis that dont report their fqdn correctly}
    ```
 
 2. You want to use a **SendGrid** account to send email instead of `Sendmail`
-	- FIX: uncomment sendgrid entries within the [EMAIL] section and fill in details of your sendgrid account
-
+  - FIX: uncomment sendgrid entries within the [EMAIL] section and fill in details of your sendgrid account
 
    ```shell
    use_sendgrid = true
@@ -106,7 +103,7 @@ There are two reasons to adjust your **config.ini** at this release version:
    sendgrid_from_addr = {sendgridFromAddress}
 
    ```
-   
+
 **NOTE** If you are using SendGrid there are more complete setup instructions which you will follow in later steps when you get to the [Configure Email Service](SETUP-EMAIL.md) step.
 
 Now that your config.ini is setup let's test!
@@ -156,7 +153,7 @@ groups daemon
 $ daemon : daemon dialout
 #                 ^^^^^^^ now it is present
 ```
-   
+
 ### If /dev/serial0 is not present, enable /dev/serial0
 
 We need to enable the serial0 device which are daemon script is expecting. Which serial device are present at boot time has been changin over time. Check for presense of /dev/serial0 with:
@@ -179,14 +176,14 @@ So, edit the **/boot/config.txt** using:
 # edit /boot/config.txt
 sudo vi /boot/config.txt
 ```
-	
-while in **/boot/config.txt** add the following lines:    
+
+while in **/boot/config.txt** add the following lines:
 
 ```shell
 # fix our serial clock freq so we can do 2Mb/s
 # ref: https://github.com/ironsheep/RPi-P2D2-Support#serial-boot-time-configuration
 init_uart_clock=32000000
-	
+
 # and condition which uart is present
 enable_uart=1
 ```
@@ -195,7 +192,6 @@ enable_uart=1
 
 After the file is saved then reboot your RPi.  **/dev/serial0** should now appear.
 
-   
 ***TBD** add instructions to run sudo raspi-config to disable console but enable serial port!
 
 ### Choose Run Style
@@ -217,14 +213,14 @@ Set up the script to be run as a system service as follows:
 
    # tell system that it can start our script at system startup during boot
    sudo systemctl enable p2-rpi-iot-gateway.service
-   
+
    # start the script running
    sudo systemctl start p2-rpi-iot-gateway.service
-   
+
    # check to make sure all is ok with the start up
    sudo systemctl status p2-rpi-iot-gateway.service
    ```
-   
+
 **NOTE:** *Please remember to run the 'systemctl enable ...' once at first install, if you want your script to start up every time your RPi reboots!*
 
 #### Run as Sys V init script (*your RPi is running 'jessie' or you just like this form*)
@@ -236,16 +232,16 @@ Set up the script to be run as a Sys V init script as follows:
    ```shell
    sudo ln -s /opt/P2-RPi-ioT-gateway/p2-rpi-iot-gateway /etc/init.d/p2-rpi-iot-gateway
 
-	# configure system to start this script at boot time
+   # configure system to start this script at boot time
    sudo update-rc.d p2-rpi-iot-gateway defaults
 
    # let's start the script now, too so we don't have to reboot
    sudo /etc/init.d/p2-rpi-iot-gateway start
-  
+
    # check to make sure all is ok with the start up
    sudo /etc/init.d/p2-rpi-iot-gateway status
    ```
-   
+
 ### Update to latest
 
 Like most active developers, we periodically upgrade our script. Use one of the following list of update steps based upon how you are set up.
@@ -274,7 +270,7 @@ If you are setup in the systemd form, you can update to the latest we've publish
    systemctl status p2-rpi-iot-gateway.service
 
    ```
-   
+
 #### SysV init script commands to perform update
 
 If you are setup in the Sys V init script form, you can update to the latest we've published by following these steps:
@@ -297,14 +293,13 @@ If you are setup in the Sys V init script form, you can update to the latest we'
 
    ```
 
-
 ---
 
-> If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices! 
-> 
+> If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices!
+>
 > [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep)
 
-----
+---
 
 ## Disclaimer and Legal
 
@@ -313,23 +308,22 @@ If you are setup in the Sys V init script form, you can update to the latest we'
 > *Parallax, Propeller Spin, and the Parallax and Propeller Hat logos* are trademarks of Parallax Inc., dba Parallax Semiconductor
 >
 > This project is a community project not for commercial use.
-> 
+>
 > This project is in no way affiliated with, authorized, maintained, sponsored or endorsed by *Raspberry Pi (Trading) Ltd.* or any of its affiliates or subsidiaries.
-> 
+>
 > Likewise, This project is in no way affiliated with, authorized, maintained, sponsored or endorsed by *Parallax Inc., dba Parallax Semiconductor* or any of its affiliates or subsidiaries.
 
 ---
 
 ## License
 
-Copyright © 2022 Iron Sheep Productions, LLC. All rights reserved.<br />
-Licensed under the MIT License. <br>
-<br>
+Copyright © 2022 Iron Sheep Productions, LLC. All rights reserved.
+
+Licensed under the MIT License.
+
 Follow these links for more information:
 
 ### [Copyright](copyright) | [License](LICENSE)
-
-
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep%2ebiz-blue.svg?style=for-the-badge
 

@@ -1,0 +1,25 @@
+#!/bin/bash -x
+
+mkdir /tmp/P2-RPi-ioT-gateway
+mkdir /var/P2-RPi-ioT-gateway
+mkdir /var/P2-RPi-ioT-gateway/control
+mkdir /var/P2-RPi-ioT-gateway/status
+mkdir /var/log/P2-RPi-ioT-gateway
+mkdir /var/P2-RPi-ioT-gateway/mail
+mkdir /var/P2-RPi-ioT-gateway/proc
+
+sudo chown daemon:users /tmp/P2-RPi-ioT-gateway
+sudo chown daemon:users /var/P2-RPi-ioT-gateway
+sudo chown daemon:users /var/P2-RPi-ioT-gateway/control
+sudo chown daemon:users /var/P2-RPi-ioT-gateway/status
+sudo chown daemon:users /var/log/P2-RPi-ioT-gateway
+sudo chown daemon:users /var/P2-RPi-ioT-gateway/mail
+sudo chown daemon:users /var/P2-RPi-ioT-gateway/proc
+
+ls -ld /tmp/P2-RPi-ioT-gateway
+ls -ld /var/P2-RPi-ioT-gateway
+ls -ld /var/P2-RPi-ioT-gateway/control
+ls -ld /var/P2-RPi-ioT-gateway/status
+ls -ld /var/log/P2-RPi-ioT-gateway
+ls -ld /var/P2-RPi-ioT-gateway/mail
+ls -ld /var/P2-RPi-ioT-gateway/proc

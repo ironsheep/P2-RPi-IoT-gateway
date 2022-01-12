@@ -1,6 +1,6 @@
 '' =================================================================================================
 ''
-''   File....... demo_p2gw_email.spin2
+''   File....... demo_p2gw_filerw.spin2
 ''   Purpose.... Demonstrate sending an email message
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
@@ -41,20 +41,33 @@ DAT { our email and hardware ID strings }
 
 p2HardwareID    byte    "P2 Edge - GWDemo",0
 
-emailTo         byte    "stephen@ironsheep.biz",0
-emailFrom       byte    "stephen@moraco.us",0
-emailSubj       byte    "Hello from P2!",0
-emailBody       byte    "hi,\n  This is being sent from the P2 via the RPi gateway\n\nRegards,\nYour friendly P2!\n",0
+filename        byte    "p2TmpFile",0
 
-PUB main()
+ourVariable     long    $f00d
+
+PUB main() | opStatus, fileId, tmpValue
     '' DEMO tell our RPi send an email for us
     gw.startx(RX_GW, TX_GW, GW_BAUDRATE)
 
     ' (one time) tell the RPi about how to identify this hardware
     gw.identify(@p2HardwareID)
 
-    ' (each time we need to send) tell the RPi to send an email message
-    gw.sendEmail(@emailTo, @emailFrom, @emailSubj, @emailBody)
+    ' (Let's connect to our file
+    opStatus, fileId := gw.fileAccess(gw.EFI_TMP, gw.FM_WRITE, @filename)
+    if opStatus == gw.OP_SUCCESS
+        ' now write a named value to it
+        opStatus := gw.fileWrite(fileId, string("ourVariable"), ourVariable)
+        if opStatus == gw.OP_SUCCESS
+            ' and then read it back
+            opStatus, tmpValue := gw.fileRead(fileId, string("ourVariable"))
+            if opStatus == gw.OP_SUCCESS
+                ' good read, compare/dump results
+            else
+                ' FAILED read
+        else
+            ' FAILED write
+    else
+        ' FAILED open
 
      ' terminate communiation with our gateway RPi
     gw.stop()

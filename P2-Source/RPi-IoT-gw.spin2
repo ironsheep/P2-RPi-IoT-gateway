@@ -7,11 +7,17 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Jan 2022
-''   Updated.... 03 Jan 2022
+''   Updated.... 11 Jan 2022
 ''
 '' =================================================================================================
 
 CON { Object Interface: PUBLIC ENUMs }
+
+  #0, OP_SUCCESS, OP_FAILURE
+
+' Enum: Folder Id values (EFI_*) - use in fileAccess() calls
+  #100, EFI_VAR, EFI_TMP, EFI_CONTROL, EFI_STATUS, EFI_LOG, EFI_MAIL, EFI_PROC
+  #200, FM_READONLY, FM_WRITE, FM_WRITE_CREATE
 
 CON { fixed io pins }
 
@@ -28,10 +34,17 @@ OBJ { Objects Used by this Object }
     RPi         : "jm_serial"                                   ' serial I/O
     nstr        : "jm_nstr"                                     ' number-to-string
 
+CON { driver config values}
+
+  RX_BFFR_LEN = 80
+
+
 VAR { pin info saves }
 
     long    rx_pin
     long    tx_pin
+
+    byte    rx_bffr[RX_BFFR_LEN+1]
 
 DAT { string constants }
 
@@ -69,10 +82,50 @@ pub sendEmail(pEmailTo, pEmailFrom, pEmailSubj, pEmailBody)
 '' Tell the RPi to send an email given these specifics
     RPi.fstr5(string("email-send:to=%s%sfm=%s%ssu=%s\n"), pEmailTo, @parmSep, pEmailFrom, @parmSep, pEmailSubj)
     RPi.fstr3(string("%s\n%s\n%s\n"), @bodyStart, pEmailBody, @bodyEnd)
+    ' TODO add expectation of return of success or failure
 
 pub sendSMS(pSmsPhoneNbr, pSmsTextMessage)
 '' Tell the RPi to send an SMS text message given these specifics
     RPi.fstr3(string("sms-send:phone=%s%smessage=%s\n"), pSmsPhoneNbr, @parmSep, pSmsTextMessage)
+    ' TODO add expectation of return of success or failure
+
+pub fileAccess(folderId, fileMode, pFileName) : opStatus, fileId | pStr
+'' Tell the RPi to to write named value to file {fileId}
+    RPi.fstr5(string("file-access:dir=%d%smode=%d%sfname=%s\n"), folderId, @parmSep, fileMode, @parmSep, pFileName)
+    pStr := getString(@rx_bffr, RX_BFFR_LEN)
+    ' parse result for success and fileID and return both
+    '
+    ' Examples: "faccess:status=True,fileid=9999,exists=False\n"
+    ' Examples: "faccess:status=True,fileid=9999,exists=True\n"
+    ' Examples: "faccess:status=False,msg=error dir=999\n"
+    ' Examples: "faccess:status=False,msg=error failed-to-create\n"
+
+pub fileWrite(pFileId, pVarName, pVarValue) : opStatus | pStr
+'' Tell the RPi to to write named value to file {fileId}
+    RPi.fstr5(string("file-write:fid=%s%skey=%s%sval=%s\n"), pFileId, @parmSep, pVarName, @parmSep, pVarValue)
+    pStr := getString(@rx_bffr, RX_BFFR_LEN)
+
+pub fileRead(pFileId, pVarName) : opStatus, varValue | pStr
+    RPi.fstr3(string("file-read:fid=%s%skey=%s\n"), pFileId, @parmSep, pVarName)
+    pStr := getString(@rx_bffr, RX_BFFR_LEN)
+
+PRI getString(pBffr, nBffrMax) : pStr | nRxLenRem, pRxNextChar, nChr
+' read serial input until newline received
+    pStr := pBffr
+    nRxLenRem := nBffrMax
+    pRxNextChar := pBffr
+    nChr := 0
+    repeat
+        if RPi.rxcheck()
+            nChr := RPi.rx()
+            if nChr == $0a
+                byte [pRxNextChar] := $00 ' place term. char
+            else
+                byte [pRxNextChar] := nChr
+            pRxNextChar++
+            nRxLenRem--
+    until nChr == $0a or nRxLenRem == 0
+
 
 CON { license }
 {{

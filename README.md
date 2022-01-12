@@ -1,10 +1,10 @@
 # P2 RPi ioT Gateway
+
 Enable an RPi to serve as an IoT gateway for our P2 Hardware - while dedicating only 2 P2 pins for serial communication and minimal P2 code space
 
 ![Project Maintenance][maintenance-shield]
 
-[![License][license-shield]](LICENSE) 
-
+[![License][license-shield]](LICENSE)
 
 ## The Project
 
@@ -18,7 +18,7 @@ As this project progresses you will be able to find the following here in this r
 
 - Full RPi setup and configuration details to get all features of the demo running on your own hardware
 - Wiring instructions for the serial communications from the P2 to the RPi
-- Configuration instructions for the RPi apache web server 
+- Configuration instructions for the RPi apache web server
 - PHP-based demonstration web page(s) which shows a display of values received from P2 (and maybe even UI controls which can send values to the P2)
 - Both the P2 Object and the RPi Python daemon scripts
 - Example code will be provided that show each of the services being exercised
@@ -65,7 +65,7 @@ The Daemon script can, if so configured, keep logs of activity, keep copies of a
 Initially, we envision that this IoT gateway will support the features/services shown in the table below. However, this project is meant to be a gathering place for all such interfacing to the outside connected world. If more serivices are identified as useful then they can and should be added here as the community decides what they want.
 
 | Service Type | Description | Imple. Status |
-| ------------ | ----------- | ------------- | 
+| ------------ | ----------- | ------------- |
 | Email | |
 | | P2 asks RPi to send an email message to one or more recipients, providing full/partial content for email | WORKING
 | | RPi logs outgoing email from P2 (allowing display on web backend, etc.) | in-progress
@@ -85,16 +85,16 @@ Initially, we envision that this IoT gateway will support the features/services 
 | Service Type  | Description |
 | ------------- | ----------- |
 | Twitter | |
-| | P2 asks RPi to send a message to a Twitter account 
-| | P2 gets Twitter message contents relayed from RPi 
+| | P2 asks RPi to send a message to a Twitter account
+| | P2 gets Twitter message contents relayed from RPi
 | | RPi collects Twitter feed content into file allowing it to be accessed later by P2 or RPI web page
 | MQTT Operations |
-|| P2 sends values which are then forwarded within topic to MQTT Broker 
-|| Monitor topic for control / configuration changes - report these to P2 
-| HA via MQTT Operations | -- support for [Home Assistant](https://www.home-assistant.io/) --
-|| Announce hardware status value types to service (*Enables HA Discovery*) 
 || P2 sends values which are then forwarded within topic to MQTT Broker
-|| Monitor topic for control / configuration changes - report these to P2 
+|| Monitor topic for control / configuration changes - report these to P2
+| HA via MQTT Operations | -- support for [Home Assistant](https://www.home-assistant.io/) --
+|| Announce hardware status value types to service (*Enables HA Discovery*)
+|| P2 sends values which are then forwarded within topic to MQTT Broker
+|| Monitor topic for control / configuration changes - report these to P2
 
 ## Gateway Services
 
@@ -130,7 +130,7 @@ All of is accomplished by using the File Operations provided by the gateway.  we
 | Read named values from a file | given a fileID read the value(s) for one or more keys from the file
 | Read keys from a file | given a fileID return all the keys for values within the file
 | Load entire file | given a fileID return all the key/value pairs found in the file
-| Remove a file | given a fileID 
+| Remove a file | given a fileID
 | Determine if a file exists | given a folderID and a filename return fileID if file exists
 | List files at a known folder | given a folderID return a list of fileIDs for files found in the folder
 | get file details | given a fileID return details about the file (name, path, size, etc.)
@@ -186,8 +186,8 @@ We keep a growing list of these DEMOs in this section:
 
 ---
 
-> If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices! 
-> 
+> If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices!
+>
 > [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep)
 
 ---
@@ -199,22 +199,22 @@ We keep a growing list of these DEMOs in this section:
 > *Parallax, Propeller Spin, and the Parallax and Propeller Hat logos* are trademarks of Parallax Inc., dba Parallax Semiconductor
 >
 > This project is a community project not for commercial use.
-> 
+>
 > This project is in no way affiliated with, authorized, maintained, sponsored or endorsed by *Raspberry Pi (Trading) Ltd.* or any of its affiliates or subsidiaries.
-> 
+>
 > Likewise, This project is in no way affiliated with, authorized, maintained, sponsored or endorsed by *Parallax Inc., dba Parallax Semiconductor* or any of its affiliates or subsidiaries.
 
 ---
 
 ## License
 
-Copyright © 2022 Iron Sheep Productions, LLC. All rights reserved.<br />
-Licensed under the MIT License. <br>
-<br>
+Copyright © 2022 Iron Sheep Productions, LLC. All rights reserved.
+
+Licensed under the MIT License.
+
 Follow these links for more information:
 
 ### [Copyright](copyright) | [License](LICENSE)
-
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep%2ebiz-blue.svg?style=for-the-badge
 

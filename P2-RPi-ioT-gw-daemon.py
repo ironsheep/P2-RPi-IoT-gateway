@@ -19,9 +19,15 @@ from email.mime.text import MIMEText
 from subprocess import Popen, PIPE
 import sendgrid
 from sendgrid.helpers.mail import Content, Email, Mail
+from enum import Enum, unique
 
 from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE,SIG_DFL)
+
+if False:
+    # will be caught by python 2.7 to be illegal syntax
+    print_line('Sorry, this script requires a python3 runtime environment.', file=sys.stderr)
+    os._exit(1)
 
 script_version  = "0.0.1"
 script_name     = 'P2-RPi-ioT-gw-daemon.py'
@@ -37,10 +43,27 @@ body_start  = 'emailStart'
 body_end    = 'emailEnd'
 # -------------------------------
 
-if False:
-    # will be caught by python 2.7 to be illegal syntax
-    print_line('Sorry, this script requires a python3 runtime environment.', file=sys.stderr)
-    os._exit(1)
+# the following enum EFI_* name order and starting value must be identical to that found in our gateway .spin2 object
+FolderId = Enum('FolderId', [
+     'EFI_VAR',
+     'EFI_TMP',
+     'EFI_CONTROL',
+     'EFI_STATUS',
+     'EFI_LOG',
+     'EFI_MAIL',
+     'EFI_PROC'], start=100)
+
+#for folderId in FolderId:
+#    print(folderId, folderId.value)
+
+# the following enum FM_* name order and starting value must be identical to that found in our gateway .spin2 object
+FileMode = Enum('FileMode', [
+     'FM_READONLY',
+     'FM_WRITE',
+     'FM_WRITE_CREATE'], start=200)
+
+#for fileMode in FileMode:
+#    print(fileMode, fileMode.value)
 
 # Logging function
 def print_line(text, error=False, warning=False, info=False, verbose=False, debug=False, console=True):
@@ -106,9 +129,39 @@ except IOError:
     sys.exit(1)
 
 # default domain when hostname -f doesn't return it
+#  load any override from config file
 default_domain = ''
 fallback_domain = config['Daemon'].get('fallback_domain', default_domain).lower()
 
+# default daemon use folder locations
+default_folder_tmp = '/tmp/P2-RPi-ioT-gateway'
+default_folder_var = '/var/P2-RPi-ioT-gateway'
+default_folder_control = '/var/P2-RPi-ioT-gateway/control'
+default_folder_status = '/var/P2-RPi-ioT-gateway/status'
+default_folder_log = '/var/log/P2-RPi-ioT-gateway/log'
+default_folder_mail = '/var/P2-RPi-ioT-gateway/mail'
+default_folder_proc = '/var/P2-RPi-ioT-gateway/proc'
+
+# load any folder overrides from config file
+folder_tmp = config['Daemon'].get('folder_tmp', default_folder_tmp)
+folder_var = config['Daemon'].get('folder_var', default_folder_var)
+folder_control = config['Daemon'].get('folder_control', default_folder_control)
+folder_status = config['Daemon'].get('folder_status', default_folder_status)
+folder_log = config['Daemon'].get('folder_log', default_folder_log)
+folder_mail = config['Daemon'].get('folder_mail', default_folder_mail)
+folder_proc = config['Daemon'].get('folder_proc', default_folder_proc)
+
+# and set up dictionary so we can get path indexed by enum value
+folderSpecByFolderId = {}
+folderSpecByFolderId[FolderId.EFI_TMP] = folder_tmp
+folderSpecByFolderId[FolderId.EFI_VAR] = folder_var
+folderSpecByFolderId[FolderId.EFI_CONTROL] = folder_control
+folderSpecByFolderId[FolderId.EFI_STATUS] = folder_status
+folderSpecByFolderId[FolderId.EFI_LOG] = folder_log
+folderSpecByFolderId[FolderId.EFI_MAIL] = folder_mail
+folderSpecByFolderId[FolderId.EFI_PROC] = folder_proc
+
+# load any sendgrid use and details from config file
 default_api_key = ''
 default_from_addr = ''
 
@@ -118,6 +171,7 @@ sendgrid_from_addr = config['EMAIL'].get('sendgrid_from_addr', default_from_addr
 print_line('CONFIG: use sendgrid={}'.format(use_sendgrid), debug=True)
 print_line('CONFIG: sendgrid_api_key=[{}]'.format(sendgrid_api_key), debug=True)
 print_line('CONFIG: sendgrid_from_addr=[{}]'.format(sendgrid_from_addr), debug=True)
+
 
 
 # -----------------------------------------------------------------------------
@@ -401,6 +455,17 @@ def sendEmailFromConfig():
 cmdIdentifyHW  = "ident:"
 cmdSendEmail = "email-send:"
 cmdSendSMS = "sms-send:"
+cmdFileAccess = "file-access:"
+cmdFileWrite = "file-write:"
+cmdFileRead = "file-read:"
+
+# file-access named parameters
+keyFileAccDir = "dir"
+keyFileAccMode = "mode"
+keyFileAccFName = "fname"
+fileAccessParmKeys = [ keyFileAccDir, keyFileAccMode, keyFileAccFName]
+
+
 
 def getNameValuePairs(strRequest, cmdStr):
     # isolate name-value pairs found within {strRequest} (after removing prefix {cmdStr})
@@ -425,7 +490,7 @@ def processNameValuePairs(nameValuePairsAr):
 gatheringEmailBody = False
 emailBodyTextAr = []
 
-def processIncomingRequest(newLine):
+def processIncomingRequest(newLine, Ser):
     global gatheringEmailBody
     global emailBodyTextAr
 
@@ -483,14 +548,81 @@ def processIncomingRequest(newLine):
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing SMS params !'.format(len(newLine), newLine), warning=True)
             # TODO: now send the SMS
 
+    if newLine.startswith(cmdFileAccess):
+        print_line('* HANDLE send FIle Open-equiv', info=True)
+        nameValuePairs = getNameValuePairs(newLine, cmdFileAccess)
+        if len(nameValuePairs) > 0:
+            findingsDict = processNameValuePairs(nameValuePairs)
+            if len(findingsDict) > 0:
+                # validate all keys exist
+                bHaveAllKeys = True
+                missingParmName = ''
+                for requiredKey in fileAccessParmKeys:
+                    if requiredKey not in findingsDict.keys():
+                        HaveAllKeys = False
+                        missingParmName = requiredKey
+                        break
+                if not bHaveAllKeys:
+                    errorTxt = 'missing named parameter [{}]'.format(missingParmName)
+                    sendValidationError(Ser, errorTxt)
+                else:
+                    # validate dir spec is valid
+                    dirID = int(findingsDict[keyFileAccDir])
+                    if dirID not in FolderId._value2member_map_:
+                        errorTxt = 'bad parm dir={} - unknown folder ID'.format(dirID)
+                        sendValidationError(Ser, "faccess", errorTxt)
+                    else:
+                        # validate dirId is valid
+                        modeId = int(findingsDict[keyFileAccMode])
+                        if modeId not in FileMode._value2member_map_:
+                            errorTxt = 'bad parm mode={} - unknown file-mode ID'.format(modeId)
+                            sendValidationError(Ser, "faccess", errorTxt)
+                        else:
+                            dirSpec = folderSpecByFolderId[FolderId(dirID)]
+                            filename = findingsDict[keyFileAccFName]
+                            filespec = os.path.join(dirSpec, filename + '.json')
+                            bCanAccessStatus = True
+                            # if file should exist ensure it does, report if not
+                            if FileMode(modeId) == FileMode.FM_READONLY or FileMode(modeId) == FileMode.FM_WRITE:
+                                # determine if filename exists in dir
+                                if not os.path.exists(filespec):
+                                    errorTxt = 'bad fname={} - file NOT found'.format(filename)
+                                    sendValidationError(Ser, "faccess", errorTxt)
+                                    bCanAccessStatus = False
+                            if FileMode(modeId) == FileMode.FM_WRITE_CREATE:
+                                if not os.path.exists(filespec):
+                                    # let's create the file
+                                    print_line('* create empty file [{}]'.format(filespec), verbose=True)
+                                    open(filespec, 'a').close() # equiv to touch(1)
+                            if bCanAccessStatus == True:
+                                # return findings as response
+                                sendValidationSuccess(Ser, "faccess", 9999)  # nonsense until we put code here
+            else:
+                print_line('processIncomingRequest nameValueStr({})=({}) ! missing FileAccess params !'.format(len(newLine), newLine), warning=True)
 
-def processInput():
+def sendValidationError(Ser, cmdPrefixStr, errorMessage):
+    # format and send an error message via outgoing serial
+    successStatus = False
+    responseStr = '{}:status={},msg={}\n'.format(cmdPrefixStr, successStatus, errorMessage)
+    newOutLine = responseStr.encode('utf-8')
+    print_line('sendValidationError line({})=({})'.format(len(newOutLine), newOutLine), debug=True)
+    Ser.write(newOutLine)
+
+def sendValidationSuccess(Ser, cmdPrefixStr, returnValue):
+    # format and send an error message via outgoing serial
+    successStatus = True
+    responseStr = '{}:status={},fileid={}\n'.format(cmdPrefixStr, successStatus, returnValue)
+    newOutLine = responseStr.encode('utf-8')
+    print_line('sendValidationSuccess line({})=({})'.format(len(newOutLine), newOutLine), debug=True)
+    Ser.write(newOutLine)
+
+def processInput(Ser):
     while True:             # get Loop (if something, get another)
         # process an incoming line - creates our windows as needed
         currLine = popLine()
 
         if len(currLine) > 0:
-            processIncomingRequest(currLine)
+            processIncomingRequest(currLine, Ser)
         else:
             break
 
@@ -501,9 +633,9 @@ def genSomeOutput(Ser):
 
 def mainLoop(ser):
     while True:             # Event Loop
-        processInput()
-        genSomeOutput(ser)
-        sleep(1)
+        processInput(ser)
+        # genSomeOutput(ser)
+        sleep(0.2)  # pause 2/10ths of second
 
 
 # -----------------------------------------------------------------------------

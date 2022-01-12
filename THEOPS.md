@@ -4,8 +4,7 @@ Enable an RPi to serve as an ioT gateway for our P2 Hardware - while dedicating 
 
 ![Project Maintenance][maintenance-shield]
 
-[![License][license-shield]](LICENSE) 
-
+[![License][license-shield]](LICENSE)
 
 We have a Spin2/Pasm2 object that runs on the P2 which communicates over bi-directional serial with a connected Raspberry Pi (RPi) which is in-turn running a python script which handles the requests arriving from the P2.  These requests will provide access to many services which together provide a rich internet-of-things (ioT) capability to our P2.
 
@@ -14,7 +13,6 @@ A custom protocol using service specific messages is sent over the serial interf
 ## Service based Protocol
 
 **NOTE:** this is an early draft.  We are still thinking through how unanticipated messages will be sent to the P2.  We are hoping to do some sort of notification mech where the P2 can be asynchronously notified that a value change, or tweet was recieved, etc. This table does NOT yet reflect this unanticipated message traffic.
-
 
 | Service Type | intent | Messages |
 | ------------------ | --------- | ---- |
@@ -50,12 +48,10 @@ A custom protocol using service specific messages is sent over the serial interf
 | | P2 Gets values sent from web page to the P2 (controls touched, text entered)|
 | | | see file operations - read
 
-
-
 ---
 
-> If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices! 
-> 
+> If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices!
+>
 > [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep)
 
 ---
@@ -67,23 +63,22 @@ A custom protocol using service specific messages is sent over the serial interf
 > *Parallax, Propeller Spin, and the Parallax and Propeller Hat logos* are trademarks of Parallax Inc., dba Parallax Semiconductor
 >
 > This project is a community project not for commercial use.
-> 
+>
 > This project is in no way affiliated with, authorized, maintained, sponsored or endorsed by *Raspberry Pi (Trading) Ltd.* or any of its affiliates or subsidiaries.
-> 
+>
 > Likewise, This project is in no way affiliated with, authorized, maintained, sponsored or endorsed by *Parallax Inc., dba Parallax Semiconductor* or any of its affiliates or subsidiaries.
 
 ---
 
 ## License
 
-Copyright © 2022 Iron Sheep Productions, LLC. All rights reserved.<br />
-Licensed under the MIT License. <br>
-<br>
+Copyright © 2022 Iron Sheep Productions, LLC. All rights reserved.
+
+Licensed under the MIT License.
+
 Follow these links for more information:
 
 ### [Copyright](copyright) | [License](LICENSE)
-
-
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep%2ebiz-blue.svg?style=for-the-badge
 
