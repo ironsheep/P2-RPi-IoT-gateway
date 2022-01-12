@@ -22,7 +22,7 @@
 #folder_var = /var/P2-RPi-ioT-gateway
 #folder_control = /var/P2-RPi-ioT-gateway/control
 #folder_status = /var/P2-RPi-ioT-gateway/status
-#folder_log = /var/log/P2-RPi-ioT-gateway/log
+#folder_log = /var/log/P2-RPi-ioT-gateway
 #folder_mail = /var/P2-RPi-ioT-gateway/mail
 #folder_proc = /var/P2-RPi-ioT-gateway/proc
 
