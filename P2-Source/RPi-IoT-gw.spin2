@@ -37,6 +37,7 @@ OBJ { Objects Used by this Object }
 CON { driver config values}
 
   RX_BFFR_LEN = 80
+  RX_SYSTEM_ID_LEN = 20
 
 
 VAR { pin info saves }
@@ -45,6 +46,11 @@ VAR { pin info saves }
     long    pinTx
 
     byte    bffrRx[RX_BFFR_LEN+1]
+
+    ' filled by statusParse() when error returned
+    byte    statusMsg[RX_BFFR_LEN+1]
+    byte    subsysId[RX_SYSTEM_ID_LEN+1]
+    byte    keyName[RX_SYSTEM_ID_LEN+1]
 
 DAT { string constants }
 
@@ -94,38 +100,143 @@ pub fileAccess(folderId, fileMode, pFileName) : opStatus, fileId | pStr
     RPi.fstr5(string("file-access:dir=%d%smode=%d%sfname=%s\n"), folderId, @parmSep, fileMode, @parmSep, pFileName)
     pStr := getString(@bffrRx, RX_BFFR_LEN)
     ' parse result for success and fileID and return both
-    '
-    ' Examples: "faccess:status=True,fileid=9999,exists=False\n"
-    ' Examples: "faccess:status=True,fileid=9999,exists=True\n"
-    ' Examples: "faccess:status=False,msg=error dir=999\n"
-    ' Examples: "faccess:status=False,msg=error failed-to-create\n"
+    opStatus := statusParse(pStr)
+    if (opStatus <> OP_SUCCESS)
+        debug("fileAccess: str=[", zstr_(@statusMsg), "]")
 
 pub fileWrite(nFileId, pVarName, nVarValue) : opStatus | pStr
 '' Tell the RPi to to write named value to file {fileId}
+    opStatus := OP_FAILURE
     RPi.fstr5(string("file-write:fid=%d%skey=%s%sval=%d\n"), nFileId, @parmSep, pVarName, @parmSep, nVarValue)
     pStr := getString(@bffrRx, RX_BFFR_LEN)
 
 pub fileRead(nFileId, pVarName) : opStatus, varValue | pStr
+'' Tell the RPi to to get named value from file {fileId}
+    opStatus := OP_FAILURE
     RPi.fstr3(string("file-read:fid=%d%skey=%s\n"), nFileId, @parmSep, pVarName)
     pStr := getString(@bffrRx, RX_BFFR_LEN)
 
 PRI getString(pBffr, nBffrMax) : pStr | nRxLenRem, pRxNextChar, nChr
 ' read serial input until newline received
+    debug("gStr: entry...")
     pStr := pBffr
     nRxLenRem := nBffrMax
     pRxNextChar := pBffr
-    nChr := 0
+    BYTE[pRxNextChar] := $00   ' start with emtpy string
     repeat
-        if RPi.rxcheck()
-            nChr := RPi.rx()
-            if nChr == $0a
-                byte [pRxNextChar] := $00 ' place term. char
+        nChr := RPi.rxtime(1000)
+        if (nChr <> -1)
+            if (nChr == $0a)
+                BYTE[pRxNextChar] := $00 ' place term. char
             else
-                byte [pRxNextChar] := nChr
+                BYTE[pRxNextChar] := nChr
+                BYTE[pRxNextChar + 1] := $00 ' place term. char
+            ' TOO SLOW LOOSING DATA debug("gStr: nChr=[", uhex_byte_(nChr), "-(", lstr_(pRxNextChar, 1), ")]")
             pRxNextChar++
             nRxLenRem--
-    until nChr == $0a or nRxLenRem == 0
+    until (nChr == $0a or nRxLenRem == 0 or nChr == -1)
+    debug("gStr: str=[", zstr_(pStr), "]")
 
+PRI statusParse(pRxBffr) : nStatus | lenRemaining, sep, idx, nChr, pSrchBffr, pName, pValue, ignore, matchStatus
+    ' Examples: "faccess:status=True,fileid=9999,exists=False\n"
+    ' Examples: "faccess:status=True,fileid=9999,exists=True\n"
+    ' Examples: "faccess:status=False,msg=error dir=999\n"
+    ' Examples: "faccess:status=False,msg=error failed-to-create\n"
+  bytefill(@statusMsg, 0, RX_BFFR_LEN+1)                        ' reset buffers
+  bytefill(@subsysId, 0, RX_SYSTEM_ID_LEN+1)
+
+  nStatus := OP_FAILURE ' preset to failure
+
+  pSrchBffr := pRxBffr
+  lenRemaining := strsize(pRxBffr)                                         ' get length of input
+  sep := -1                                                     ' separator not found
+
+' copy our subsys ID from rx buffer
+  repeat idx from 0 to RX_SYSTEM_ID_LEN
+    nChr := byte[pSrchBffr][idx]
+    if (nChr == ":")
+      sep := idx                                                  ' mark separator
+    elseif (nChr == $00)
+      byte[pSrchBffr][idx] := 0
+      quit
+    if idx > lenRemaining
+      quit
+
+  if (lenRemaining > 0)
+    if (sep >= 0)
+      ' record subsystem ID for this status
+      bytemove(@subsysId, pSrchBffr, sep)
+
+    ' point past subsystem ID
+    pSrchBffr := pSrchBffr + sep + 1  ' +1 = point past sep
+
+    ' this should be status=
+    pName, pValue, idx := locateNextKeyValue(pSrchBffr)
+    debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(idx))
+
+    matchStatus, ignore := indexOfStr(string("status"), pName)
+    if (matchStatus == 0)
+        matchStatus, ignore := indexOfStr(string("True"), pValue)
+        nStatus := (matchStatus == 0) ? OP_SUCCESS : OP_FAILURE
+
+        ' this should be msg=
+        pName, pValue, idx := locateNextKeyValue(pSrchBffr + idx)
+        debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(idx))
+
+PRI locateNextKeyValue(pRxBffr) : pKeyStr, pValueStr, nLength | lenRemaining, endOfPair, endOfKey, valueStartIdx, lenValue, idxNextKey, idxOfValue, multiPairStatus, ignore
+' parse for key-value pair in given string (value ends with $00 or Sep)
+  lenRemaining := strsize(pRxBffr)                  ' get length of input
+  bytefill(@keyName, 0, RX_SYSTEM_ID_LEN+1)                        ' reset buffers
+  bytefill(@statusMsg, 0, RX_BFFR_LEN+1)                        ' reset buffers
+
+  multiPairStatus, ignore := indexOfStr(@parmSep, pRxBffr)
+
+  endOfKey, idxOfValue := indexOfStr(string("="), pRxBffr)
+
+  if (endOfKey <> -1 )
+    bytemove(@keyName, pRxBffr, endOfKey)
+
+  if (multiPairStatus <> -1)
+    endOfPair, idxNextKey := indexOfStr(@parmSep, pRxBffr)
+    if (endOfPair <> -1 and endOfKey <> -1 and endOfKey < endOfPair)
+        valueStartIdx := endOfKey + 1
+        lenValue := endOfPair - valueStartIdx
+        bytemove(@statusMsg, @byte[pRxBffr][valueStartIdx], lenValue)
+        nLength := idxNextKey
+        pKeyStr := @keyName
+        pValueStr := @statusMsg
+        debug("lnxKV: ", zstr(@keyName), ", ", zstr(@statusMsg), sdec(nLength))
+    else
+      debug("lnxKV: failed to locate KV in [", zstr(pRxBffr),"]")
+  else
+    endOfPair := strsize(pRxBffr)
+    if (endOfKey <> -1 and endOfKey < endOfPair)
+        valueStartIdx := endOfKey + 1
+        lenValue := endOfPair - valueStartIdx
+        bytemove(@statusMsg, @byte[pRxBffr][valueStartIdx], lenValue)
+        nLength := idxNextKey
+        pKeyStr := @keyName
+        pValueStr := @statusMsg
+        debug("lnxKV: ", zstr(@keyName), ", ", zstr(@statusMsg), sdec(nLength))
+    else
+        debug("lnxKV: failed to locate KV in [", zstr(pRxBffr),"]")
+
+PRI indexOfStr(pSrchStr, pRxBffr) : idx, idxAfter | lenRemaining, srchLen, srchIdx, srcIdx, bSrchMatch
+  idx := -1   ' preset NOT found
+  lenRemaining := strsize(pRxBffr)                  ' get length of input
+  srchLen := strsize(pSrchStr)
+  if (srchLen <= lenRemaining)
+    repeat srcIdx from 0 to lenRemaining - srchLen
+        bSrchMatch := True
+        repeat srchIdx from 0 to srchLen - 1
+          if (byte[pSrchStr][srchIdx] <> byte[pRxBffr][srcIdx + srchIdx])
+            bSrchMatch := False
+            quit    ' abort srchStr compare
+        if bSrchMatch == True
+            idx := srcIdx
+            idxAfter := srcIdx + srchLen
+            quit   ' abort rxBuffer compare
+  debug("idxOf: ", zstr(pSrchStr), ", ", zstr(pRxBffr), ", idx=", sdec_(idx))
 
 CON { license }
 {{

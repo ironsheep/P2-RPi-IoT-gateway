@@ -644,6 +644,7 @@ def processIncomingRequest(newLine, Ser):
                             if FileMode(modeId) == FileMode.FM_READONLY or FileMode(modeId) == FileMode.FM_WRITE:
                                 # determine if filename exists in dir
                                 if not os.path.exists(filespec):
+                                    print_line('ERROR file named=[{}] not found fspec=[{}]'.format(filename, filespec), debug=True)
                                     errorTxt = 'bad fname={} - file NOT found'.format(filename)
                                     sendValidationError(Ser, "faccess", errorTxt)
                                     bCanAccessStatus = False
@@ -661,7 +662,7 @@ def processIncomingRequest(newLine, Ser):
 def sendValidationError(Ser, cmdPrefixStr, errorMessage):
     # format and send an error message via outgoing serial
     successStatus = False
-    responseStr = '{}:status={},msg={}\n'.format(cmdPrefixStr, successStatus, errorMessage)
+    responseStr = '{}:status={}{}msg={}\n'.format(cmdPrefixStr, successStatus, parm_sep, errorMessage)
     newOutLine = responseStr.encode('utf-8')
     print_line('sendValidationError line({})=({})'.format(len(newOutLine), newOutLine), debug=True)
     Ser.write(newOutLine)
@@ -669,7 +670,7 @@ def sendValidationError(Ser, cmdPrefixStr, errorMessage):
 def sendValidationSuccess(Ser, cmdPrefixStr, returnValue):
     # format and send an error message via outgoing serial
     successStatus = True
-    responseStr = '{}:status={},fileid={}\n'.format(cmdPrefixStr, successStatus, returnValue)
+    responseStr = '{}:status={}{}fileid={}\n'.format(cmdPrefixStr, successStatus, parm_sep, returnValue)
     newOutLine = responseStr.encode('utf-8')
     print_line('sendValidationSuccess line({})=({})'.format(len(newOutLine), newOutLine), debug=True)
     Ser.write(newOutLine)
@@ -705,8 +706,8 @@ def mainLoop(ser):
 #   864,000 =  90x 9600 baud
 #   480,000 =  50x 9600 baud
 ###  864000 -> 842105   RPi at
-baudRate = 1000000
-print_line('Baud rate: {:,} bits/sec'.format(1000000), verbose=True)
+baudRate = 500000
+print_line('Baud rate: {:,} bits/sec'.format(baudRate), verbose=True)
 
 ser = serial.Serial ("/dev/serial0", baudRate, timeout=1)    #Open port with baud rate & timeout
 
