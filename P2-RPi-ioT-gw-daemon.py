@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import os.path
+import json
 import argparse
 from collections import deque
 from unidecode import unidecode
@@ -193,7 +194,7 @@ rpi_linux_version = '??'
 rpi_hostname = '??'
 rpi_fqdn = '??'
 
-def idenitfyRPiHost():
+def identifyRPiHost():
     global rpi_model
     global rpi_model_raw
     global rpi_linux_release
@@ -270,73 +271,133 @@ def getHostnames():
 # -----------------------------------------------------------------------------
 #  Maintain Runtime Configuration values
 # -----------------------------------------------------------------------------
-keyHwName = "hwName"
-keyObjVer = "objVer"
-#
-keyEmailTo = "to"
-keyEmailFrom = "fm"
-keyEmailCC = "cc"
-keyEmailBCC = "bc"
-keyEmailSubj = "su"
-keyEmailBody = "bo"
-#
-keySmsPhone = "phone"
-keySmsMessage = "message"
 
-configRequiredEmailKeys = [ keyEmailTo, keyEmailSubj, keyEmailBody ]
+class RuntimeConfig:
+    keyHwName = "hwName"
+    keyObjVer = "objVer"
+    #
+    keyEmailTo = "to"
+    keyEmailFrom = "fm"
+    keyEmailCC = "cc"
+    keyEmailBCC = "bc"
+    keyEmailSubj = "su"
+    keyEmailBody = "bo"
+    #
+    keySmsPhone = "phone"
+    keySmsMessage = "message"
 
-configOptionalEmailKeys =[ keyEmailFrom, keyEmailCC, keyEmailBCC ]
+    configRequiredEmailKeys = [ keyEmailTo, keyEmailSubj, keyEmailBody ]
 
-#  searchable list of keys
-configKnownKeys = [ keyHwName, keyObjVer,
-                   keyEmailTo, keyEmailFrom, keyEmailCC, keyEmailBCC, keyEmailSubj, keyEmailBody,
-                   keySmsPhone, keySmsMessage ]
+    configOptionalEmailKeys =[ keyEmailFrom, keyEmailCC, keyEmailBCC ]
 
-configDictionary = {}   # initially empty
+    #  searchable list of keys
+    configKnownKeys = [ keyHwName, keyObjVer,
+                    keyEmailTo, keyEmailFrom, keyEmailCC, keyEmailBCC, keyEmailSubj, keyEmailBody,
+                    keySmsPhone, keySmsMessage ]
 
-def haveNeededEmailKeys():
-    # check if we have a minimum set of email specs to be able to send. Return T/F here T means we can send!
-    global configDictionary
-    global configRequiredEmailKeys
-    foundMinimumKeysStatus = True
-    for key in configRequiredEmailKeys:
-        if key not in configDictionary.keys():
-            foundMinimumKeysStatus = False
+    configDictionary = {}   # initially empty
 
-    print_line('CONFIG-Dict: have email keys=[{}]'.format(foundMinimumKeysStatus), debug=True)
-    return foundMinimumKeysStatus
+    def haveNeededEmailKeys(self):
+        # check if we have a minimum set of email specs to be able to send. Return T/F here T means we can send!
+        global configDictionary
+        global configRequiredEmailKeys
+        foundMinimumKeysStatus = True
+        for key in self.configRequiredEmailKeys:
+            if key not in self.configDictionary.keys():
+                foundMinimumKeysStatus = False
 
-def validateKey(name):
-    # ensure a key we are trying to set/get is expect by this system
-    #   generate warning if NOT
-    if name not in configKnownKeys:
-        print_line('CONFIG-Dict: Unexpected key=[{}]!!'.format(name), warning=True)
+        print_line('CONFIG-Dict: have email keys=[{}]'.format(foundMinimumKeysStatus), debug=True)
+        return foundMinimumKeysStatus
 
-def setConfigNamedVarValue(name, value):
-    # set a config value for name
-    global configDictionary
-    validateKey(name)   # warn if key isn't a know key
-    foundKey = False
-    if name in configDictionary.keys():
-        oldValue = configDictionary[name]
-        foundKey = True
-    configDictionary[name] = value
-    if foundKey and oldValue != value:
-        print_line('CONFIG-Dict: [{}]=[{}]->[{}]'.format(name, oldValue, value), debug=True)
-    else:
-        print_line('CONFIG-Dict: [{}]=[{}]'.format(name, value), debug=True)
+    def validateKey(self, name):
+        # ensure a key we are trying to set/get is expect by this system
+        #   generate warning if NOT
+        if name not in self.configKnownKeys:
+            print_line('CONFIG-Dict: Unexpected key=[{}]!!'.format(name), warning=True)
 
-def getValueForConfigVar(name):
-    # return a config value for name
-    # print_line('CONFIG-Dict: get({})'.format(name), debug=True)
-    validateKey(name)   # warn if key isn't a know key
-    dictValue = ""
-    if name in configDictionary.keys():
-        dictValue = configDictionary[name]
-        print_line('CONFIG-Dict: [{}]=[{}]'.format(name, dictValue), debug=True)
-    else:
-        print_line('CONFIG-Dict: [{}] NOT FOUND'.format(name, dictValue), warning=True)
-    return dictValue
+    def setConfigNamedVarValue(self, name, value):
+        # set a config value for name
+        global configDictionary
+        self.validateKey(name)   # warn if key isn't a know key
+        foundKey = False
+        if name in self.configDictionary.keys():
+            oldValue = self.configDictionary[name]
+            foundKey = True
+        self.configDictionary[name] = value
+        if foundKey and oldValue != value:
+            print_line('CONFIG-Dict: [{}]=[{}]->[{}]'.format(name, oldValue, value), debug=True)
+        else:
+            print_line('CONFIG-Dict: [{}]=[{}]'.format(name, value), debug=True)
+
+    def getValueForConfigVar(self, name):
+        # return a config value for name
+        # print_line('CONFIG-Dict: get({})'.format(name), debug=True)
+        self.validateKey(name)   # warn if key isn't a know key
+        dictValue = ""
+        if name in self.configDictionary.keys():
+            dictValue = self.configDictionary[name]
+            print_line('CONFIG-Dict: [{}]=[{}]'.format(name, dictValue), debug=True)
+        else:
+            print_line('CONFIG-Dict: [{}] NOT FOUND'.format(name, dictValue), warning=True)
+        return dictValue
+
+# -----------------------------------------------------------------------------
+#  Maintain our list of file handles requested by the P2
+# -----------------------------------------------------------------------------
+
+class FileDetails:
+    fileName = ''
+    fileMode = ''
+    fileSpec = ''
+    dirSpec = ''
+
+    def __init__(self, fileName, fileMode, dirSpec):
+        self.fileName = fileName + '.json'
+        self.fileMode = fileMode
+        self.dirSpec = dirSpec
+        self.fileSpec = os.path.join(self.dirSpec, self.fileName)
+
+class FileHandleStore:
+
+    dctLiveFiles = {}  # runtime hash of known files (not persisted)
+    nNextFileId = 1  # initial fileId value (1 - 99,999)
+
+    def handleStringForFile(self, fileName, fileMode, dirSpec):
+        # create and return a new fileIdKey for this new file and save file details with the key
+        #  TODO: detect open-assoc of same file details (only 1 path/filename on file, please)
+        fileIdKey = self.nextFileIdKey()
+        desiredFileId = int(fileIdKey)
+        self.dctLiveFiles[fileIdKey] = FileDetails(fileName, fileMode, dirSpec)
+        return desiredFileId
+
+    def fpsecForHandle(self, possibleFileId):
+        # return the fileSpec associated with the given fileId
+        fileIdKey = self.keyForFileId(possibleFileId)
+        desiredFileDetails = self.dctLiveFiles[fileIdKey]
+        return desiredFileDetails.fileSpec
+
+    def nextFileIdKey(self):
+      # return the next legal fileId key [00001 -> 99999]
+      fileIdKey = self.keyForFileId(self.nNextFileId)
+      if fileIdKey in self.dctLiveFiles.keys():
+        print_line('ERROR[Internal] FileHandleStore: attempted re-use of fileIdKey=[{}]'.format(fileIdKey),error=True)
+      if(self.nNextFileId < 99999):  # limit to 1-99,999
+        self.nNextFileId = self.nNextFileId + 1
+      return fileIdKey
+
+    def isValidHandle(self, possibleFileId):
+        # return T/F where T means this key represents an actual file
+        fileIdKey = self.keyForFileId(possibleFileId)
+        validationStatus = True
+        if not fileIdKey in self.dctLiveFiles.keys():
+            validationStatus = False
+        return validationStatus
+
+    def keyForFileId(self, possibleFileId):
+        # return file id as 5-char string
+        desiredFileIdStr = '{:05d}'.format(int(possibleFileId))
+        return desiredFileIdStr
+
 
 # -----------------------------------------------------------------------------
 #  Circular queue for serial input lines & serial listener
@@ -377,7 +438,7 @@ def taskSerialListener(ser):
             if len(received_data) > 0:
                 print_line('TASK-RX rxD({})=({})'.format(len(received_data),received_data), debug=True)
                 currLine = received_data.decode('utf-8').rstrip()
-                print_line('TASK-RX({})'.format(currLine), debug=True)
+                #print_line('TASK-RX line({}=[{}]'.format(len(currLine), currLine), debug=True)
                 pushLine(currLine)
 
 
@@ -400,8 +461,8 @@ def crateAndSendEmail(emailTo, emailFrom, emailSubj, emailTextLines):
     #       Host: RPIName - os name, version
     # =================================
     footer = '\n\n--\n'
-    objName = getValueForConfigVar(keyHwName)
-    objVer = getValueForConfigVar(keyObjVer)
+    objName = runtimeConfig.getValueForConfigVar(runtimeConfig.keyHwName)
+    objVer = runtimeConfig.getValueForConfigVar(runtimeConfig.keyObjVer)
     footer += '  Sent From: {} v{}\n'.format(objName, objVer)
     footer += '        Via: {}\n'.format(script_info)
     # rpi_model_raw=[Raspberry Pi 3 Model B Plus Rev 1.3]
@@ -451,10 +512,10 @@ def crateAndSendEmail(emailTo, emailFrom, emailSubj, emailTextLines):
 
 def sendEmailFromConfig():
     # gather email details then create and send a email via the selected interface
-    tmpTo =  getValueForConfigVar(keyEmailTo)
-    tmpFrom = getValueForConfigVar(keyEmailFrom)
-    tmpSubject = getValueForConfigVar(keyEmailSubj)
-    tmpBody = getValueForConfigVar(keyEmailBody)
+    tmpTo =  runtimeConfig.getValueForConfigVar(runtimeConfig.keyEmailTo)
+    tmpFrom = runtimeConfig.getValueForConfigVar(runtimeConfig.keyEmailFrom)
+    tmpSubject = runtimeConfig.getValueForConfigVar(runtimeConfig.keyEmailSubj)
+    tmpBody = runtimeConfig.getValueForConfigVar(runtimeConfig.keyEmailBody)
     # TODO: wire up BCC, CC ensure that multiple, To, Cc, and Bcc work too!
     # print_line('sendEmailFromConfig to=[{}], from=[{}], subj=[{}], body=[{}]'.format(tmpTo, tmpFrom, tmpSubject, tmpBody), debug=True)
     crateAndSendEmail(tmpTo, tmpFrom, tmpSubject, tmpBody)
@@ -510,26 +571,26 @@ def processIncomingRequest(newLine, Ser):
     global gatheringEmailBody
     global emailBodyTextAr
 
-    print_line('Incoming line({})=({})'.format(len(newLine), newLine), debug=True)
+    print_line('Incoming line({})=[{}]'.format(len(newLine), newLine), debug=True)
 
     if newLine.startswith(body_end):
         gatheringEmailBody = False
         print_line('Incoming emailBodyTextAr({})=[{}]'.format(len(emailBodyTextAr), emailBodyTextAr), verbose=True)
-        setConfigNamedVarValue(keyEmailBody, emailBodyTextAr)
+        runtimeConfig.setConfigNamedVarValue(runtimeConfig.keyEmailBody, emailBodyTextAr)
         # Send the email if we know enough to do so...
-        if haveNeededEmailKeys() == True:
+        if runtimeConfig.haveNeededEmailKeys() == True:
             sendEmailFromConfig()
 
-    if gatheringEmailBody == True:
+    elif gatheringEmailBody == True:
         bodyLinesAr = newLine.split('\\n')
         print_line('bodyLinesAr({})=[{}]'.format(len(bodyLinesAr), bodyLinesAr), verbose=True)
         emailBodyTextAr += bodyLinesAr
 
-    if newLine.startswith(body_start):
+    elif newLine.startswith(body_start):
         gatheringEmailBody = True
         emailBodyTextAr = []
 
-    if newLine.startswith(cmdIdentifyHW):
+    elif newLine.startswith(cmdIdentifyHW):
         print_line('* HANDLE id P2 Hardware', info=True)
         nameValuePairs = getNameValuePairs(newLine, cmdIdentifyHW)
         if len(nameValuePairs) > 0:
@@ -537,35 +598,35 @@ def processIncomingRequest(newLine, Ser):
             # Record the hardware info for later use
             if len(findingsDict) > 0:
                 for key in findingsDict:
-                    setConfigNamedVarValue(key, findingsDict[key])
+                    runtimeConfig.setConfigNamedVarValue(key, findingsDict[key])
             else:
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing hardware keys !'.format(len(newLine), newLine), warning=True)
 
-    if newLine.startswith(cmdSendEmail):
+    elif newLine.startswith(cmdSendEmail):
         print_line('* HANDLE send email', info=True)
         nameValuePairs = getNameValuePairs(newLine, cmdSendEmail)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
             if len(findingsDict) > 0:
                 for key in findingsDict:
-                    setConfigNamedVarValue(key, findingsDict[key])
+                    runtimeConfig.setConfigNamedVarValue(key, findingsDict[key])
             else:
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing email params !'.format(len(newLine), newLine), warning=True)
 
-    if newLine.startswith(cmdSendSMS):
+    elif newLine.startswith(cmdSendSMS):
         print_line('* HANDLE send SMS', info=True)
         nameValuePairs = getNameValuePairs(newLine, cmdSendSMS)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
             if len(findingsDict) > 0:
                 for key in findingsDict:
-                    setConfigNamedVarValue(key, findingsDict[key])
+                    runtimeConfig.setConfigNamedVarValue(key, findingsDict[key])
             else:
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing SMS params !'.format(len(newLine), newLine), warning=True)
             # TODO: now send the SMS
 
-    if newLine.startswith(cmdFileWrite):
-        print_line('* HANDLE send SMS', info=True)
+    elif newLine.startswith(cmdFileWrite):
+        print_line('* HANDLE File WRITE', info=True)
         nameValuePairs = getNameValuePairs(newLine, cmdFileWrite)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -579,14 +640,36 @@ def processIncomingRequest(newLine, Ser):
                         missingParmName = requiredKey
                         break
                 if not bHaveAllKeys:
-                    errorTxt = 'missing named parameter [{}]'.format(missingParmName)
-                    sendValidationError(Ser, errorTxt)
+                    errorTxt = 'missing file-write named parameter [{}]'.format(missingParmName)
+                    sendValidationError(Ser, "fwrite", errorTxt)
+                else:
+                    fileIdStr = findingsDict[keyFileFileID]
+                    if not fileHandles.isValidHandle(fileIdStr):
+                        errorTxt = 'BAD write file handle [{}]'.format(fileIdStr)
+                        sendValidationError(Ser, "fwrite", errorTxt)
+                    else:
+                        fspec = fileHandles.fpsecForHandle(fileIdStr)
+                        varKey = findingsDict[keyFileVarNm]
+                        varValue = findingsDict[keyFileVarVal]
+                        # load json file
+                        filesize = os.path.getsize(fspec)
+                        fileDict = {}   # start empty
+                        if filesize > 0:    # if we have existing content, preload it
+                            with open(fspec, "r") as read_file:
+                                fileDict = json.load(read_file)
+                        # replace key-value pair (or add it)
+                        fileDict[varKey] = varValue
+                        # write the file
+                        with open(fspec, "w") as write_file:
+                            json.dump(fileDict, write_file)
+                        # report our operation success to P2 (status only)
+                        sendValidationSuccess(Ser, "fwrite", "", "")
             else:
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing file-write params !'.format(len(newLine), newLine), warning=True)
-            # TODO: now send the SMS
+            # TODO: now write the file
 
-    if newLine.startswith(cmdFileRead):
-        print_line('* HANDLE send SMS', info=True)
+    elif newLine.startswith(cmdFileRead):
+        print_line('* HANDLE File READ', info=True)
         nameValuePairs = getNameValuePairs(newLine, cmdFileRead)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -600,14 +683,32 @@ def processIncomingRequest(newLine, Ser):
                         missingParmName = requiredKey
                         break
                 if not bHaveAllKeys:
-                    errorTxt = 'missing named parameter [{}]'.format(missingParmName)
-                    sendValidationError(Ser, errorTxt)
+                    errorTxt = 'missing file-read named parameter [{}]'.format(missingParmName)
+                    sendValidationError(Ser, "fread", errorTxt)
+                else:
+                    fileIdStr = findingsDict[keyFileFileID]
+                    if not fileHandles.isValidHandle(fileIdStr):
+                        errorTxt = 'BAD read file handle [{}]'.format(fileIdStr)
+                        sendValidationError(Ser, "fread", errorTxt)
+                    else:
+                        fspec = fileHandles.fpsecForHandle(fileIdStr)
+                        varKey = findingsDict[keyFileVarNm]
+                        # load json file
+                        with open(fspec, "r") as read_file:
+                            fileDict = json.load(read_file)
+                        if not varKey in fileDict.keys():
+                            errorTxt = 'BAD read file handle [{}]'.format(fileIdStr)
+                            sendValidationError(Ser, "fread", errorTxt)
+                        else:
+                            desiredValue = fileDict[varKey]
+                            # report our operation success to P2 (and send value read from file)
+                            sendValidationSuccess(Ser, "fread", "varVal", desiredValue)
             else:
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing file-read params !'.format(len(newLine), newLine), warning=True)
-            # TODO: now send the SMS
+            # TODO: now read from the file
 
-    if newLine.startswith(cmdFileAccess):
-        print_line('* HANDLE send FIle Open-equiv', info=True)
+    elif newLine.startswith(cmdFileAccess):
+        print_line('* HANDLE send File Open-equiv', info=True)
         nameValuePairs = getNameValuePairs(newLine, cmdFileAccess)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -622,17 +723,17 @@ def processIncomingRequest(newLine, Ser):
                         break
                 if not bHaveAllKeys:
                     errorTxt = 'missing named parameter [{}]'.format(missingParmName)
-                    sendValidationError(Ser, errorTxt)
+                    sendValidationError(Ser, "faccess", errorTxt)
                 else:
-                    # validate dir spec is valid
+                    # validate dirID is valid Enum number
                     dirID = int(findingsDict[keyFileAccDir])
-                    if dirID not in FolderId._value2member_map_:
+                    if dirID not in FolderId._value2member_map_:    # in list of valid Enum numbers?
                         errorTxt = 'bad parm dir={} - unknown folder ID'.format(dirID)
                         sendValidationError(Ser, "faccess", errorTxt)
                     else:
-                        # validate dirId is valid
+                        # validate modeId is valid Enum number
                         modeId = int(findingsDict[keyFileAccMode])
-                        if modeId not in FileMode._value2member_map_:
+                        if modeId not in FileMode._value2member_map_:    # in list of valid Enum numbers?
                             errorTxt = 'bad parm mode={} - unknown file-mode ID'.format(modeId)
                             sendValidationError(Ser, "faccess", errorTxt)
                         else:
@@ -655,22 +756,30 @@ def processIncomingRequest(newLine, Ser):
                                     open(filespec, 'a').close() # equiv to touch(1)
                             if bCanAccessStatus == True:
                                 # return findings as response
-                                sendValidationSuccess(Ser, "faccess", 9999)  # nonsense until we put code here
+                                newFileIdStr = fileHandles.handleStringForFile(filename, FileMode(modeId), dirSpec)
+                                sendValidationSuccess(Ser, "faccess", "fileId", newFileIdStr)
             else:
-                print_line('processIncomingRequest nameValueStr({})=({}) ! missing FileAccess params !'.format(len(newLine), newLine), warning=True)
+                print_line('processIncomingRequest nameValueStr({})=[{}] ! missing FileAccess params !'.format(len(newLine), newLine), warning=True)
+    else:
+        print_line('ERROR: line({})=[{}] ! P2 LINE NOT Recognized !'.format(len(newLine), newLine), error=True)
 
 def sendValidationError(Ser, cmdPrefixStr, errorMessage):
     # format and send an error message via outgoing serial
     successStatus = False
     responseStr = '{}:status={}{}msg={}\n'.format(cmdPrefixStr, successStatus, parm_sep, errorMessage)
     newOutLine = responseStr.encode('utf-8')
-    print_line('sendValidationError line({})=({})'.format(len(newOutLine), newOutLine), debug=True)
+    print_line('sendValidationError line({})=[{}]'.format(len(newOutLine), newOutLine), debug=True)
     Ser.write(newOutLine)
 
-def sendValidationSuccess(Ser, cmdPrefixStr, returnValue):
+def sendValidationSuccess(Ser, cmdPrefixStr, returnKeyStr, returnValueStr):
     # format and send an error message via outgoing serial
     successStatus = True
-    responseStr = '{}:status={}{}fileid={}\n'.format(cmdPrefixStr, successStatus, parm_sep, returnValue)
+    if(len(returnKeyStr) > 0):
+        # if we have a key we're sending along an extra KV pair
+        responseStr = '{}:status={}{}{}={}\n'.format(cmdPrefixStr, successStatus, parm_sep, returnKeyStr, returnValueStr)
+    else:
+        # no key so just send final status
+        responseStr = '{}:status={}\n'.format(cmdPrefixStr, successStatus)
     newOutLine = responseStr.encode('utf-8')
     print_line('sendValidationSuccess line({})=({})'.format(len(newOutLine), newOutLine), debug=True)
     Ser.write(newOutLine)
@@ -701,6 +810,26 @@ def mainLoop(ser):
 #  Main loop
 # -----------------------------------------------------------------------------
 
+# and allocate our single runtime config store
+runtimeConfig = RuntimeConfig()
+
+# and allocate our single runtime config store
+fileHandles = FileHandleStore()
+
+
+# let's ensure we have all needed directories
+
+for dirSpec in folderSpecByFolderId.values():
+    if not os.path.isdir(dirSpec):
+        os.mkdir(dirSpec)
+        if not os.path.isdir(dirSpec):
+            print_line('WARNING: dir [{}] NOT found!'.format(dirSpec), warning=True)
+            print_line('ERROR: Failed to create Dir [{}]!'.format(dirSpec), warning=True)
+        else:
+            print_line('Dir [{}] created!'.format(dirSpec), verbose=True)
+    else:
+        print_line('Dir [{}] - OK'.format(dirSpec), verbose=True)
+
 # start our input task
 # 1,440,000 = 150x 9600 baud
 #   864,000 =  90x 9600 baud
@@ -713,7 +842,7 @@ ser = serial.Serial ("/dev/serial0", baudRate, timeout=1)    #Open port with bau
 
 _thread.start_new_thread(taskSerialListener, ( ser, ))
 
-idenitfyRPiHost()
+identifyRPiHost()
 
 # run our loop
 try:

@@ -37,6 +37,7 @@ OBJ { Objects Used by this Object }
 CON { driver config values}
 
   RX_BFFR_LEN = 80
+  RX_VALUE_LEN = 60
   RX_SYSTEM_ID_LEN = 20
 
 
@@ -44,6 +45,9 @@ VAR { pin info saves }
 
     long    pinRx
     long    pinTx
+
+    long    parsedFileId
+    byte    parseVarValue[RX_BFFR_LEN+1]
 
     byte    bffrRx[RX_BFFR_LEN+1]
 
@@ -103,18 +107,26 @@ pub fileAccess(folderId, fileMode, pFileName) : opStatus, fileId | pStr
     opStatus := statusParse(pStr)
     if (opStatus <> OP_SUCCESS)
         debug("fileAccess: str=[", zstr_(@statusMsg), "]")
+    else
+        fileId := parsedFileId
 
 pub fileWrite(nFileId, pVarName, nVarValue) : opStatus | pStr
 '' Tell the RPi to to write named value to file {fileId}
     opStatus := OP_FAILURE
     RPi.fstr5(string("file-write:fid=%d%skey=%s%sval=%d\n"), nFileId, @parmSep, pVarName, @parmSep, nVarValue)
     pStr := getString(@bffrRx, RX_BFFR_LEN)
+    opStatus := statusParse(pStr)
+    if (opStatus <> OP_SUCCESS)
+        debug("fileWrite: str=[", zstr_(@statusMsg), "]")
 
 pub fileRead(nFileId, pVarName) : opStatus, varValue | pStr
 '' Tell the RPi to to get named value from file {fileId}
     opStatus := OP_FAILURE
     RPi.fstr3(string("file-read:fid=%d%skey=%s\n"), nFileId, @parmSep, pVarName)
     pStr := getString(@bffrRx, RX_BFFR_LEN)
+    opStatus := statusParse(pStr)
+    if (opStatus <> OP_SUCCESS)
+        debug("fileWrite: str=[", zstr_(@statusMsg), "]")
 
 PRI getString(pBffr, nBffrMax) : pStr | nRxLenRem, pRxNextChar, nChr
 ' read serial input until newline received
@@ -178,16 +190,37 @@ PRI statusParse(pRxBffr) : nStatus | lenRemaining, sep, idx, nChr, pSrchBffr, pN
     if (matchStatus == 0)
         matchStatus, ignore := indexOfStr(string("True"), pValue)
         nStatus := (matchStatus == 0) ? OP_SUCCESS : OP_FAILURE
-
-        ' this should be msg=
         pName, pValue, idx := locateNextKeyValue(pSrchBffr + idx)
         debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(idx))
+
+        if (nStatus == OP_SUCCESS)
+            ' in this case there's more to decode
+            ' this should be fileId= -or- varVal=
+            matchStatus, ignore := indexOfStr(string("fileId"), pName)
+            if (matchStatus == 0)
+                parsedFileId := decimalForString(pValue)
+        else
+            ' this should be msg=
+            matchStatus, ignore := indexOfStr(string("msg"), pName)
+            if (matchStatus == 0)
+                lenRemaining := strsize(pValue)
+                if lenRemaining > RX_BFFR_LEN
+                  lenRemaining := RX_BFFR_LEN   ' ensure fits in buffer
+                bytemove(@statusMsg, pValue, lenRemaining)
+
+PRI decimalForString(pDecimalStr) : decimalValue | nCharCt, nIdx
+    ' convert decimal string to long value
+    decimalValue := 0
+    nCharCt := strsize(pDecimalStr)
+    if (nCharCt > 0)
+        repeat nIdx from 0 to nCharCt - 1
+            decimalValue := (decimalValue * 10) + (byte[pDecimalStr][nIdx] - $30)
 
 PRI locateNextKeyValue(pRxBffr) : pKeyStr, pValueStr, nLength | lenRemaining, endOfPair, endOfKey, valueStartIdx, lenValue, idxNextKey, idxOfValue, multiPairStatus, ignore
 ' parse for key-value pair in given string (value ends with $00 or Sep)
   lenRemaining := strsize(pRxBffr)                  ' get length of input
-  bytefill(@keyName, 0, RX_SYSTEM_ID_LEN+1)                        ' reset buffers
-  bytefill(@statusMsg, 0, RX_BFFR_LEN+1)                        ' reset buffers
+  bytefill(@keyName, 0, RX_SYSTEM_ID_LEN+1)         ' reset buffers
+  bytefill(@statusMsg, 0, RX_BFFR_LEN+1)            ' reset buffers
 
   multiPairStatus, ignore := indexOfStr(@parmSep, pRxBffr)
 

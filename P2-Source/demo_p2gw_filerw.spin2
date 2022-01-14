@@ -54,14 +54,14 @@ PUB main() | opStatus, fileId, tmpValue
     gw.identify(@p2HardwareID)
 
     ' (Let's connect to our file
-    opStatus, fileId := gw.fileAccess(gw.EFI_TMP, gw.FM_WRITE, @filename)
+    opStatus, fileId := gw.fileAccess(gw.EFI_TMP, gw.FM_WRITE_CREATE, @filename)
     if opStatus == gw.OP_SUCCESS
         ' now write a named value to it
         waitms(100)
-        fileId := 435
         opStatus := gw.fileWrite(fileId, string("ourVariable"), ourVariable)
         if opStatus == gw.OP_SUCCESS
-            ' and then read it back
+            ' and then read it back00
+            waitms(100)
             opStatus, tmpValue := gw.fileRead(fileId, string("ourVariable"))
             if opStatus == gw.OP_SUCCESS
                 ' good read, compare/dump results
