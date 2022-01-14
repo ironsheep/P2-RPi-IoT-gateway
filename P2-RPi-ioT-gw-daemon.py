@@ -29,19 +29,24 @@ if False:
     print_line('Sorry, this script requires a python3 runtime environment.', file=sys.stderr)
     os._exit(1)
 
-script_version  = "0.0.1"
+# v0.0.1 - awaken email send
+# v0.0.2 - add file handling
+
+script_version  = "0.0.2"
 script_name     = 'P2-RPi-ioT-gw-daemon.py'
 script_info     = '{} v{}'.format(script_name, script_version)
 project_name    = 'P2-RPi-IoT-gw'
 project_url     = 'https://github.com/ironsheep/P2-RPi-IoT-gateway'
 
-# -------------------------------
-# the following are identical to that found in our gateway .spin2 object
+# -----------------------------------------------------------------------------
+# the BELOW are identical to that found in our gateway .spin2 object
 #   (!!!they must be kept in sync!!!)
-parm_sep    = '^|^'     # chars that will not be found in user data
-body_start  = 'emailStart'
-body_end    = 'emailEnd'
-# -------------------------------
+# -----------------------------------------------------------------------------
+
+# markers found within the data arriving from the P2 but likely will NOT be found in normal user data sent by the P2
+parm_sep    = '^|^'
+body_start  = 'email|Start'
+body_end    = 'email|End'
 
 # the following enum EFI_* name order and starting value must be identical to that found in our gateway .spin2 object
 FolderId = Enum('FolderId', [
@@ -64,6 +69,10 @@ FileMode = Enum('FileMode', [
 
 #for fileMode in FileMode:
 #    print(fileMode, fileMode.value)
+
+# -----------------------------------------------------------------------------
+# the ABOVE are identical to that found in our gateway .spin2 object
+# -----------------------------------------------------------------------------
 
 # Logging function
 def print_line(text, error=False, warning=False, info=False, verbose=False, debug=False, console=True):
@@ -175,7 +184,7 @@ print_line('CONFIG: sendgrid_from_addr=[{}]'.format(sendgrid_from_addr), debug=T
 
 
 # -----------------------------------------------------------------------------
-#  methods indetifying RPi hardware host
+#  methods indentifying RPi host hardware/software
 # -----------------------------------------------------------------------------
 rpi_model = '??'
 rpi_model_raw = '??'
@@ -353,8 +362,8 @@ def popLine():
 #  TASK: dedicated serial listener
 # -----------------------------------------------------------------------------
 
-def taskProcessInput(ser):
-    print_line('Thread: taskProcessInput() started', verbose=True)
+def taskSerialListener(ser):
+    print_line('Thread: taskSerialListener() started', verbose=True)
     # process lies from serial or from test file
     if opt_useTestFile == True:
         test_file=open("charlie_rpi_debug.out", "r")
@@ -466,6 +475,12 @@ keyFileAccMode = "mode"
 keyFileAccFName = "fname"
 fileAccessParmKeys = [ keyFileAccDir, keyFileAccMode, keyFileAccFName]
 
+# file-write named parameters
+keyFileFileID = "fid"
+keyFileVarNm = "key"
+keyFileVarVal = "val"
+fileWriteParmKeys = [ keyFileFileID, keyFileVarNm, keyFileVarVal]
+fileReadParmKeys = [ keyFileFileID, keyFileVarNm]
 
 
 def getNameValuePairs(strRequest, cmdStr):
@@ -547,6 +562,48 @@ def processIncomingRequest(newLine, Ser):
                     setConfigNamedVarValue(key, findingsDict[key])
             else:
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing SMS params !'.format(len(newLine), newLine), warning=True)
+            # TODO: now send the SMS
+
+    if newLine.startswith(cmdFileWrite):
+        print_line('* HANDLE send SMS', info=True)
+        nameValuePairs = getNameValuePairs(newLine, cmdFileWrite)
+        if len(nameValuePairs) > 0:
+            findingsDict = processNameValuePairs(nameValuePairs)
+            if len(findingsDict) > 0:
+                # validate all keys exist
+                bHaveAllKeys = True
+                missingParmName = ''
+                for requiredKey in fileWriteParmKeys:
+                    if requiredKey not in findingsDict.keys():
+                        HaveAllKeys = False
+                        missingParmName = requiredKey
+                        break
+                if not bHaveAllKeys:
+                    errorTxt = 'missing named parameter [{}]'.format(missingParmName)
+                    sendValidationError(Ser, errorTxt)
+            else:
+                print_line('processIncomingRequest nameValueStr({})=({}) ! missing file-write params !'.format(len(newLine), newLine), warning=True)
+            # TODO: now send the SMS
+
+    if newLine.startswith(cmdFileRead):
+        print_line('* HANDLE send SMS', info=True)
+        nameValuePairs = getNameValuePairs(newLine, cmdFileRead)
+        if len(nameValuePairs) > 0:
+            findingsDict = processNameValuePairs(nameValuePairs)
+            if len(findingsDict) > 0:
+                # validate all keys exist
+                bHaveAllKeys = True
+                missingParmName = ''
+                for requiredKey in fileReadParmKeys:
+                    if requiredKey not in findingsDict.keys():
+                        HaveAllKeys = False
+                        missingParmName = requiredKey
+                        break
+                if not bHaveAllKeys:
+                    errorTxt = 'missing named parameter [{}]'.format(missingParmName)
+                    sendValidationError(Ser, errorTxt)
+            else:
+                print_line('processIncomingRequest nameValueStr({})=({}) ! missing file-read params !'.format(len(newLine), newLine), warning=True)
             # TODO: now send the SMS
 
     if newLine.startswith(cmdFileAccess):
@@ -648,9 +705,12 @@ def mainLoop(ser):
 #   864,000 =  90x 9600 baud
 #   480,000 =  50x 9600 baud
 ###  864000 -> 842105   RPi at
-ser = serial.Serial ("/dev/serial0", 1000000, timeout=1)    #Open port with baud rate & timeout
+baudRate = 1000000
+print_line('Baud rate: {:,} bits/sec'.format(1000000), verbose=True)
 
-_thread.start_new_thread(taskProcessInput, ( ser, ))
+ser = serial.Serial ("/dev/serial0", baudRate, timeout=1)    #Open port with baud rate & timeout
+
+_thread.start_new_thread(taskSerialListener, ( ser, ))
 
 idenitfyRPiHost()
 

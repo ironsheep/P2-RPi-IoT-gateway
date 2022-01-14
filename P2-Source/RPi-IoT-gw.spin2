@@ -41,10 +41,10 @@ CON { driver config values}
 
 VAR { pin info saves }
 
-    long    rx_pin
-    long    tx_pin
+    long    pinRx
+    long    pinTx
 
-    byte    rx_bffr[RX_BFFR_LEN+1]
+    byte    bffrRx[RX_BFFR_LEN+1]
 
 DAT { string constants }
 
@@ -54,8 +54,8 @@ spin2ver    byte    "0.0.1",0
 ' the following are identical to that found in our deamon python script
 '   (!!!they must be kept in sync!!!)
 parmSep     byte    "^|^",0     ' chars that will not be found in user data
-bodyStart   byte    "emailStart",0
-bodyEnd     byte    "emailEnd",0
+bodyStart   byte    "email|Start",0
+bodyEnd     byte    "email|End",0
 ' -------------------------------
 
 PUB null()
@@ -63,16 +63,16 @@ PUB null()
 
 pub startx(rxpin, txpin, baud)
 '' Start RPi gateway serial coms on rxpin and txpin at baud
-    rx_pin := rxpin
-    tx_pin := txpin
-    RPi.startx(rx_pin, tx_pin, baud)                              ' use user serial port
+    pinRx := rxpin
+    pinTx := txpin
+    RPi.startx(pinRx, pinTx, baud)                              ' use user serial port
 
 pub stop()
 '' Release the serial pins (if needed)
     RPi.rxflush()   ' git rid of any pending input
     ' free the pins used
-    pinf(rx_pin)    ' de-assert
-    pinf(tx_pin)    ' de-assert
+    pinf(pinRx)    ' de-assert
+    pinf(pinTx)    ' de-assert
 
 pub identify(pHardwareId)
 '' Report to the RPi the name of this device (for email signature, etc.)
@@ -92,7 +92,7 @@ pub sendSMS(pSmsPhoneNbr, pSmsTextMessage)
 pub fileAccess(folderId, fileMode, pFileName) : opStatus, fileId | pStr
 '' Tell the RPi to to write named value to file {fileId}
     RPi.fstr5(string("file-access:dir=%d%smode=%d%sfname=%s\n"), folderId, @parmSep, fileMode, @parmSep, pFileName)
-    pStr := getString(@rx_bffr, RX_BFFR_LEN)
+    pStr := getString(@bffrRx, RX_BFFR_LEN)
     ' parse result for success and fileID and return both
     '
     ' Examples: "faccess:status=True,fileid=9999,exists=False\n"
@@ -100,14 +100,14 @@ pub fileAccess(folderId, fileMode, pFileName) : opStatus, fileId | pStr
     ' Examples: "faccess:status=False,msg=error dir=999\n"
     ' Examples: "faccess:status=False,msg=error failed-to-create\n"
 
-pub fileWrite(pFileId, pVarName, pVarValue) : opStatus | pStr
+pub fileWrite(nFileId, pVarName, nVarValue) : opStatus | pStr
 '' Tell the RPi to to write named value to file {fileId}
-    RPi.fstr5(string("file-write:fid=%s%skey=%s%sval=%s\n"), pFileId, @parmSep, pVarName, @parmSep, pVarValue)
-    pStr := getString(@rx_bffr, RX_BFFR_LEN)
+    RPi.fstr5(string("file-write:fid=%d%skey=%s%sval=%d\n"), nFileId, @parmSep, pVarName, @parmSep, nVarValue)
+    pStr := getString(@bffrRx, RX_BFFR_LEN)
 
-pub fileRead(pFileId, pVarName) : opStatus, varValue | pStr
-    RPi.fstr3(string("file-read:fid=%s%skey=%s\n"), pFileId, @parmSep, pVarName)
-    pStr := getString(@rx_bffr, RX_BFFR_LEN)
+pub fileRead(nFileId, pVarName) : opStatus, varValue | pStr
+    RPi.fstr3(string("file-read:fid=%d%skey=%s\n"), nFileId, @parmSep, pVarName)
+    pStr := getString(@bffrRx, RX_BFFR_LEN)
 
 PRI getString(pBffr, nBffrMax) : pStr | nRxLenRem, pRxNextChar, nChr
 ' read serial input until newline received

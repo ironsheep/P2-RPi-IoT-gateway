@@ -57,6 +57,7 @@ PUB main() | opStatus, fileId, tmpValue
     if opStatus == gw.OP_SUCCESS
         ' now write a named value to it
         waitms(100)
+        fileId := 435
         opStatus := gw.fileWrite(fileId, string("ourVariable"), ourVariable)
         if opStatus == gw.OP_SUCCESS
             ' and then read it back
