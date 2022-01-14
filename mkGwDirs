@@ -1,5 +1,9 @@
 #!/bin/bash -x
 
+
+
+exit 0
+
 mkdir /tmp/P2-RPi-ioT-gateway
 mkdir /var/P2-RPi-ioT-gateway
 mkdir /var/P2-RPi-ioT-gateway/control

@@ -365,8 +365,9 @@ def taskProcessInput(ser):
     else:
         while True:
             received_data = ser.readline()              #read serial port
-            currLine = received_data.decode('utf-8').rstrip()
-            if len(currLine) > 0:
+            if len(received_data) > 0:
+                print_line('TASK-RX rxD({})=({})'.format(len(received_data),received_data), debug=True)
+                currLine = received_data.decode('utf-8').rstrip()
                 print_line('TASK-RX({})'.format(currLine), debug=True)
                 pushLine(currLine)
 
@@ -643,6 +644,10 @@ def mainLoop(ser):
 # -----------------------------------------------------------------------------
 
 # start our input task
+# 1,440,000 = 150x 9600 baud
+#   864,000 =  90x 9600 baud
+#   480,000 =  50x 9600 baud
+###  864000 -> 842105   RPi at
 ser = serial.Serial ("/dev/serial0", 1000000, timeout=1)    #Open port with baud rate & timeout
 
 _thread.start_new_thread(taskProcessInput, ( ser, ))
@@ -656,15 +661,3 @@ try:
 finally:
     # normal shutdown
     print_line('Done', info=True)
-
-
-
-# ser = serial.Serial ("/dev/serial0", 1000000, timeout=1)    #Open port with baud rate & timeout
-# while True:
-#     received_data = ser.read()              #read serial port
-#     sleep(0.03)
-#     data_left = ser.inWaiting()             #check for remaining byte
-#     received_data += ser.read(data_left)
-#     print (received_data)                   #print received data
-#     print_line('TEST-LOOP line({})=[{}]'.format(len(received_data), received_data), debug=True)
-#     ser.write(received_data)                #transmit data serially

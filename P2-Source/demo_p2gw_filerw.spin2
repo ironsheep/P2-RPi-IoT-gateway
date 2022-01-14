@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Jan 2022
-''   Updated.... 11 Jan 2022
+''   Updated.... 12 Jan 2022
 ''
 '' =================================================================================================
 
@@ -31,7 +31,7 @@ CON { RPi Gateway io pins }
   RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
   TX_GW    = 24  { O }
 
-  GW_BAUDRATE = 1_000_000   ' 2Mb/s
+  GW_BAUDRATE = 1_000_000   ' 1Mb/s
 
 OBJ { Objects Used by this Object }
 
@@ -56,6 +56,7 @@ PUB main() | opStatus, fileId, tmpValue
     opStatus, fileId := gw.fileAccess(gw.EFI_TMP, gw.FM_WRITE, @filename)
     if opStatus == gw.OP_SUCCESS
         ' now write a named value to it
+        waitms(100)
         opStatus := gw.fileWrite(fileId, string("ourVariable"), ourVariable)
         if opStatus == gw.OP_SUCCESS
             ' and then read it back
