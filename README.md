@@ -188,11 +188,11 @@ As we develop the gateway we are working to implement each of the services.  We 
 
 We keep a growing list of these DEMOs in this section:
 
-| Spin2/webPage File Name(s) | Demonstration | Form | Notes |
+| Spin2/webPage File Name(s) | Demonstration | Form | Status |
 | --- | --- | --- | --- |
-| [demo\_p2gw_email.spin2](P2-Source/demo_p2gw_email.spin2) | Sending email to one or more users from P2 | App |
-| [demo\_p2gw_filerw.spin2](P2-Source/demo_p2gw_filerw.spin2) | Store named values on our RPi and retrieve them from the RPi | App |
-| [demo\_p2gw_ProcRPi.spin2](P2-Source/demo_p2gw_ProcRPi.spin2) | Display RPi configuration data on our P2 Debug Terminal | App |
+| [demo\_p2gw_email.spin2](P2-Source/demo_p2gw_email.spin2) | Sending email to one or more users from P2 | App | WORKING
+| [demo\_p2gw_filerw.spin2](P2-Source/demo_p2gw_filerw.spin2) | Store named values on our RPi and retrieve them from the RPi | App | WORKING
+| [demo\_p2gw_ProcRPi.spin2](P2-Source/demo_p2gw_ProcRPi.spin2) | Display RPi configuration data on our P2 Debug Terminal | App | In-progress
 | | Display live 1-wire temp sensor data on a web page | App, Web Page |
 | | Change values on a control web page causing values to be shown in P2 Debug Terminal | App, Web Page |
 
@@ -201,8 +201,8 @@ We keep a growing list of these DEMOs in this section:
 | Spin2/webPage File Name(s) | Demonstration | Form | Notes |
 | --- | --- | --- | --- |
 | | Send a "Hello World" text from our P2 to a users phone | App | *Requires SMS API Key*
-| | Tweet a message from our P2 | App | Requires Twitter API Key
-| | Display Twitter feed data on our P2 Debug Terminal | App | *Requires Twitter API Key
+| | Tweet a message from our P2 | App | *Requires Twitter API Key*
+| | Display Twitter feed data on our P2 Debug Terminal | App | *Requires Twitter API Key*
 
 If you an idea for a DEMO you'd like to see here you can do one of two things: 
 
