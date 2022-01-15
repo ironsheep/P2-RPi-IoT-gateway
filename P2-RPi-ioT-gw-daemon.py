@@ -360,7 +360,7 @@ class FileDetails:
 class FileHandleStore:
 
     dctLiveFiles = {}  # runtime hash of known files (not persisted)
-    nNextFileId = 1  # initial fileId value (1 - 99,999)
+    nNextFileId = 1  # initial collId value (1 - 99,999)
 
     def handleStringForFile(self, fileName, fileMode, dirSpec):
         # create and return a new fileIdKey for this new file and save file details with the key
@@ -371,13 +371,13 @@ class FileHandleStore:
         return desiredFileId
 
     def fpsecForHandle(self, possibleFileId):
-        # return the fileSpec associated with the given fileId
+        # return the fileSpec associated with the given collId
         fileIdKey = self.keyForFileId(possibleFileId)
         desiredFileDetails = self.dctLiveFiles[fileIdKey]
         return desiredFileDetails.fileSpec
 
     def nextFileIdKey(self):
-      # return the next legal fileId key [00001 -> 99999]
+      # return the next legal collId key [00001 -> 99999]
       fileIdKey = self.keyForFileId(self.nNextFileId)
       if fileIdKey in self.dctLiveFiles.keys():
         print_line('ERROR[Internal] FileHandleStore: attempted re-use of fileIdKey=[{}]'.format(fileIdKey),error=True)
@@ -756,7 +756,7 @@ def processIncomingRequest(newLine, Ser):
                             if bCanAccessStatus == True:
                                 # return findings as response
                                 newFileIdStr = fileHandles.handleStringForFile(filename, FileMode(modeId), dirSpec)
-                                sendValidationSuccess(Ser, "faccess", "fileId", newFileIdStr)
+                                sendValidationSuccess(Ser, "faccess", "collId", newFileIdStr)
             else:
                 print_line('processIncomingRequest nameValueStr({})=[{}] ! missing FileAccess params !'.format(len(newLine), newLine), warning=True)
     else:

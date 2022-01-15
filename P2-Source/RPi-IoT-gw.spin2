@@ -116,7 +116,7 @@ pub fileAccess(nFolderId, nFileMode, pFileName) : opStatus, nCollId | pStr
         nCollId := parsedFileId
 
 pub fileWriteLong(nCollId, pVarName, nVarValue) : opStatus | pStr
-'' Tell the RPi to to write named long to a collection {nCollId}
+'' Tell the RPi to to write named long to collection {nCollId}
     opStatus := OP_FAILURE
     RPi.fstr5(string("file-write:cid=%d%skey=%s%sval=%d\n"), nCollId, @parmSep, pVarName, @parmSep, nVarValue)
     pStr := getString(@bffrRx, RX_BFFR_LEN)
@@ -125,7 +125,7 @@ pub fileWriteLong(nCollId, pVarName, nVarValue) : opStatus | pStr
         debug("fileWriteLong: str=[", zstr_(@statusMsg), "]")
 
 pub fileReadLong(nCollId, pVarName) : opStatus, nVarValue | pStr
-'' Tell the RPi to to get named long from a collection {nCollId}
+'' Tell the RPi to to get named long from collection {nCollId}
     opStatus := OP_FAILURE
     RPi.fstr3(string("file-read:cid=%d%skey=%s\n"), nCollId, @parmSep, pVarName)
     pStr := getString(@bffrRx, RX_BFFR_LEN)
@@ -144,7 +144,7 @@ pub fileWriteStr(nCollId, pVarName, pVarString) : opStatus | pStr
     if (opStatus <> OP_SUCCESS)
         debug("fileWriteStr: str=[", zstr_(@statusMsg), "]")
 
-pub fileReadStr(nCollId, pVarName) : opStatus, pVarStr | pStr
+pub fileReadStr(nCollId, pVarName, pTargetBffr, nTargetLen) : opStatus, pVarStr | pStr, nLen
 '' Tell the RPi to to get named string from collection {nCollId}
     opStatus := OP_FAILURE
     RPi.fstr3(string("file-read:cid=%d%skey=%s\n"), nCollId, @parmSep, pVarName)
@@ -153,7 +153,14 @@ pub fileReadStr(nCollId, pVarName) : opStatus, pVarStr | pStr
     if (opStatus <> OP_SUCCESS)
         debug("fileReadStr: str=[", zstr_(@statusMsg), "]")
     else
-        pVarStr := statusMsg
+        bytefill(pTargetBffr, 0, nTargetLen+1)  ' clear target buffer
+        ' copy return value to target buffer
+        nLen := strsize(@statusMsg)
+        if nLen > nTargetLen
+            nLen := nTargetLen
+        bytemove(pTargetBffr, @statusMsg, nLen)
+        ' return address of received string to caller
+        pVarStr := pTargetBffr
 
 PUB getCollectionNames(nFolderId) : opStatus, pNameSet | pStr
 '' Request the list of filenames found in {nFolderId} on RPi
@@ -166,7 +173,7 @@ PUB getCollectionNames(nFolderId) : opStatus, pNameSet | pStr
     pStr := getString(@bffrRx, RX_BFFR_LEN)
     opStatus := statusParse(pStr)
     if (opStatus <> OP_SUCCESS)
-        debug("fileReadStr: str=[", zstr_(@statusMsg), "]")
+        debug("getCollNames: str=[", zstr_(@statusMsg), "]")
 
 
 PRI getString(pBffr, nBffrMax) : pStr | nRxLenRem, pRxNextChar, nChr
@@ -237,13 +244,18 @@ PRI statusParse(pRxBffr) : nStatus | lenRemaining, sep, idx, nChr, pSrchBffr, pN
         if (nStatus == OP_SUCCESS)
             ' in this case there's more to decode
             ' this should be nCollId= -or- varVal=
-            matchStatus, ignore := indexOfStr(string("nCollId"), pName)
+            matchStatus, ignore := indexOfStr(string("collId"), pName)
             if (matchStatus == 0)
                 parsedFileId := decimalForString(pValue)
             else
                 matchStatus, ignore := indexOfStr(string("varVal"), pName)
                 if (matchStatus == 0)
                     parsedLongVal := decimalForString(pValue)
+                ' also copy string form into status msg buffer to hold it
+                lenRemaining := strsize(pValue)
+                if lenRemaining > RX_BFFR_LEN
+                  lenRemaining := RX_BFFR_LEN   ' ensure fits in buffer
+                bytemove(@statusMsg, pValue, lenRemaining)
 
         else
             ' this should be msg=
