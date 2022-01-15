@@ -123,7 +123,7 @@ Example key-value (KV) pairs:
 
 To facilitate this, we use **Key-Value (KV) Storage Operations** which can be thought of as being a subset of file operations. We don't provide a full set of file read/write create/delete operations but we do provide a simplified but similar set of functions sufficient for moving control and status values between the P2 and the rest of the connected world.
 
-KV pairs are stored on the RPi as **named collections**. Named collections do not have a file-type just a name. In reality these are written to the RPi as `{collectionName}.json` files which enables us to add some fun expanded capability in the future (*think Lists and Hashes/Dictionaries which can contain the same.*)
+KV pairs are stored on the RPi as **named collections**. Named collections do not have a file-type just a name. In reality these are written to the RPi as `{collectionName}.json` files which enables us to add some fun expanded capability in the future.
 
 This table presents our vision of the KV Storage operations we are planning to provide and the status of each:
 
