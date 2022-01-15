@@ -1,0 +1,157 @@
+'' =================================================================================================
+''
+''   File....... demo_p2gw_filerw.spin2
+''   Purpose.... Demonstrate sending an email message
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Jan 2022
+''   Updated.... 12 Jan 2022
+''
+'' =================================================================================================
+
+CON { timing }
+
+  CLK_FREQ = 200_000_000                                        ' system freq as a constant
+  _clkfreq = CLK_FREQ                                           ' set system clock
+
+CON { fixed io pins }
+
+  RX1      = 63  { I }                                          ' programming / debug
+  TX1      = 62  { O }
+
+  SF_CS    = 61  { O }                                          ' serial flash
+  SF_SCK   = 60  { O }
+  SF_SDO   = 59  { O }
+  SF_SDI   = 58  { I }
+
+CON { RPi Gateway io pins }
+
+  RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
+  TX_GW    = 24  { O }
+
+  GW_BAUDRATE = 500_000   ' 500kb/s - allow P2 rx to keep up!
+
+OBJ { Objects Used by this Object }
+
+    gw  :   "RPi-IoT-gw"                                        ' serial I/O
+
+DAT { our email and hardware ID strings }
+
+p2HardwareID    byte    "P2 Edge - GWDemo",0
+
+filename        byte    "p2TmpFile",0
+filename2       byte    "p2TmpFile2",0
+
+ourStringVar    byte    "Some random longish text",0    ' no embedded newlines (but who cares?)
+
+ourVariable     long    $f00d
+
+CON
+
+  RX_BFFR_LEN = 80
+
+VAR { demo buffers }
+
+    byte    rdBuffer[RX_BFFR_LEN+1]
+
+PUB main() | opStatus, fileId, tmpValue, pRetString, bCompStatus, lenResult, nIdx
+    '' DEMO tell our RPi send an email for us
+    gw.startx(RX_GW, TX_GW, GW_BAUDRATE)
+
+    ' (one time) tell the RPi about how to identify this hardware
+    gw.identify(@p2HardwareID)
+
+    ' Let's connect to our file
+    opStatus, fileId := gw.fileAccess(gw.EFI_TMP, gw.FM_WRITE_CREATE, @filename)
+    if opStatus == gw.OP_SUCCESS
+        ' now write a named LONG value to it
+        opStatus := gw.fileWriteLong(fileId, string("ourVariable"), ourVariable)
+        if opStatus == gw.OP_SUCCESS
+            ' and then read the LONG back
+            opStatus, tmpValue := gw.fileReadLong(fileId, string("ourVariable"))
+            if opStatus == gw.OP_SUCCESS
+                ' good read, compare results
+                if ourVariable == tmpValue
+                  ' good read
+                    debug("* main: GOOD match!")
+                else
+                  ' failed read
+                    debug("* main: READ data BAD match!")
+            else
+                ' FAILED read
+                debug("* main: READ Error!")
+        else
+            ' FAILED write
+            debug("* main: WRITE Error!")
+    else
+        ' FAILED open
+        debug("* main: OPEN Error!")
+
+    ' Let's connect to our file
+    opStatus, fileId := gw.fileAccess(gw.EFI_TMP, gw.FM_WRITE_CREATE, @filename2)
+    if opStatus == gw.OP_SUCCESS
+        ' now write a named LONG value to it
+        opStatus := gw.fileWriteStr(fileId, string("ourStringVar"), @ourStringVar)
+        if opStatus == gw.OP_SUCCESS
+            ' and then read the LONG back
+            opStatus, pRetString := gw.fileReadStr(fileId, string("ourStringVar"), @rdBuffer, RX_BFFR_LEN)
+            if opStatus == gw.OP_SUCCESS
+                ' good read, compare results
+                lenResult := strsize(pRetString)
+                if strsize(@rdBuffer) == lenResult
+                  ' good read
+                    debug("* main: GOOD length!")
+                    bCompStatus := True
+                    repeat nIdx from 0 to lenResult - 1
+                        if byte[@rdBuffer][nIdx] <> byte[pRetString][nIdx]
+                            bCompStatus := False
+                            quit
+                    if bCompStatus == True
+                        debug("* main: GOOD string compare!")
+                    else
+                        debug("* main: BAD string compare FAIL!")
+                else
+                  ' failed read
+                    debug("* main: READ data Length mismatch!")
+            else
+                ' FAILED read
+                debug("* main: READ Error!")
+        else
+            ' FAILED write
+            debug("* main: WRITE Error!")
+    else
+        ' FAILED open
+        debug("* main: OPEN Error!")
+
+     ' terminate communiation with our gateway RPi
+    gw.stop()
+
+CON { license }
+{{
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2022 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}

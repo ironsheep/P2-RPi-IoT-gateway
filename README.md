@@ -69,7 +69,7 @@ Initially, we envision that this IoT gateway will support the features/services 
 | Email | |
 | | P2 asks RPi to send an email message to one or more recipients, providing full/partial content for email | WORKING
 | | RPi logs outgoing email from P2 (allowing display on web backend, etc.) | in-progress
-| File Operations ||
+| Named Variable Storage ||
 | | P2 reads values from file(s) on RPi | in-progress
 | | P2 writes values to file(s) on RPi | in-progress
 | | P2 can delete own file(s) from RPi | in-progress
@@ -111,32 +111,36 @@ With simple method call in spin the user identifies the email addressee, the sub
 
 *IDEA: does your P2 project need a way to tell you significant status changes or test results?  Have it send an email to you!*
 
-### SMS (Text Messages) Send/Receive
+### Key-Value Storage Operations
 
-The SMS service allows the P2 to send (*and maybe receive, we'll see as we implement this*) sms / text messages to a specific phone number.   This service also needs the user to create an API Key and record it in the **config.ini** file.
+We want our P2 to be able to save and restore configuration settings for your application. We also want it to be able to send values to be displayed on the RPi web page backend. We also want to be able to influence our P2 behaviors by interacting with a web-page on our RPi. As we interact with the web page, we want the new values to be automatically sent the the P2.
 
-*IDEA: does your P2 project need a way to tell you if something needs attention? Have it text your phone!*
+Example key-value (KV) pairs:
 
-### File Operations
+- `ledColor`=`0x456621`
+- `tempStr`=`"51 F"`
+- `helloStr`=`"Hi there from our P2!"`
 
-We want our P2 to be able to save and restore configuration settings for your application. We also want it to be able to send values to be displayed on the RPi web page backend. We also want to be able to influence our P2 application behaviors by interacting a web-page on our RPi. As we internact we want the new values to be automatically sent the the P2.
+To facilitate this, we use **Key-Value (KV) Storage Operations** which can be thought of as being a subset of file operations. We don't provide a full set of file read/write create/delete operations but we do provide a simplified but similar set of functions sufficient for moving control and status values between the P2 and the rest of the connected world.
 
-All of is accomplished by using the File Operations provided by the gateway.  we are currently thinking that the file operations should consist of:
+KV pairs are stored on the RPi as **named collections**. Named collections do not have a file-type just a name. In reality these are written to the RPi as `{collectionName}.json` files which enables us to add some fun expanded capability in the future (*think Lists and Hashes/Dictionaries which can contain the same.*)
 
-| File Op. | Description |
-| --- | --- |
-| Create/Access a file | Access a file within a known folder (optionally create it if not present) - returns a fileID
-| Write one or more named values to a file | Given a fileID send one or more key/value pairs to the file
-| Read named values from a file | given a fileID read the value(s) for one or more keys from the file
-| Read keys from a file | given a fileID return all the keys for values within the file
-| Load entire file | given a fileID return all the key/value pairs found in the file
-| Remove a file | given a fileID
-| Determine if a file exists | given a folderID and a filename return fileID if file exists
-| List files at a known folder | given a folderID return a list of fileIDs for files found in the folder
-| get file details | given a fileID return details about the file (name, path, size, etc.)
-| list known folders | return a list of folderIDs for known folders
+This table presents our vision of the KV Storage operations we are planning to provide and the status of each:
 
-**NOTE** we are contemplating handling lightweight structured data: lists of values (optionally named) and lists of key/value pairs (also optionally named).
+| KV Storage Op. | Description | Status
+| --- | --- | --- |
+| Create/Access a named collection of KV pairs | Access a file within a known folder (optionally create it if not present) supports [Read, Write, Listen] Modes - returns a fileID | WORKING
+| Write a key value pair to a collection | Given a fileID write a key/value pair to the file (replaces prior value for key if was already in file)| WORKING
+| Read a value for a given key from a collection | given a fileID read the value for a given key from the file | WORKING
+| Read keys from a collection | given a fileID return all the keys found within the file
+| Load entire collection | given a fileID return all the key/value pairs found in the file
+| Remove a collection | given a fileID remove the file
+| Determine if a collection exists | given a folderID and a filename return T/F where T means the file exists
+| List named collections within a known folder | given a folderID return a list of file names found in the folder
+| Get named collection details | given a fileID return details about the file (name, path, size, etc.)
+| List known folders | return a list of folderIDs for known folders
+
+**NOTE** the `.json` storage format on the RPi allows us in the future to support lightweight structured data: lists of values (optionally named) and lists of key/value pairs (also optionally named).
 
 #### Known Folders
 
@@ -144,7 +148,7 @@ We are choosing to use known folders rather than provide access to the entire fi
 
 | Folder | Purpose |
 | --- | --- |
-| TMP | Temporary files written by the P2 which the RPi can occasionally delete.
+| TMP | Temporary files written by the P2 which the RPi can delete as it needs to.
 | VAR | this is where P2 puts its files which are not web-server related.
 | CONTROL | Control files - written by web pages on our RPi. Values are automatically sent to the P2 each time a file appears here or a file here is changed.
 | STATUS | Status files - P2 writes files here which will be loaded by web pages.
@@ -152,21 +156,31 @@ We are choosing to use known folders rather than provide access to the entire fi
 | MAIL | Any Mail archives are written to here by the Gateway Daemon.
 | PROC | /proc like readonly files which provide RPi configuration information.
 
-The actual location within the RPi file system for each of the folders is specified in the **config.ini**. Default locations are provided and each default can be overridden.
+The actual location within the RPi file system for each of the folders is built into our daemon script but can be overridden in the **config.ini**.
 
-### (Future) Twitter Send/Receive
+A shell script is provided to create the directories used.
 
-The Twitter service allows the P2 to send Twitter messaages to and receive Twitter message from the configured Twitter account. Access is provided to the Twitter API by using a user specific API Key which you obtain and then place in the **config.ini** file.
+Another shell script is provided to list file contents of the directories without you having to rememeber where they are. Good for listing the files while you are learning where the various folder are.
+
+### SMS (Text Messages) Send/Receive
+
+The SMS service allows the P2 to send (*and maybe receive, we'll see as we implement this*) sms / text messages to a specific phone number.   This service also needs the user to create an API Key and record it in the **config.ini** file.
+
+*IDEA: does your P2 project need a way to tell you if something needs attention? Have it text your phone!*
+
+### (*Future*) Twitter Send/Receive
+
+The Twitter service allows the P2 to send Twitter messaages to and receive Twitter message from the configured Twitter account. Access is provided to the Twitter API by using a user specific API Key which you obtain and then place in your **config.ini** file.
 
 *IDEA: Imagine using our LED Matrix display to create a live display of Twitter traffic for a specific account!*
 
-### (Future) MQTT Send/Receive
+### (*Future*) MQTT Send/Receive
 
-*Coming Soon!*
+*Coming soon, we hope!*
 
-### (Future) Home Assistant via MQTT Send/Receive
+### (*Future*) Home Assistant via MQTT Send/Receive
 
-*Coming Soon!*
+*Coming soon, we hope!*
 
 ## DEMOs
 
@@ -176,13 +190,24 @@ We keep a growing list of these DEMOs in this section:
 
 | Spin2/webPage File Name(s) | Demonstration | Form | Notes |
 | --- | --- | --- | --- |
-| | Sending email to one or more users from P2 | App |
-| | Display RPi configuration data on our P2 Debug Terminal | App |
-| | Tweet a message from our P2 | App | *Requires Twitter API Key
-| | Display Twitter feed data on our P2 Debug Terminal | App | *Requires Twitter API Key
-| | Send a "Hello World" text from our P2 to a users phone | App | *Requires SMS API Key
+| [demo\_p2gw_email.spin2](P2-Source/demo_p2gw_email.spin2) | Sending email to one or more users from P2 | App |
+| [demo\_p2gw_filerw.spin2](P2-Source/demo_p2gw_filerw.spin2) | Store named values on our RPi and retrieve them from the RPi | App |
+| [demo\_p2gw_ProcRPi.spin2](P2-Source/demo_p2gw_ProcRPi.spin2) | Display RPi configuration data on our P2 Debug Terminal | App |
 | | Display live 1-wire temp sensor data on a web page | App, Web Page |
 | | Change values on a control web page causing values to be shown in P2 Debug Terminal | App, Web Page |
+
+### Future DEMOs
+
+| Spin2/webPage File Name(s) | Demonstration | Form | Notes |
+| --- | --- | --- | --- |
+| | Send a "Hello World" text from our P2 to a users phone | App | *Requires SMS API Key*
+| | Tweet a message from our P2 | App | Requires Twitter API Key
+| | Display Twitter feed data on our P2 Debug Terminal | App | *Requires Twitter API Key
+
+If you an idea for a DEMO you'd like to see here you can do one of two things: 
+
+1. File an Issue *Enhancement Request* and we will consider taking the time to develop and publish it
+1. (Preferred) You can develop the Demo, commit it to your fork of this repository and then submit a *Pull Request* so we can then Merge your contribution into this Repository!
 
 ---
 
