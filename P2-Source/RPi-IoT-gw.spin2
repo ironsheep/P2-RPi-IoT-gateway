@@ -17,7 +17,7 @@ CON { Object Interface: PUBLIC ENUMs }
 
 ' Enum: Folder Id values (EFI_*) - use in fileAccess() calls
   #100, EFI_VAR, EFI_TMP, EFI_CONTROL, EFI_STATUS, EFI_LOG, EFI_MAIL, EFI_PROC
-  #200, FM_READONLY, FM_WRITE, FM_WRITE_CREATE
+  #200, FM_READONLY, FM_WRITE, FM_WRITE_CREATE, FM_LISTEN
 
 CON { fixed io pins }
 
@@ -40,6 +40,7 @@ CON { driver config values}
   RX_VALUE_LEN = 60
   RX_SYSTEM_ID_LEN = 20
 
+  RX_MAX_NAMES = 20
 
 VAR { pin info saves }
 
@@ -47,7 +48,10 @@ VAR { pin info saves }
     long    pinTx
 
     long    parsedFileId
-    byte    parseVarValue[RX_BFFR_LEN+1]
+    long    parsedLongVal
+    long    nameSet[RX_MAX_NAMES+1]
+
+    byte    parsesStrValue[RX_BFFR_LEN+1]
 
     byte    bffrRx[RX_BFFR_LEN+1]
 
@@ -99,34 +103,71 @@ pub sendSMS(pSmsPhoneNbr, pSmsTextMessage)
     RPi.fstr3(string("sms-send:phone=%s%smessage=%s\n"), pSmsPhoneNbr, @parmSep, pSmsTextMessage)
     ' TODO add expectation of return of success or failure
 
-pub fileAccess(folderId, fileMode, pFileName) : opStatus, fileId | pStr
-'' Tell the RPi to to write named value to file {fileId}
-    RPi.fstr5(string("file-access:dir=%d%smode=%d%sfname=%s\n"), folderId, @parmSep, fileMode, @parmSep, pFileName)
+pub fileAccess(nFolderId, nFileMode, pFileName) : opStatus, nCollId | pStr
+'' Tell the RPi to establish access to a named KV collection
+'' - returns {nCollId} our handle to the collection
+    RPi.fstr5(string("file-access:dir=%d%smode=%d%scname=%s\n"), nFolderId, @parmSep, nFileMode, @parmSep, pFileName)
     pStr := getString(@bffrRx, RX_BFFR_LEN)
     ' parse result for success and fileID and return both
     opStatus := statusParse(pStr)
     if (opStatus <> OP_SUCCESS)
         debug("fileAccess: str=[", zstr_(@statusMsg), "]")
     else
-        fileId := parsedFileId
+        nCollId := parsedFileId
 
-pub fileWrite(nFileId, pVarName, nVarValue) : opStatus | pStr
-'' Tell the RPi to to write named value to file {fileId}
+pub fileWriteLong(nCollId, pVarName, nVarValue) : opStatus | pStr
+'' Tell the RPi to to write named long to a collection {nCollId}
     opStatus := OP_FAILURE
-    RPi.fstr5(string("file-write:fid=%d%skey=%s%sval=%d\n"), nFileId, @parmSep, pVarName, @parmSep, nVarValue)
+    RPi.fstr5(string("file-write:cid=%d%skey=%s%sval=%d\n"), nCollId, @parmSep, pVarName, @parmSep, nVarValue)
     pStr := getString(@bffrRx, RX_BFFR_LEN)
     opStatus := statusParse(pStr)
     if (opStatus <> OP_SUCCESS)
-        debug("fileWrite: str=[", zstr_(@statusMsg), "]")
+        debug("fileWriteLong: str=[", zstr_(@statusMsg), "]")
 
-pub fileRead(nFileId, pVarName) : opStatus, varValue | pStr
-'' Tell the RPi to to get named value from file {fileId}
+pub fileReadLong(nCollId, pVarName) : opStatus, nVarValue | pStr
+'' Tell the RPi to to get named long from a collection {nCollId}
     opStatus := OP_FAILURE
-    RPi.fstr3(string("file-read:fid=%d%skey=%s\n"), nFileId, @parmSep, pVarName)
+    RPi.fstr3(string("file-read:cid=%d%skey=%s\n"), nCollId, @parmSep, pVarName)
     pStr := getString(@bffrRx, RX_BFFR_LEN)
     opStatus := statusParse(pStr)
     if (opStatus <> OP_SUCCESS)
-        debug("fileWrite: str=[", zstr_(@statusMsg), "]")
+        debug("fileReadLong: str=[", zstr_(@statusMsg), "]")
+    else
+        nVarValue := parsedLongVal
+
+pub fileWriteStr(nCollId, pVarName, pVarString) : opStatus | pStr
+'' Tell the RPi to to write named string to collection {nCollId}
+    opStatus := OP_FAILURE
+    RPi.fstr5(string("file-write:cid=%d%skey=%s%sval=%s\n"), nCollId, @parmSep, pVarName, @parmSep, pVarString)
+    pStr := getString(@bffrRx, RX_BFFR_LEN)
+    opStatus := statusParse(pStr)
+    if (opStatus <> OP_SUCCESS)
+        debug("fileWriteStr: str=[", zstr_(@statusMsg), "]")
+
+pub fileReadStr(nCollId, pVarName) : opStatus, pVarStr | pStr
+'' Tell the RPi to to get named string from collection {nCollId}
+    opStatus := OP_FAILURE
+    RPi.fstr3(string("file-read:cid=%d%skey=%s\n"), nCollId, @parmSep, pVarName)
+    pStr := getString(@bffrRx, RX_BFFR_LEN)
+    opStatus := statusParse(pStr)
+    if (opStatus <> OP_SUCCESS)
+        debug("fileReadStr: str=[", zstr_(@statusMsg), "]")
+    else
+        pVarStr := statusMsg
+
+PUB getCollectionNames(nFolderId) : opStatus, pNameSet | pStr
+'' Request the list of filenames found in {nFolderId} on RPi
+''
+'' returns {pNameSet} which is the pointer to a contiguous set of longs
+'' the first of which contains the count of additional longs in the set.
+'' each additional long is a pointer to a zstr (name of a collection)
+    opStatus := OP_FAILURE
+    RPi.fstr1(string("folder-list:dir=%d\n"), nFolderId)
+    pStr := getString(@bffrRx, RX_BFFR_LEN)
+    opStatus := statusParse(pStr)
+    if (opStatus <> OP_SUCCESS)
+        debug("fileReadStr: str=[", zstr_(@statusMsg), "]")
+
 
 PRI getString(pBffr, nBffrMax) : pStr | nRxLenRem, pRxNextChar, nChr
 ' read serial input until newline received
@@ -195,10 +236,15 @@ PRI statusParse(pRxBffr) : nStatus | lenRemaining, sep, idx, nChr, pSrchBffr, pN
 
         if (nStatus == OP_SUCCESS)
             ' in this case there's more to decode
-            ' this should be fileId= -or- varVal=
-            matchStatus, ignore := indexOfStr(string("fileId"), pName)
+            ' this should be nCollId= -or- varVal=
+            matchStatus, ignore := indexOfStr(string("nCollId"), pName)
             if (matchStatus == 0)
                 parsedFileId := decimalForString(pValue)
+            else
+                matchStatus, ignore := indexOfStr(string("varVal"), pName)
+                if (matchStatus == 0)
+                    parsedLongVal := decimalForString(pValue)
+
         else
             ' this should be msg=
             matchStatus, ignore := indexOfStr(string("msg"), pName)

@@ -458,27 +458,20 @@ def crateAndSendEmail(emailTo, emailFrom, emailSubj, emailTextLines):
     #  --
     #  Sent From: {objName} {objVer}
     #        Via: {daemonName} {daemonVer}
-    #       Host: RPIName - os name, version
+    #       Host: {RPiName} - {osName}, {osVersion}
     # =================================
     footer = '\n\n--\n'
     objName = runtimeConfig.getValueForConfigVar(runtimeConfig.keyHwName)
     objVer = runtimeConfig.getValueForConfigVar(runtimeConfig.keyObjVer)
     footer += '  Sent From: {} v{}\n'.format(objName, objVer)
     footer += '        Via: {}\n'.format(script_info)
-    # rpi_model_raw=[Raspberry Pi 3 Model B Plus Rev 1.3]
-    # rpi_model=[RPi 3 Model B+ r1.3]
-    # rpi_linux_release=[bullseye]
-    # rpi_linux_version=[5.10.63-v7+]
-    # fqdn_raw=[pip2iotgw]
-    # rpi_fqdn=[pip2iotgw.home]
-    # rpi_hostname=[pip2iotgw]
     footer += '       Host: {} - {}\n'.format(rpi_fqdn, rpi_model)
     footer += '    Running: Kernel v{} ({})\n'.format(rpi_linux_version, rpi_linux_release)
-
+    # format the body text
     body = ''
     for line in emailTextLines:
         body += '{}\n'.format(line)
-
+    # then append our footer
     emailBody = body + footer
 
     if use_sendgrid:
@@ -529,19 +522,23 @@ cmdSendSMS = "sms-send:"
 cmdFileAccess = "file-access:"
 cmdFileWrite = "file-write:"
 cmdFileRead = "file-read:"
+cmdListFolder = "folder-list:"
 
 # file-access named parameters
 keyFileAccDir = "dir"
 keyFileAccMode = "mode"
-keyFileAccFName = "fname"
+keyFileAccFName = "cname"
 fileAccessParmKeys = [ keyFileAccDir, keyFileAccMode, keyFileAccFName]
 
-# file-write named parameters
-keyFileFileID = "fid"
+# file-write, read named parameters
+keyFileFileID = "cid"
 keyFileVarNm = "key"
 keyFileVarVal = "val"
 fileWriteParmKeys = [ keyFileFileID, keyFileVarNm, keyFileVarVal]
-fileReadParmKeys = [ keyFileFileID, keyFileVarNm]
+fileReadParmKeys = [ keyFileFileID, keyFileVarNm ]
+
+# folder list named parameters
+folderListParmKeys = [ keyFileAccDir ]
 
 
 def getNameValuePairs(strRequest, cmdStr):
@@ -661,7 +658,9 @@ def processIncomingRequest(newLine, Ser):
                         fileDict[varKey] = varValue
                         # write the file
                         with open(fspec, "w") as write_file:
-                            json.dump(fileDict, write_file)
+                            json.dump(fileDict, write_file, indent = 4, sort_keys=True)
+                            # append a final newline
+                            write_file.write("\n")
                         # report our operation success to P2 (status only)
                         sendValidationSuccess(Ser, "fwrite", "", "")
             else:

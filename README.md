@@ -158,9 +158,42 @@ We are choosing to use known folders rather than provide access to the entire fi
 
 The actual location within the RPi file system for each of the folders is built into our daemon script but can be overridden in the **config.ini**.
 
-A shell script is provided to create the directories used.
+A shell script `mkGwDirs` is provided to create RPi the directories used.
 
-Another shell script is provided to list file contents of the directories without you having to rememeber where they are. Good for listing the files while you are learning where the various folder are.
+Another shell script `lsGwDirs` is provided to list file contents of the RPi directories without you having to rememeber where they are. Good for listing the files while you are learning where the various folder are.
+
+Example use:
+
+```bash
+$ lsGwDirs 
+* /tmp/P2-RPi-ioT-gateway:
+total 4
+-rw-r--r-- 1 pi pi 31 Jan 14 15:23 p2TmpFile.json
+
+* /var/P2-RPi-ioT-gateway:
+total 16
+drwxrwxr-x 2 daemon users 4096 Jan 11 16:20 control/
+drwxrwxr-x 2 daemon users 4096 Jan 11 16:20 mail/
+drwxrwxr-x 2 daemon users 4096 Jan 11 16:20 proc/
+drwxrwxr-x 2 daemon users 4096 Jan 11 16:20 status/
+
+* /var/P2-RPi-ioT-gateway/control:
+total 0
+
+* /var/P2-RPi-ioT-gateway/status:
+total 0
+
+* /var/log/P2-RPi-ioT-gateway:
+total 0
+
+* /var/P2-RPi-ioT-gateway/mail:
+total 0
+
+* /var/P2-RPi-ioT-gateway/proc:
+total 0
+
+
+```
 
 ### SMS (Text Messages) Send/Receive
 

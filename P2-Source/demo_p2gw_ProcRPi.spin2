@@ -1,13 +1,13 @@
 '' =================================================================================================
 ''
-''   File....... demo_p2gw_filerw.spin2
-''   Purpose.... Demonstrate sending an email message
+''   File....... demo_p2gw_ProcRPi.spin2
+''   Purpose.... Demonstrate reading and displaying RPi config data
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Jan 2022
-''   Updated.... 12 Jan 2022
+''   Updated.... 15 Jan 2022
 ''
 '' =================================================================================================
 
@@ -39,7 +39,7 @@ OBJ { Objects Used by this Object }
 
 DAT { our email and hardware ID strings }
 
-p2HardwareID    byte    "P2 Edge - GWDemo",0
+p2HardwareID    byte    "P2 Edge - GWDemo3",0
 
 filename        byte    "p2TmpFile",0
 filename2       byte    "p2TmpFile2",0
@@ -64,7 +64,7 @@ PUB main() | opStatus, fileId, tmpValue, pRetString, bCompStatus, lenResult, nId
     gw.identify(@p2HardwareID)
 
     ' Let's connect to our file
-    opStatus, fileId := gw.fileAccess(gw.EFI_TMP, gw.FM_WRITE_CREATE, @filename)
+    opStatus, fileId := gw.fileAccess(gw.EFI_TMP, gw.FM_READONLY, @filename)
     if opStatus == gw.OP_SUCCESS
         ' now write a named LONG value to it
         opStatus := gw.fileWriteLong(fileId, string("ourVariable"), ourVariable)
