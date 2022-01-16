@@ -1,13 +1,13 @@
 '' =================================================================================================
 ''
-''   File....... demo_p2gw_email.spin2
-''   Purpose.... Demonstrate sending an email message
+''   File....... demo_p2gw_ProcRPi.spin2
+''   Purpose.... Demonstrate reading and displaying RPi config data
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Jan 2022
-''   Updated.... 11 Jan 2022
+''   Updated.... 15 Jan 2022
 ''
 '' =================================================================================================
 
@@ -39,22 +39,74 @@ OBJ { Objects Used by this Object }
 
 DAT { our email and hardware ID strings }
 
-p2HardwareID    byte    "P2 Edge - GWDemo1",0
+p2HardwareID    byte    "P2 Edge - GWDemo3",0
 
-emailTo         byte    "stephen@ironsheep.biz",0
-emailFrom       byte    "stephen@moraco.us",0
-emailSubj       byte    "Hello from P2!",0
-emailBody       byte    "hi,\n  This is being sent from the P2 via the RPi gateway\n\nRegards,\nYour friendly P2!\n",0
+rpiProcName    byte    "rpiHostInfo",0
 
-PUB main()
+CON
+
+  RX_BFFR_LEN = 80
+
+VAR { demo buffers }
+
+    byte    rdBuffer[RX_BFFR_LEN+1]
+
+PUB main() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt, pRetString
     '' DEMO tell our RPi send an email for us
     gw.startx(RX_GW, TX_GW, GW_BAUDRATE)
 
     ' (one time) tell the RPi about how to identify this hardware
     gw.identify(@p2HardwareID)
 
-    ' (each time we need to send) tell the RPi to send an email message
-    gw.sendEmail(@emailTo, @emailFrom, @emailSubj, @emailBody)
+    ' List collection names found in proc folder
+    opStatus, pNameSet := gw.getCollectionNames(gw.EFI_PROC)
+    if opStatus <> gw.OP_SUCCESS
+       ' FAILED list files in folder
+        debug("* main: List Files in dir Error!")
+    else
+        ' have list, display it
+        nNameCt := LONG[pNameSet][0]
+        debug("-- Collections in ~/proc/ --")
+        if nNameCt == 0
+            debug("  * Empty *")
+        else
+            ' show list content
+            repeat nIdx from 1 to nNameCt
+                pName := LONG[pNameSet][nIdx]
+                debug(" - ", udec_(nIdx), zstr_(pName))
+
+            ' now open RPi collection for READ
+            opStatus, nCollId := gw.fileAccess(gw.EFI_PROC, gw.FM_READONLY, @rpiProcName)
+            if opStatus <> gw.OP_SUCCESS
+                debug("* main: Open Host proc/ file ERROR!")
+            else
+                ' list keys from file
+                opStatus, pKeySet := gw.getKeyNamesInCollection(nCollId)
+                if opStatus <> gw.OP_SUCCESS
+                        debug("* main: List collection keys ERROR!")
+                else
+                ' iterate over keys getting values
+                nKeyCt := LONG[pKeySet][0]
+                debug("-- Keys in [", zstr_(@rpiProcName), "] --")
+                if nNameCt == 0
+                    debug("  * Empty *")
+                else
+                    ' show list content
+                    repeat nIdx from 1 to nKeyCt
+                        pName := LONG[pKeySet][nIdx]
+                        debug(" - ", udec_(nIdx), zstr_(pName))
+
+PRI hold() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt, pRetString
+                    ' for each key read value and show it
+                    repeat nIdx from 1 to nKeyCt
+                        pName := LONG[pKeySet][nIdx]
+                        opStatus, pRetString := gw.fileReadStr(nCollId, pName, @rdBuffer, RX_BFFR_LEN)
+                        if opStatus == gw.OP_SUCCESS
+                            ' good read, display KV pair
+                            debug(" - ", zstr_(pName), ": [", zstr_(pRetString), "]")
+                        else
+                            debug("ERROR: Failed to read value for key=[", zstr_(pName), "]")
+
 
      ' terminate communiation with our gateway RPi
     gw.stop()

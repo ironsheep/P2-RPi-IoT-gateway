@@ -14,9 +14,7 @@ EOF
 `
 
 for DIR in $DIRS; do
-    echo "  -- ${DIR} --  "
-    mkdir ${DIR} 2>/dev/null
-    sudo chown daemon:users ${DIR}
-    sudo chmod 775 ${DIR}
-    ls -ld ${DIR}
+    echo "* ${DIR}:"
+    ls -lF ${DIR}
+    echo ""
 done

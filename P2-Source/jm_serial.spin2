@@ -12,6 +12,7 @@
 ''
 '' =================================================================================================
 
+'' stop bit support added by Stephen M Moraco 13 Jan 2022
 
 con { fixed io pins }
 
@@ -24,6 +25,13 @@ con { smart pin modes }
   TX_MODE = %0000_0000_000_0000000000000_01_11110_0
   RX_MODE = %0000_0000_000_0000000000000_00_11111_0
 
+con { serial confiuration }
+
+    DATA_BITS = 8
+    STOP_BITS = 2
+
+    ' (following ignored for now)
+    #0, PARITY_NONE, PARITY_EVEN, PARITY_ODD
 
 con { pst formatting }
 
@@ -53,6 +61,10 @@ var
 
   long  rxp
   long  txp
+  long  baud
+
+  long  byteMask
+  long  byteExtraBits
 
   byte  pbuf[80]                                                ' padded strings
 
@@ -69,25 +81,41 @@ pub start(baudrate)
   startx(RX1, TX1, baudrate)
 
 
-pub startx(rxpin, txpin, baudrate) | bitperiod, bitmode
+pub startx(rxpin, txpin, baudrate) | bitperiod, bitmode, databits
 
 '' Start simple serial coms on rxpin and txpin at baudrate
 
-  longmove(@rxp, @rxpin, 2)
+  longmove(@rxp, @rxpin, 3)  ' also save baudrate incase driver is asked
   bitperiod := clkfreq / baudrate
+
+  databits := DATA_BITS
+  if (STOP_BITS == 2)
+    databits += 1
 
   bitmode := 7 + (bitperiod << 16)
 
-  pinf(txpin)
-  wrpin(txpin, TX_MODE)
-  wxpin(txpin, bitmode)
-  pinl(txpin)
+  ' setup constants for tx() to use
+    byteMask := $FF
+    if (DATA_BITS == 7)
+      byteMask := $7f
 
-  pinf(rxpin)
-  wrpin(rxpin, RX_MODE)
-  wxpin(rxpin, bitmode)
-  pinl(rxpin)
+    byteExtraBits := 0
+    if (STOP_BITS == 2)
+      byteExtraBits |= $100
 
+  pinf(txp)
+  wrpin(txp, TX_MODE)
+  wxpin(txp, bitmode)
+  pinl(txp)
+
+  pinf(rxp)
+  wrpin(rxp, RX_MODE)
+  wxpin(rxp, bitmode)
+  pinl(rxp)
+
+pub getBaudrate() : baudrate
+'' Return the configured baud rate
+    baudrate := baud    '' was saved by startx()
 
 pub rxflush()
 
@@ -106,6 +134,7 @@ pub rxcheck() : rxbyte | check
   check := pinr(rxp)
   if (check)
     rxbyte := rdpin(rxp) >> 24
+    rxbyte &= byteMask  ' handle 7bit data (e.g., 7N1 vs. 8N1)
 
 
 pub rxtime(ms) : b | mstix, t
@@ -130,9 +159,12 @@ pub rx() : rxbyte
   until (rxbyte >= 0)
 
 
-pub tx(b)
+pub tx(b) | byt, mask
 
 '' Emit byte
+
+  b &= byteMask
+  b |= byteExtraBits
 
   wypin(txp, b)
   txflush()

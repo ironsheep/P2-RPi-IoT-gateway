@@ -17,7 +17,7 @@ CON { Object Interface: PUBLIC ENUMs }
 
 ' Enum: Folder Id values (EFI_*) - use in fileAccess() calls
   #100, EFI_VAR, EFI_TMP, EFI_CONTROL, EFI_STATUS, EFI_LOG, EFI_MAIL, EFI_PROC
-  #200, FM_READONLY, FM_WRITE, FM_WRITE_CREATE
+  #200, FM_READONLY, FM_WRITE, FM_WRITE_CREATE, FM_LISTEN
 
 CON { fixed io pins }
 
@@ -36,15 +36,31 @@ OBJ { Objects Used by this Object }
 
 CON { driver config values}
 
-  RX_BFFR_LEN = 80
+  RX_BFFR_LEN = 128
+  RX_VALUE_LEN = 60
+  RX_SYSTEM_ID_LEN = 20
 
+  RX_MAX_NAMES = 20
 
 VAR { pin info saves }
 
-    long    rx_pin
-    long    tx_pin
+    long    pinRx
+    long    pinTx
 
-    byte    rx_bffr[RX_BFFR_LEN+1]
+    long    parsedFileId
+    long    parsedLongVal
+
+    long    parsedNameSet[RX_MAX_NAMES+1]
+    byte    parsedNamesValue[RX_BFFR_LEN+1]
+
+    byte    parsedStrValue[RX_BFFR_LEN+1]
+
+    byte    bffrRx[RX_BFFR_LEN+1]
+
+    ' filled by statusParse() when error returned
+    byte    statusMsg[RX_BFFR_LEN+1]
+    byte    subsysId[RX_SYSTEM_ID_LEN+1]
+    byte    keyName[RX_SYSTEM_ID_LEN+1]
 
 DAT { string constants }
 
@@ -54,8 +70,8 @@ spin2ver    byte    "0.0.1",0
 ' the following are identical to that found in our deamon python script
 '   (!!!they must be kept in sync!!!)
 parmSep     byte    "^|^",0     ' chars that will not be found in user data
-bodyStart   byte    "emailStart",0
-bodyEnd     byte    "emailEnd",0
+bodyStart   byte    "email|Start",0
+bodyEnd     byte    "email|End",0
 ' -------------------------------
 
 PUB null()
@@ -63,16 +79,16 @@ PUB null()
 
 pub startx(rxpin, txpin, baud)
 '' Start RPi gateway serial coms on rxpin and txpin at baud
-    rx_pin := rxpin
-    tx_pin := txpin
-    RPi.startx(rx_pin, tx_pin, baud)                              ' use user serial port
+    pinRx := rxpin
+    pinTx := txpin
+    RPi.startx(pinRx, pinTx, baud)                              ' use user serial port
 
 pub stop()
 '' Release the serial pins (if needed)
     RPi.rxflush()   ' git rid of any pending input
     ' free the pins used
-    pinf(rx_pin)    ' de-assert
-    pinf(tx_pin)    ' de-assert
+    pinf(pinRx)    ' de-assert
+    pinf(pinTx)    ' de-assert
 
 pub identify(pHardwareId)
 '' Report to the RPi the name of this device (for email signature, etc.)
@@ -89,43 +105,285 @@ pub sendSMS(pSmsPhoneNbr, pSmsTextMessage)
     RPi.fstr3(string("sms-send:phone=%s%smessage=%s\n"), pSmsPhoneNbr, @parmSep, pSmsTextMessage)
     ' TODO add expectation of return of success or failure
 
-pub fileAccess(folderId, fileMode, pFileName) : opStatus, fileId | pStr
-'' Tell the RPi to to write named value to file {fileId}
-    RPi.fstr5(string("file-access:dir=%d%smode=%d%sfname=%s\n"), folderId, @parmSep, fileMode, @parmSep, pFileName)
-    pStr := getString(@rx_bffr, RX_BFFR_LEN)
+pub fileAccess(nFolderId, nFileMode, pFileName) : opStatus, nCollId | pStr
+'' Tell the RPi to establish access to a named KV collection
+'' - returns {nCollId} our handle to the collection
+    RPi.fstr5(string("file-access:dir=%d%smode=%d%scname=%s\n"), nFolderId, @parmSep, nFileMode, @parmSep, pFileName)
+    pStr := readRPiResponse(@bffrRx, RX_BFFR_LEN)
     ' parse result for success and fileID and return both
-    '
+    opStatus := statusParse(pStr)
+    if (opStatus <> OP_SUCCESS)
+        debug("fileAccess: str=[", zstr_(@statusMsg), "]")
+    else
+        nCollId := parsedFileId
+
+pub fileWriteLong(nCollId, pVarName, nVarValue) : opStatus | pStr
+'' Tell the RPi to to write named long to collection {nCollId}
+    opStatus := OP_FAILURE
+    RPi.fstr5(string("file-write:cid=%d%skey=%s%sval=%d\n"), nCollId, @parmSep, pVarName, @parmSep, nVarValue)
+    pStr := readRPiResponse(@bffrRx, RX_BFFR_LEN)
+    opStatus := statusParse(pStr)
+    if (opStatus <> OP_SUCCESS)
+        debug("fileWriteLong: str=[", zstr_(@statusMsg), "]")
+
+pub fileReadLong(nCollId, pVarName) : opStatus, nVarValue | pStr
+'' Tell the RPi to to get named long from collection {nCollId}
+    opStatus := OP_FAILURE
+    RPi.fstr3(string("file-read:cid=%d%skey=%s\n"), nCollId, @parmSep, pVarName)
+    pStr := readRPiResponse(@bffrRx, RX_BFFR_LEN)
+    opStatus := statusParse(pStr)
+    if (opStatus <> OP_SUCCESS)
+        debug("fileReadLong: str=[", zstr_(@statusMsg), "]")
+    else
+        nVarValue := parsedLongVal
+
+pub fileWriteStr(nCollId, pVarName, pVarString) : opStatus | pStr
+'' Tell the RPi to to write named string to collection {nCollId}
+    opStatus := OP_FAILURE
+    RPi.fstr5(string("file-write:cid=%d%skey=%s%sval=%s\n"), nCollId, @parmSep, pVarName, @parmSep, pVarString)
+    pStr := readRPiResponse(@bffrRx, RX_BFFR_LEN)
+    opStatus := statusParse(pStr)
+    if (opStatus <> OP_SUCCESS)
+        debug("fileWriteStr: str=[", zstr_(@statusMsg), "]")
+
+pub fileReadStr(nCollId, pVarName, pTargetBffr, nTargetLen) : opStatus, pVarStr | pStr, nLen
+'' Tell the RPi to to get named string from collection {nCollId}
+    opStatus := OP_FAILURE
+    RPi.fstr3(string("file-read:cid=%d%skey=%s\n"), nCollId, @parmSep, pVarName)
+    pStr := readRPiResponse(@bffrRx, RX_BFFR_LEN)
+    opStatus := statusParse(pStr)
+    if (opStatus <> OP_SUCCESS)
+        debug("fileReadStr: str=[", zstr_(@statusMsg), "]")
+    else
+        bytefill(pTargetBffr, 0, nTargetLen+1)  ' clear target buffer
+        ' copy return value to target buffer
+        nLen := strsize(@statusMsg)
+        if nLen > nTargetLen
+            nLen := nTargetLen
+        bytemove(pTargetBffr, @statusMsg, nLen)
+        ' return address of received string to caller
+        pVarStr := pTargetBffr
+
+PUB getCollectionNames(nFolderId) : opStatus, pNameSet | pStr
+'' Request the list of filenames found in {nFolderId} on RPi
+''
+'' returns {pNameSet} which is the pointer to a contiguous set of longs
+'' the first of which contains the count of additional longs in the set.
+'' each additional long is a pointer to a zstr (name of a collection)
+    opStatus := OP_FAILURE
+    RPi.fstr1(string("folder-list:dir=%d\n"), nFolderId)
+    pStr := readRPiResponse(@bffrRx, RX_BFFR_LEN)
+    ' Ex: folist:status=True^|^ct=2^|^names=P2-P2-Edge-GWDemo3,rpiHostInfo\n'
+    opStatus := statusParse(pStr)
+    if (opStatus <> OP_SUCCESS)
+        debug("getCollNames: str=[", zstr_(@statusMsg), "]")
+    else
+        pNameSet := @parsedNameSet
+
+PUB getKeyNamesInCollection(nCollId) : opStatus, pKeySet | pStr
+'' Request the list of keys found in {nCollId} on RPi
+''
+'' returns {pNameSet} which is the pointer to a contiguous set of longs
+'' the first of which contains the count of additional longs in the set.
+'' each additional long is a pointer to a zstr (key found in collection)
+    opStatus := OP_FAILURE
+    RPi.fstr1(string("key-list:cid=%d\n"), nCollId)
+    pStr := readRPiResponse(@bffrRx, RX_BFFR_LEN)
+    ' Ex: kylist:status=True^|^ct=2^|^names=FQDN,Hostname\n'
+    opStatus := statusParse(pStr)
+    if (opStatus <> OP_SUCCESS)
+        debug("getKeyNames: str=[", zstr_(@statusMsg), "]")
+    else
+        pKeySet := @parsedNameSet
+
+PRI readRPiResponse(pBffr, nBffrMax) : pStr | nRxLenRem, pRxNextChar, nChr
+' read serial input until newline received
+    debug("gStr: entry...")
+    pStr := pBffr
+    nRxLenRem := nBffrMax
+    pRxNextChar := pBffr
+    BYTE[pRxNextChar] := $00   ' start with emtpy string
+    repeat
+        nChr := RPi.rxtime(1000)
+        if (nChr <> -1)
+            if (nChr == $0a)
+                BYTE[pRxNextChar] := $00 ' place term. char
+            else
+                BYTE[pRxNextChar] := nChr
+                BYTE[pRxNextChar + 1] := $00 ' place term. char
+            ' TOO SLOW LOOSING DATA debug("gStr: nChr=[", uhex_byte_(nChr), "-(", lstr_(pRxNextChar, 1), ")]")
+            pRxNextChar++
+            nRxLenRem--
+    until (nChr == $0a or nRxLenRem == 0 or nChr == -1)
+    debug("gStr: str=[", zstr_(pStr), "]")
+
+PRI statusParse(pRxBffr) : nStatus | lenRemaining, sep, nIdx, fullIdx, nChr, pSrchBffr, pName, pValue, ignore, matchStatus, nLongIdx
     ' Examples: "faccess:status=True,fileid=9999,exists=False\n"
     ' Examples: "faccess:status=True,fileid=9999,exists=True\n"
     ' Examples: "faccess:status=False,msg=error dir=999\n"
     ' Examples: "faccess:status=False,msg=error failed-to-create\n"
+    ' Examples: "folist:status=True^|^ct=2^|^names=P2-P2-Edge-GWDemo3,rpiHostInfo\n"
+    ' Examples: "kylist:status=True^|^ct=2^|^names=FQDN,Hostname\n"
+  bytefill(@statusMsg, 0, RX_BFFR_LEN+1)                        ' reset buffers
+  bytefill(@subsysId, 0, RX_SYSTEM_ID_LEN+1)
 
-pub fileWrite(pFileId, pVarName, pVarValue) : opStatus | pStr
-'' Tell the RPi to to write named value to file {fileId}
-    RPi.fstr5(string("file-write:fid=%s%skey=%s%sval=%s\n"), pFileId, @parmSep, pVarName, @parmSep, pVarValue)
-    pStr := getString(@rx_bffr, RX_BFFR_LEN)
+  nStatus := OP_FAILURE ' preset to failure
 
-pub fileRead(pFileId, pVarName) : opStatus, varValue | pStr
-    RPi.fstr3(string("file-read:fid=%s%skey=%s\n"), pFileId, @parmSep, pVarName)
-    pStr := getString(@rx_bffr, RX_BFFR_LEN)
+  pSrchBffr := pRxBffr
+  lenRemaining := strsize(pRxBffr)                                         ' get length of input
+  sep := -1                                                     ' separator not found
 
-PRI getString(pBffr, nBffrMax) : pStr | nRxLenRem, pRxNextChar, nChr
-' read serial input until newline received
-    pStr := pBffr
-    nRxLenRem := nBffrMax
-    pRxNextChar := pBffr
-    nChr := 0
-    repeat
-        if RPi.rxcheck()
-            nChr := RPi.rx()
-            if nChr == $0a
-                byte [pRxNextChar] := $00 ' place term. char
+' copy our subsys ID from rx buffer
+  repeat nIdx from 0 to RX_SYSTEM_ID_LEN
+    nChr := byte[pSrchBffr][nIdx]
+    if (nChr == ":")
+      sep := nIdx                                                  ' mark separator
+    elseif (nChr == $00)
+      byte[pSrchBffr][nIdx] := 0
+      quit
+    if nIdx > lenRemaining
+      quit
+
+  if (lenRemaining > 0)
+    if (sep >= 0)
+      ' record subsystem ID for this status
+      bytemove(@subsysId, pSrchBffr, sep)
+
+    ' point past subsystem ID
+    pSrchBffr := pSrchBffr + sep + 1  ' +1 = point past sep
+
+    ' this should be status=
+    pName, pValue, nIdx := locateNextKeyValue(pSrchBffr)
+    debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
+    fullIdx := nIdx
+
+    matchStatus, ignore := indexOfStr(string("status"), pName)
+    if (matchStatus == 0)
+        matchStatus, ignore := indexOfStr(string("True"), pValue)
+        nStatus := (matchStatus == 0) ? OP_SUCCESS : OP_FAILURE
+
+        ' locate next key/value pair
+        pName, pValue, nIdx := locateNextKeyValue(pSrchBffr + nIdx)
+        debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
+        fullIdx += nIdx
+
+        if (nStatus == OP_SUCCESS)
+            ' in this case there's more to decode
+            ' this should be nCollId= -or- varVal=
+            matchStatus, ignore := indexOfStr(string("collId"), pName)
+            if (matchStatus == 0)
+                parsedFileId := decimalForString(pValue)
             else
-                byte [pRxNextChar] := nChr
-            pRxNextChar++
-            nRxLenRem--
-    until nChr == $0a or nRxLenRem == 0
+                matchStatus, ignore := indexOfStr(string("varVal"), pName)
+                if (matchStatus == 0)
+                    parsedLongVal := decimalForString(pValue)
+                    ' also copy string form into status msg buffer to hold it
+                    lenRemaining := strsize(pValue)
+                    if lenRemaining > RX_BFFR_LEN
+                    lenRemaining := RX_BFFR_LEN   ' ensure fits in buffer
+                    bytemove(@statusMsg, pValue, lenRemaining)
+                else
+                    matchStatus, ignore := indexOfStr(string("ct"), pName)
+                    if (matchStatus == 0)
+                        ' located out count of names
+                        parsedLongVal := decimalForString(pValue)
+                        LONG[@parsedNameSet][0] := parsedLongVal
+                        ' locate next key/value pair
+                        pName, pValue, nIdx := locateNextKeyValue(pSrchBffr + fullIdx)
+                        debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
+                        matchStatus, ignore := indexOfStr(string("names"), pName)
+                        if (matchStatus == 0)
+                            ' located our list of names
+                            lenRemaining := strsize(pValue)
+                            if lenRemaining > RX_BFFR_LEN
+                                lenRemaining := RX_BFFR_LEN
+                            bytefill(@parsedNamesValue, 0, RX_BFFR_LEN+1)            ' reset buffer
+                            bytemove(@parsedNamesValue, pValue, lenRemaining)
+                            debug("- ptr[0]=0x", uhex_long_(LONG[@parsedNameSet][0]))
+                            nLongIdx := 1
+                            LONG[@parsedNameSet][nLongIdx++] := @parsedNamesValue  ' ptr to first name
+                            debug("- ptr[", udec_(nLongIdx-1), "]=0x", uhex_long_(LONG[@parsedNameSet][nLongIdx-1]))
+                            repeat nIdx from 1 to lenRemaining - 1
+                                if BYTE[@parsedNamesValue][nIdx] == $2c ' comma char
+                                    BYTE[@parsedNamesValue][nIdx] := $00  ' terminate prior name string
+                                    LONG[@parsedNameSet][nLongIdx++] := @BYTE[@parsedNamesValue][nIdx + 1] ' ptr to next name
+                                    debug("- ptr[", udec_(nLongIdx-1), "]=0x", uhex_long_(LONG[@parsedNameSet][nLongIdx-1]))
+                                elseif BYTE[@parsedNamesValue][nIdx] == $0a or BYTE[@parsedNamesValue][nIdx] == $00
+                                    quit
+                    else
+                        ' nothing more to do here, no idea what this is....
 
+        else
+            ' this should be msg=
+            matchStatus, ignore := indexOfStr(string("msg"), pName)
+            if (matchStatus == 0)
+                lenRemaining := strsize(pValue)
+                if lenRemaining > RX_BFFR_LEN
+                  lenRemaining := RX_BFFR_LEN   ' ensure fits in buffer
+                bytemove(@statusMsg, pValue, lenRemaining)
+
+PRI decimalForString(pDecimalStr) : decimalValue | nCharCt, nIdx
+    ' convert decimal string to long value
+    decimalValue := 0
+    nCharCt := strsize(pDecimalStr)
+    if (nCharCt > 0)
+        repeat nIdx from 0 to nCharCt - 1
+            decimalValue := (decimalValue * 10) + (byte[pDecimalStr][nIdx] - $30)
+
+PRI locateNextKeyValue(pRxBffr) : pKeyStr, pValueStr, nLength | lenRemaining, endOfPair, endOfKey, valueStartIdx, lenValue, idxNextKey, idxOfValue, multiPairStatus, ignore
+' parse for key-value pair in given string (value ends with $00 or Sep)
+  lenRemaining := strsize(pRxBffr)                  ' get length of input
+  bytefill(@keyName, 0, RX_SYSTEM_ID_LEN+1)         ' reset buffers
+  bytefill(@statusMsg, 0, RX_BFFR_LEN+1)            ' reset buffers
+
+  multiPairStatus, ignore := indexOfStr(@parmSep, pRxBffr)
+
+  endOfKey, idxOfValue := indexOfStr(string("="), pRxBffr)
+
+  if (endOfKey <> -1 )
+    bytemove(@keyName, pRxBffr, endOfKey)
+
+  if (multiPairStatus <> -1)
+    endOfPair, idxNextKey := indexOfStr(@parmSep, pRxBffr)
+    if (endOfPair <> -1 and endOfKey <> -1 and endOfKey < endOfPair)
+        valueStartIdx := endOfKey + 1
+        lenValue := endOfPair - valueStartIdx
+        bytemove(@statusMsg, @byte[pRxBffr][valueStartIdx], lenValue)
+        nLength := idxNextKey
+        pKeyStr := @keyName
+        pValueStr := @statusMsg
+        debug("lnxKV: ", zstr(@keyName), ", ", zstr(@statusMsg), sdec(nLength))
+    else
+      debug("lnxKV: failed to locate KV in [", zstr(pRxBffr),"]")
+  else
+    endOfPair := strsize(pRxBffr)
+    if (endOfKey <> -1 and endOfKey < endOfPair)
+        valueStartIdx := endOfKey + 1
+        lenValue := endOfPair - valueStartIdx
+        bytemove(@statusMsg, @byte[pRxBffr][valueStartIdx], lenValue)
+        nLength := idxNextKey
+        pKeyStr := @keyName
+        pValueStr := @statusMsg
+        debug("lnxKV: ", zstr(@keyName), ", ", zstr(@statusMsg), sdec(nLength))
+    else
+        debug("lnxKV: failed to locate KV in [", zstr(pRxBffr),"]")
+
+PRI indexOfStr(pSrchStr, pRxBffr) : nIdx, idxAfter | lenRemaining, srchLen, srchIdx, srcIdx, bSrchMatch
+  nIdx := -1   ' preset NOT found
+  lenRemaining := strsize(pRxBffr)                  ' get length of input
+  srchLen := strsize(pSrchStr)
+  if (srchLen <= lenRemaining)
+    repeat srcIdx from 0 to lenRemaining - srchLen
+        bSrchMatch := True
+        repeat srchIdx from 0 to srchLen - 1
+          if (byte[pSrchStr][srchIdx] <> byte[pRxBffr][srcIdx + srchIdx])
+            bSrchMatch := False
+            quit    ' abort srchStr compare
+        if bSrchMatch == True
+            nIdx := srcIdx
+            idxAfter := srcIdx + srchLen
+            quit   ' abort rxBuffer compare
+  debug("idxOf: ", zstr(pSrchStr), ", ", zstr(pRxBffr), ", nIdx=", sdec_(nIdx))
 
 CON { license }
 {{

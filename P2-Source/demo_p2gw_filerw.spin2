@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Jan 2022
-''   Updated.... 12 Jan 2022
+''   Updated.... 14 Jan 2022
 ''
 '' =================================================================================================
 
@@ -31,7 +31,7 @@ CON { RPi Gateway io pins }
   RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
   TX_GW    = 24  { O }
 
-  GW_BAUDRATE = 1_000_000   ' 1Mb/s
+  GW_BAUDRATE = 500_000   ' 500kb/s - allow P2 rx to keep up!
 
 OBJ { Objects Used by this Object }
 
@@ -39,36 +39,91 @@ OBJ { Objects Used by this Object }
 
 DAT { our email and hardware ID strings }
 
-p2HardwareID    byte    "P2 Edge - GWDemo",0
+p2HardwareID    byte    "P2 Edge - GWDemo2",0
 
 filename        byte    "p2TmpFile",0
+filename2       byte    "p2TmpFile2",0
+
+ourStringVar    byte    "Some random longish text",0    ' no embedded newlines (but who cares?)
 
 ourVariable     long    $f00d
 
-PUB main() | opStatus, fileId, tmpValue
+CON
+
+  RX_BFFR_LEN = 80
+
+VAR { demo buffers }
+
+    byte    rdBuffer[RX_BFFR_LEN+1]
+
+PUB main() | opStatus, fileId, tmpValue, pRetString, bCompStatus, lenResult, nIdx
     '' DEMO tell our RPi send an email for us
     gw.startx(RX_GW, TX_GW, GW_BAUDRATE)
 
     ' (one time) tell the RPi about how to identify this hardware
     gw.identify(@p2HardwareID)
 
-    ' (Let's connect to our file
-    opStatus, fileId := gw.fileAccess(gw.EFI_TMP, gw.FM_WRITE, @filename)
+    ' Let's connect to our file
+    opStatus, fileId := gw.fileAccess(gw.EFI_TMP, gw.FM_WRITE_CREATE, @filename)
     if opStatus == gw.OP_SUCCESS
-        ' now write a named value to it
-        waitms(100)
-        opStatus := gw.fileWrite(fileId, string("ourVariable"), ourVariable)
+        ' now write a named LONG value to it
+        opStatus := gw.fileWriteLong(fileId, string("ourVariable"), ourVariable)
         if opStatus == gw.OP_SUCCESS
-            ' and then read it back
-            opStatus, tmpValue := gw.fileRead(fileId, string("ourVariable"))
+            ' and then read the LONG back
+            opStatus, tmpValue := gw.fileReadLong(fileId, string("ourVariable"))
             if opStatus == gw.OP_SUCCESS
-                ' good read, compare/dump results
+                ' good read, compare results
+                if ourVariable == tmpValue
+                  ' good read
+                    debug("* main: GOOD match!")
+                else
+                  ' failed read
+                    debug("* main: READ data BAD match!")
             else
                 ' FAILED read
+                debug("* main: READ Error!")
         else
             ' FAILED write
+            debug("* main: WRITE Error!")
     else
         ' FAILED open
+        debug("* main: OPEN Error!")
+
+    ' Let's connect to our file
+    opStatus, fileId := gw.fileAccess(gw.EFI_TMP, gw.FM_WRITE_CREATE, @filename2)
+    if opStatus == gw.OP_SUCCESS
+        ' now write a named LONG value to it
+        opStatus := gw.fileWriteStr(fileId, string("ourStringVar"), @ourStringVar)
+        if opStatus == gw.OP_SUCCESS
+            ' and then read the LONG back
+            opStatus, pRetString := gw.fileReadStr(fileId, string("ourStringVar"), @rdBuffer, RX_BFFR_LEN)
+            if opStatus == gw.OP_SUCCESS
+                ' good read, compare results
+                lenResult := strsize(pRetString)
+                if strsize(@rdBuffer) == lenResult
+                  ' good read
+                    debug("* main: GOOD length!")
+                    bCompStatus := True
+                    repeat nIdx from 0 to lenResult - 1
+                        if byte[@rdBuffer][nIdx] <> byte[pRetString][nIdx]
+                            bCompStatus := False
+                            quit
+                    if bCompStatus == True
+                        debug("* main: GOOD string compare!")
+                    else
+                        debug("* main: BAD string compare FAIL!")
+                else
+                  ' failed read
+                    debug("* main: READ data Length mismatch!")
+            else
+                ' FAILED read
+                debug("* main: READ Error!")
+        else
+            ' FAILED write
+            debug("* main: WRITE Error!")
+    else
+        ' FAILED open
+        debug("* main: OPEN Error!")
 
      ' terminate communiation with our gateway RPi
     gw.stop()
