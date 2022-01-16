@@ -80,12 +80,12 @@ Now let's test both the server and the php execution under the server:
 
 Browse to `http://{fullrpihostname|or ip address}/` - this should display the default web page:
 
-![RPi New install Web page](Docs/Images/DefaultWWWPage.png)
+![RPi New install Web page](./Docs/images/DefaultWWWPage.png)
 
 Next, browse to `http://{fullrpihostname|or ip address}/info.php` - this should display the new PHP Info page:
 
 
-![New PHP Info Page](Docs/Images/NewPhpInfoPage.png)
+![New PHP Info Page](./Docs/Images/NewPhpInfoPage.png)
 
 If you are seeing these pages the Apache2 web server and the PHP interpreter packages are installed and working. You are now ready to play with the new Web Served P2 data DEMOs!
 
