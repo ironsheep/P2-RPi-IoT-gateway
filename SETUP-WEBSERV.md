@@ -85,7 +85,7 @@ Browse to `http://{fullrpihostname|or ip address}/` - this should display the de
 Next, browse to `http://{fullrpihostname|or ip address}/info.php` - this should display the new PHP Info page:
 
 
-![New PHP Info Page](./Docs/Images/NewPhpInfoPage.png)
+![New PHP Info Page](./Docs/images/NewPhpInfoPage.png)
 
 If you are seeing these pages the Apache2 web server and the PHP interpreter packages are installed and working. You are now ready to play with the new Web Served P2 data DEMOs!
 
