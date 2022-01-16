@@ -70,8 +70,8 @@ Initially, we envision that this IoT gateway will support the features/services 
 | | P2 asks RPi to send an email message to one or more recipients, providing full/partial content for email | WORKING
 | | RPi logs outgoing email from P2 (allowing display on web backend, etc.) | in-progress
 | Named Variable Storage ||
-| | P2 reads values from file(s) on RPi | in-progress
-| | P2 writes values to file(s) on RPi | in-progress
+| | P2 reads values from file(s) on RPi | WORKING
+| | P2 writes values to file(s) on RPi | WORKING
 | | P2 can delete own file(s) from RPi | in-progress
 | Web Server| |
 | | P2 sends values that are shown on a web page served from RPi (using file services)| up-next
@@ -132,11 +132,11 @@ This table presents our vision of the KV Storage operations we are planning to p
 | Create/Access a named collection of KV pairs | Access a file within a known folder (optionally create it if not present) supports [Read, Write, Listen] Modes - returns a fileID | WORKING
 | Write a key value pair to a collection | Given a fileID write a key/value pair to the file (replaces prior value for key if was already in file)| WORKING
 | Read a value for a given key from a collection | given a fileID read the value for a given key from the file | WORKING
-| Read keys from a collection | given a fileID return all the keys found within the file
+| Read keys from a collection | given a fileID return all the keys found within the file | WORKING
 | Load entire collection | given a fileID return all the key/value pairs found in the file
 | Remove a collection | given a fileID remove the file
 | Determine if a collection exists | given a folderID and a filename return T/F where T means the file exists
-| List named collections within a known folder | given a folderID return a list of file names found in the folder
+| List named collections within a known folder | given a folderID return a list of file names found in the folder| WORKING
 | Get named collection details | given a fileID return details about the file (name, path, size, etc.)
 | List known folders | return a list of folderIDs for known folders
 
@@ -225,7 +225,7 @@ We keep a growing list of these DEMOs in this section:
 | --- | --- | --- | --- |
 | [demo\_p2gw_email.spin2](P2-Source/demo_p2gw_email.spin2) | Sending email to one or more users from P2 | App | WORKING
 | [demo\_p2gw_filerw.spin2](P2-Source/demo_p2gw_filerw.spin2) | Store named values on our RPi and retrieve them from the RPi | App | WORKING
-| [demo\_p2gw_ProcRPi.spin2](P2-Source/demo_p2gw_ProcRPi.spin2) | Display RPi configuration data on our P2 Debug Terminal | App | In-progress
+| [demo\_p2gw_ProcRPi.spin2](P2-Source/demo_p2gw_ProcRPi.spin2) | Display RPi configuration data on our P2 Debug Terminal | App | WORKING
 | | Display live 1-wire temp sensor data on a web page | App, Web Page |
 | | Change values on a control web page causing values to be shown in P2 Debug Terminal | App, Web Page |
 

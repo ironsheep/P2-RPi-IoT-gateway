@@ -520,6 +520,7 @@ cmdFileAccess = "file-access:"
 cmdFileWrite = "file-write:"
 cmdFileRead = "file-read:"
 cmdListFolder = "folder-list:"
+cmdListKeys = "key-list:"
 
 # file-access named parameters
 keyFileAccDir = "dir"
@@ -536,6 +537,7 @@ fileReadParmKeys = [ keyFileFileID, keyFileVarNm ]
 
 # folder list named parameters
 folderListParmKeys = [ keyFileAccDir ]
+keyListParmKeys = [ keyFileFileID ]
 
 
 def getNameValuePairs(strRequest, cmdStr):
@@ -603,7 +605,7 @@ def processIncomingRequest(newLine, Ser):
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing hardware keys !'.format(len(newLine), newLine), warning=True)
 
     elif newLine.startswith(cmdListFolder):
-        print_line('* HANDLE send email', info=True)
+        print_line('* HANDLE list collections', info=True)
         nameValuePairs = getNameValuePairs(newLine, cmdListFolder)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -618,12 +620,13 @@ def processIncomingRequest(newLine, Ser):
                         break
                 if not bHaveAllKeys:
                     errorTxt = 'missing folder-list named parameter [{}]'.format(missingParmName)
+                    sendValidationError(Ser, "folist", errorTxt)
                 else:
                     # validate dirID is valid Enum number
                     dirID = int(findingsDict[keyFileAccDir])
                     if dirID not in FolderId._value2member_map_:    # in list of valid Enum numbers?
                         errorTxt = 'bad parm dir={} - unknown folder ID'.format(dirID)
-                        sendValidationError(Ser, "faccess", errorTxt)
+                        sendValidationError(Ser, "folist", errorTxt)
                     else:
                         # good request now list all files in dir
                         dirSpec = folderSpecByFolderId[FolderId(dirID)]
@@ -646,7 +649,56 @@ def processIncomingRequest(newLine, Ser):
                             resultStr = '{}'.format(fnameCt)
                         sendValidationSuccess(Ser, "folist", "ct", resultStr)
         else:
-            print_line('processIncomingRequest nameValueStr({})=({}) ! missing email params !'.format(len(newLine), newLine), warning=True)
+            print_line('processIncomingRequest nameValueStr({})=({}) ! missing list files params !'.format(len(newLine), newLine), warning=True)
+
+    elif newLine.startswith(cmdListKeys):
+        print_line('* HANDLE list keys in collection', info=True)
+        nameValuePairs = getNameValuePairs(newLine, cmdListKeys)
+        if len(nameValuePairs) > 0:
+            findingsDict = processNameValuePairs(nameValuePairs)
+            if len(findingsDict) > 0:
+                # validate all keys exist
+                bHaveAllKeys = True
+                missingParmName = ''
+                for requiredKey in keyListParmKeys:
+                    if requiredKey not in findingsDict.keys():
+                        HaveAllKeys = False
+                        missingParmName = requiredKey
+                        break
+                if not bHaveAllKeys:
+                    errorTxt = 'missing keys-list named parameter [{}]'.format(missingParmName)
+                    sendValidationError(Ser, "kylist", errorTxt)
+                else:
+                    # validate dirID is valid Enum number
+                    fileIdStr = findingsDict[keyFileFileID]
+                    if not fileHandles.isValidHandle(fileIdStr):
+                        errorTxt = 'BAD file handle [{}]'.format(fileIdStr)
+                        sendValidationError(Ser, "kylist", errorTxt)
+                    else:
+                        fspec = fileHandles.fpsecForHandle(fileIdStr)
+                        # good request now list all keys in collection
+                        filesize = os.path.getsize(fspec)
+                        fileDict = {}   # start empty
+                        keysAr = []
+                        if filesize > 0:    # if we have existing content, preload it
+                            with open(fspec, "r") as read_file:
+                                fileDict = json.load(read_file)
+                                keysAr = fileDict.keys()
+                        print_line('processIncomingRequest keysAr({})=({})'.format(len(keysAr), keysAr), debug=True)
+                        fileBaseNamesAr = []
+                        keyNameLst = ''
+                        keyCt = len(keysAr)
+                        resultStr = ''
+                        if keyCt > 0:
+                            # have 1 or more files
+                            keyNameLst = ','.join(keysAr)
+                            resultStr = '{}{}names={}'.format(keyCt, parm_sep, keyNameLst)
+                        else:
+                            # have NO files in dir
+                            resultStr = '{}'.format(keyCt)
+                        sendValidationSuccess(Ser, "kylist", "ct", resultStr)
+        else:
+            print_line('processIncomingRequest nameValueStr({})=({}) ! missing list files params !'.format(len(newLine), newLine), warning=True)
 
     elif newLine.startswith(cmdSendEmail):
         print_line('* HANDLE send email', info=True)
@@ -733,7 +785,7 @@ def processIncomingRequest(newLine, Ser):
                 else:
                     fileIdStr = findingsDict[keyFileFileID]
                     if not fileHandles.isValidHandle(fileIdStr):
-                        errorTxt = 'BAD read file handle [{}]'.format(fileIdStr)
+                        errorTxt = 'BAD file handle [{}]'.format(fileIdStr)
                         sendValidationError(Ser, "fread", errorTxt)
                     else:
                         fspec = fileHandles.fpsecForHandle(fileIdStr)
@@ -742,7 +794,7 @@ def processIncomingRequest(newLine, Ser):
                         with open(fspec, "r") as read_file:
                             fileDict = json.load(read_file)
                         if not varKey in fileDict.keys():
-                            errorTxt = 'BAD read file handle [{}]'.format(fileIdStr)
+                            errorTxt = 'BAD Key - Key not found [{}]'.format(varKey)
                             sendValidationError(Ser, "fread", errorTxt)
                         else:
                             desiredValue = fileDict[varKey]
@@ -820,7 +872,7 @@ def sendValidationError(Ser, cmdPrefixStr, errorMessage):
     successStatus = False
     responseStr = '{}:status={}{}msg={}\n'.format(cmdPrefixStr, successStatus, parm_sep, errorMessage)
     newOutLine = responseStr.encode('utf-8')
-    print_line('sendValidationError line({})=[{}]'.format(len(newOutLine), newOutLine), debug=True)
+    print_line('sendValidationError line({})=[{}]'.format(len(newOutLine), newOutLine), error=True)
     Ser.write(newOutLine)
 
 def sendValidationSuccess(Ser, cmdPrefixStr, returnKeyStr, returnValueStr):
@@ -907,7 +959,7 @@ for dirSpec in folderSpecByFolderId.values():
         else:
             print_line('Dir [{}] created!'.format(dirSpec), verbose=True)
     else:
-        print_line('Dir [{}] - OK'.format(dirSpec), verbose=True)
+        print_line('Dir [{}] - OK'.format(dirSpec), debug=True)
 
 # start our input task
 # 1,440,000 = 150x 9600 baud
