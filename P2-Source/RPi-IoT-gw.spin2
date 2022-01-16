@@ -49,9 +49,9 @@ VAR { pin info saves }
 
     long    parsedFileId
     long    parsedLongVal
-    long    nameSet[RX_MAX_NAMES+1]
+    long    parsedNameSet[RX_MAX_NAMES+1]
 
-    byte    parsesStrValue[RX_BFFR_LEN+1]
+    byte    parsedStrValue[RX_BFFR_LEN+1]
 
     byte    bffrRx[RX_BFFR_LEN+1]
 
@@ -171,9 +171,12 @@ PUB getCollectionNames(nFolderId) : opStatus, pNameSet | pStr
     opStatus := OP_FAILURE
     RPi.fstr1(string("folder-list:dir=%d\n"), nFolderId)
     pStr := getString(@bffrRx, RX_BFFR_LEN)
+    ' Ex: folist:status=True^|^ct=2^|^names=P2-P2-Edge-GWDemo3,rpiHostInfo\n'
     opStatus := statusParse(pStr)
     if (opStatus <> OP_SUCCESS)
         debug("getCollNames: str=[", zstr_(@statusMsg), "]")
+    else
+        pNameSet := @parsedNameSet
 
 
 PRI getString(pBffr, nBffrMax) : pStr | nRxLenRem, pRxNextChar, nChr
@@ -197,11 +200,12 @@ PRI getString(pBffr, nBffrMax) : pStr | nRxLenRem, pRxNextChar, nChr
     until (nChr == $0a or nRxLenRem == 0 or nChr == -1)
     debug("gStr: str=[", zstr_(pStr), "]")
 
-PRI statusParse(pRxBffr) : nStatus | lenRemaining, sep, idx, nChr, pSrchBffr, pName, pValue, ignore, matchStatus
+PRI statusParse(pRxBffr) : nStatus | lenRemaining, sep, nIdx, fullIdx, nChr, pSrchBffr, pName, pValue, ignore, matchStatus, nLongIdx
     ' Examples: "faccess:status=True,fileid=9999,exists=False\n"
     ' Examples: "faccess:status=True,fileid=9999,exists=True\n"
     ' Examples: "faccess:status=False,msg=error dir=999\n"
     ' Examples: "faccess:status=False,msg=error failed-to-create\n"
+    ' Examples: "folist:status=True^|^ct=2^|^names=P2-P2-Edge-GWDemo3,rpiHostInfo\n"
   bytefill(@statusMsg, 0, RX_BFFR_LEN+1)                        ' reset buffers
   bytefill(@subsysId, 0, RX_SYSTEM_ID_LEN+1)
 
@@ -212,14 +216,14 @@ PRI statusParse(pRxBffr) : nStatus | lenRemaining, sep, idx, nChr, pSrchBffr, pN
   sep := -1                                                     ' separator not found
 
 ' copy our subsys ID from rx buffer
-  repeat idx from 0 to RX_SYSTEM_ID_LEN
-    nChr := byte[pSrchBffr][idx]
+  repeat nIdx from 0 to RX_SYSTEM_ID_LEN
+    nChr := byte[pSrchBffr][nIdx]
     if (nChr == ":")
-      sep := idx                                                  ' mark separator
+      sep := nIdx                                                  ' mark separator
     elseif (nChr == $00)
-      byte[pSrchBffr][idx] := 0
+      byte[pSrchBffr][nIdx] := 0
       quit
-    if idx > lenRemaining
+    if nIdx > lenRemaining
       quit
 
   if (lenRemaining > 0)
@@ -231,15 +235,19 @@ PRI statusParse(pRxBffr) : nStatus | lenRemaining, sep, idx, nChr, pSrchBffr, pN
     pSrchBffr := pSrchBffr + sep + 1  ' +1 = point past sep
 
     ' this should be status=
-    pName, pValue, idx := locateNextKeyValue(pSrchBffr)
-    debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(idx))
+    pName, pValue, nIdx := locateNextKeyValue(pSrchBffr)
+    debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
+    fullIdx := nIdx
 
     matchStatus, ignore := indexOfStr(string("status"), pName)
     if (matchStatus == 0)
         matchStatus, ignore := indexOfStr(string("True"), pValue)
         nStatus := (matchStatus == 0) ? OP_SUCCESS : OP_FAILURE
-        pName, pValue, idx := locateNextKeyValue(pSrchBffr + idx)
-        debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(idx))
+
+        ' locate next key/value pair
+        pName, pValue, nIdx := locateNextKeyValue(pSrchBffr + nIdx)
+        debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
+        fullIdx += nIdx
 
         if (nStatus == OP_SUCCESS)
             ' in this case there's more to decode
@@ -251,11 +259,41 @@ PRI statusParse(pRxBffr) : nStatus | lenRemaining, sep, idx, nChr, pSrchBffr, pN
                 matchStatus, ignore := indexOfStr(string("varVal"), pName)
                 if (matchStatus == 0)
                     parsedLongVal := decimalForString(pValue)
-                ' also copy string form into status msg buffer to hold it
-                lenRemaining := strsize(pValue)
-                if lenRemaining > RX_BFFR_LEN
-                  lenRemaining := RX_BFFR_LEN   ' ensure fits in buffer
-                bytemove(@statusMsg, pValue, lenRemaining)
+                    ' also copy string form into status msg buffer to hold it
+                    lenRemaining := strsize(pValue)
+                    if lenRemaining > RX_BFFR_LEN
+                    lenRemaining := RX_BFFR_LEN   ' ensure fits in buffer
+                    bytemove(@statusMsg, pValue, lenRemaining)
+                else
+                    matchStatus, ignore := indexOfStr(string("ct"), pName)
+                    if (matchStatus == 0)
+                        ' located out count of names
+                        parsedLongVal := decimalForString(pValue)
+                        LONG[@parsedNameSet][0] := parsedLongVal
+                        ' locate next key/value pair
+                        pName, pValue, nIdx := locateNextKeyValue(pSrchBffr + fullIdx)
+                        debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
+                        matchStatus, ignore := indexOfStr(string("names"), pName)
+                        if (matchStatus == 0)
+                            ' located our list of names
+                            lenRemaining := strsize(pValue)
+                            if lenRemaining > RX_BFFR_LEN
+                                lenRemaining := RX_BFFR_LEN
+                            bytefill(@parsedStrValue, 0, RX_BFFR_LEN+1)            ' reset buffer
+                            bytemove(@parsedStrValue, pValue, lenRemaining)
+                            debug("- ptr[0]=0x", uhex_long_(LONG[@parsedNameSet][0]))
+                            nLongIdx := 1
+                            LONG[@parsedNameSet][nLongIdx++] := @parsedStrValue  ' ptr to first name
+                            debug("- ptr[", udec_(nLongIdx-1), "]=0x", uhex_long_(LONG[@parsedNameSet][nLongIdx-1]))
+                            repeat nIdx from 1 to lenRemaining - 1
+                                if BYTE[@parsedStrValue][nIdx] == $2c ' comma char
+                                    BYTE[@parsedStrValue][nIdx] := $00  ' terminate prior name string
+                                    LONG[@parsedNameSet][nLongIdx++] := @BYTE[@parsedStrValue][nIdx + 1] ' ptr to next name
+                                    debug("- ptr[", udec_(nLongIdx-1), "]=0x", uhex_long_(LONG[@parsedNameSet][nLongIdx-1]))
+                                elseif BYTE[@parsedStrValue][nIdx] == $0a or BYTE[@parsedStrValue][nIdx] == $00
+                                    quit
+                    else
+                        ' nothing more to do here, no idea what this is....
 
         else
             ' this should be msg=
@@ -312,8 +350,8 @@ PRI locateNextKeyValue(pRxBffr) : pKeyStr, pValueStr, nLength | lenRemaining, en
     else
         debug("lnxKV: failed to locate KV in [", zstr(pRxBffr),"]")
 
-PRI indexOfStr(pSrchStr, pRxBffr) : idx, idxAfter | lenRemaining, srchLen, srchIdx, srcIdx, bSrchMatch
-  idx := -1   ' preset NOT found
+PRI indexOfStr(pSrchStr, pRxBffr) : nIdx, idxAfter | lenRemaining, srchLen, srchIdx, srcIdx, bSrchMatch
+  nIdx := -1   ' preset NOT found
   lenRemaining := strsize(pRxBffr)                  ' get length of input
   srchLen := strsize(pSrchStr)
   if (srchLen <= lenRemaining)
@@ -324,10 +362,10 @@ PRI indexOfStr(pSrchStr, pRxBffr) : idx, idxAfter | lenRemaining, srchLen, srchI
             bSrchMatch := False
             quit    ' abort srchStr compare
         if bSrchMatch == True
-            idx := srcIdx
+            nIdx := srcIdx
             idxAfter := srcIdx + srchLen
             quit   ' abort rxBuffer compare
-  debug("idxOf: ", zstr(pSrchStr), ", ", zstr(pRxBffr), ", idx=", sdec_(idx))
+  debug("idxOf: ", zstr(pSrchStr), ", ", zstr(pRxBffr), ", nIdx=", sdec_(nIdx))
 
 CON { license }
 {{

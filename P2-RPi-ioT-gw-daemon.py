@@ -187,102 +187,98 @@ print_line('CONFIG: sendgrid_from_addr=[{}]'.format(sendgrid_from_addr), debug=T
 # -----------------------------------------------------------------------------
 #  methods indentifying RPi host hardware/software
 # -----------------------------------------------------------------------------
-rpi_model = '??'
-rpi_model_raw = '??'
-rpi_linux_release = '??'
-rpi_linux_version = '??'
-rpi_hostname = '??'
-rpi_fqdn = '??'
-
-def identifyRPiHost():
-    global rpi_model
-    global rpi_model_raw
-    global rpi_linux_release
-    global rpi_linux_version
-    global rpi_hostname
-    global rpi_fqdn
-    rpi_model, rpi_model_raw = getDeviceModel()
-    rpi_linux_release = getLinuxRelease()
-    rpi_linux_version = getLinuxVersion()
-    rpi_hostname, rpi_fqdn = getHostnames()
-
-def getDeviceModel():
-    out = subprocess.Popen("/bin/cat /proc/device-tree/model | /bin/sed -e 's/\\x0//g'",
-                           shell=True,
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.STDOUT)
-    stdout, _ = out.communicate()
-    model_raw = stdout.decode('utf-8')
-    # now reduce string length (just more compact, same info)
-    model = model_raw.replace('Raspberry ', 'R').replace(
-        'i Model ', 'i 1 Model').replace('Rev ', 'r').replace(' Plus ', '+ ')
-
-    print_line('rpi_model_raw=[{}]'.format(model_raw), debug=True)
-    print_line('rpi_model=[{}]'.format(model), debug=True)
-    return model, model_raw
-
-def getLinuxRelease():
-    out = subprocess.Popen("/bin/cat /etc/apt/sources.list | /bin/egrep -v '#' | /usr/bin/awk '{ print $3 }' | /bin/grep . | /usr/bin/sort -u",
-                           shell=True,
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.STDOUT)
-    stdout, _ = out.communicate()
-    linux_release = stdout.decode('utf-8').rstrip()
-    print_line('rpi_linux_release=[{}]'.format(linux_release), debug=True)
-    return linux_release
 
 
-def getLinuxVersion():
-    out = subprocess.Popen("/bin/uname -r",
-                           shell=True,
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.STDOUT)
-    stdout, _ = out.communicate()
-    linux_version = stdout.decode('utf-8').rstrip()
-    print_line('rpi_linux_version=[{}]'.format(linux_version), debug=True)
-    return linux_version
+class RPiHostInfo:
+
+    def getDeviceModel(self):
+        out = subprocess.Popen("/bin/cat /proc/device-tree/model | /bin/sed -e 's/\\x0//g'",
+                            shell=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT)
+        stdout, _ = out.communicate()
+        model_raw = stdout.decode('utf-8')
+        # now reduce string length (just more compact, same info)
+        model = model_raw.replace('Raspberry ', 'R').replace(
+            'i Model ', 'i 1 Model').replace('Rev ', 'r').replace(' Plus ', '+ ')
+
+        print_line('rpi_model_raw=[{}]'.format(model_raw), debug=True)
+        print_line('rpi_model=[{}]'.format(model), debug=True)
+        return model, model_raw
+
+    def getLinuxRelease(self):
+        out = subprocess.Popen("/bin/cat /etc/apt/sources.list | /bin/egrep -v '#' | /usr/bin/awk '{ print $3 }' | /bin/grep . | /usr/bin/sort -u",
+                            shell=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT)
+        stdout, _ = out.communicate()
+        linux_release = stdout.decode('utf-8').rstrip()
+        print_line('rpi_linux_release=[{}]'.format(linux_release), debug=True)
+        return linux_release
 
 
-def getHostnames():
-    out = subprocess.Popen("/bin/hostname -f",
-                           shell=True,
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.STDOUT)
-    stdout, _ = out.communicate()
-    fqdn_raw = stdout.decode('utf-8').rstrip()
-    print_line('fqdn_raw=[{}]'.format(fqdn_raw), debug=True)
-    lcl_hostname = fqdn_raw
-    if '.' in fqdn_raw:
-        # have good fqdn
-        nameParts = fqdn_raw.split('.')
-        lcl_fqdn = fqdn_raw
-        tmpHostname = nameParts[0]
-    else:
-        # missing domain, if we have a fallback apply it
-        if len(fallback_domain) > 0:
-            lcl_fqdn = '{}.{}'.format(fqdn_raw, fallback_domain)
+    def getLinuxVersion(self):
+        out = subprocess.Popen("/bin/uname -r",
+                            shell=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT)
+        stdout, _ = out.communicate()
+        linux_version = stdout.decode('utf-8').rstrip()
+        print_line('rpi_linux_version=[{}]'.format(linux_version), debug=True)
+        return linux_version
+
+
+    def getHostnames(self):
+        out = subprocess.Popen("/bin/hostname -f",
+                            shell=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT)
+        stdout, _ = out.communicate()
+        fqdn_raw = stdout.decode('utf-8').rstrip()
+        print_line('fqdn_raw=[{}]'.format(fqdn_raw), debug=True)
+        lcl_hostname = fqdn_raw
+        if '.' in fqdn_raw:
+            # have good fqdn
+            nameParts = fqdn_raw.split('.')
+            lcl_fqdn = fqdn_raw
+            tmpHostname = nameParts[0]
         else:
-            lcl_fqdn = lcl_hostname
+            # missing domain, if we have a fallback apply it
+            if len(fallback_domain) > 0:
+                lcl_fqdn = '{}.{}'.format(fqdn_raw, fallback_domain)
+            else:
+                lcl_fqdn = lcl_hostname
 
-    print_line('rpi_fqdn=[{}]'.format(lcl_fqdn), debug=True)
-    print_line('rpi_hostname=[{}]'.format(lcl_hostname), debug=True)
-    return lcl_hostname, lcl_fqdn
+        print_line('rpi_fqdn=[{}]'.format(lcl_fqdn), debug=True)
+        print_line('rpi_hostname=[{}]'.format(lcl_hostname), debug=True)
+        return lcl_hostname, lcl_fqdn
 
 # -----------------------------------------------------------------------------
 #  Maintain Runtime Configuration values
 # -----------------------------------------------------------------------------
 
 class RuntimeConfig:
+    # Host RPi keys
+    keyRPiModel = "Model"
+    keyRPiMdlFull = "ModelFull"
+    keyRPiRel = "OsRelease"
+    keyRPiVer = "OsVersion"
+    keyRPiName = "Hostname"
+    keyRPiFqdn = "FQDN"
+
+    # P2 Hardware/Application keys
     keyHwName = "hwName"
     keyObjVer = "objVer"
-    #
+
+    # email keys
     keyEmailTo = "to"
     keyEmailFrom = "fm"
     keyEmailCC = "cc"
     keyEmailBCC = "bc"
     keyEmailSubj = "su"
     keyEmailBody = "bo"
-    #
+
+    # sms keys
     keySmsPhone = "phone"
     keySmsMessage = "message"
 
@@ -292,8 +288,9 @@ class RuntimeConfig:
 
     #  searchable list of keys
     configKnownKeys = [ keyHwName, keyObjVer,
-                    keyEmailTo, keyEmailFrom, keyEmailCC, keyEmailBCC, keyEmailSubj, keyEmailBody,
-                    keySmsPhone, keySmsMessage ]
+                        keyRPiModel, keyRPiMdlFull, keyRPiRel, keyRPiVer, keyRPiName, keyRPiFqdn,
+                        keyEmailTo, keyEmailFrom, keyEmailCC, keyEmailBCC, keyEmailSubj, keyEmailBody,
+                        keySmsPhone, keySmsMessage ]
 
     configDictionary = {}   # initially empty
 
@@ -594,10 +591,62 @@ def processIncomingRequest(newLine, Ser):
             findingsDict = processNameValuePairs(nameValuePairs)
             # Record the hardware info for later use
             if len(findingsDict) > 0:
+                p2ProcDict = {}
                 for key in findingsDict:
                     runtimeConfig.setConfigNamedVarValue(key, findingsDict[key])
+                    p2ProcDict[key] = findingsDict[key]
+                # now write to our P2 Proc file as well
+                p2Name = runtimeConfig.getValueForConfigVar(runtimeConfig.keyHwName).replace(' - ', '-').replace(' ', '-')
+                procFspec = os.path.join(folder_proc, 'P2-{}.json'.format(p2Name))
+                writeJsonFile(procFspec, p2ProcDict)
             else:
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing hardware keys !'.format(len(newLine), newLine), warning=True)
+
+    elif newLine.startswith(cmdListFolder):
+        print_line('* HANDLE send email', info=True)
+        nameValuePairs = getNameValuePairs(newLine, cmdListFolder)
+        if len(nameValuePairs) > 0:
+            findingsDict = processNameValuePairs(nameValuePairs)
+            if len(findingsDict) > 0:
+                # validate all keys exist
+                bHaveAllKeys = True
+                missingParmName = ''
+                for requiredKey in folderListParmKeys:
+                    if requiredKey not in findingsDict.keys():
+                        HaveAllKeys = False
+                        missingParmName = requiredKey
+                        break
+                if not bHaveAllKeys:
+                    errorTxt = 'missing folder-list named parameter [{}]'.format(missingParmName)
+                else:
+                    # validate dirID is valid Enum number
+                    dirID = int(findingsDict[keyFileAccDir])
+                    if dirID not in FolderId._value2member_map_:    # in list of valid Enum numbers?
+                        errorTxt = 'bad parm dir={} - unknown folder ID'.format(dirID)
+                        sendValidationError(Ser, "faccess", errorTxt)
+                    else:
+                        # good request now list all files in dir
+                        dirSpec = folderSpecByFolderId[FolderId(dirID)]
+                        filesAr = os.listdir(dirSpec)
+                        print_line('processIncomingRequest filesAr({})=({})'.format(len(filesAr), filesAr), debug=True)
+                        fileBaseNamesAr = []
+                        fnameLst = ''
+                        fnameCt = len(filesAr)
+                        resultStr = ''
+                        if fnameCt > 0:
+                            # have 1 or more files
+                            for filename in filesAr:
+                                if '.json' in filename:
+                                    fbasename = filename.replace('.json','')
+                                    fileBaseNamesAr.append(fbasename)
+                            fnameLst = ','.join(fileBaseNamesAr)
+                            resultStr = '{}{}names={}'.format(fnameCt, parm_sep, fnameLst)
+                        else:
+                            # have NO files in dir
+                            resultStr = '{}'.format(fnameCt)
+                        sendValidationSuccess(Ser, "folist", "ct", resultStr)
+        else:
+            print_line('processIncomingRequest nameValueStr({})=({}) ! missing email params !'.format(len(newLine), newLine), warning=True)
 
     elif newLine.startswith(cmdSendEmail):
         print_line('* HANDLE send email', info=True)
@@ -657,10 +706,7 @@ def processIncomingRequest(newLine, Ser):
                         # replace key-value pair (or add it)
                         fileDict[varKey] = varValue
                         # write the file
-                        with open(fspec, "w") as write_file:
-                            json.dump(fileDict, write_file, indent = 4, sort_keys=True)
-                            # append a final newline
-                            write_file.write("\n")
+                        writeJsonFile(fspec, fileDict)
                         # report our operation success to P2 (status only)
                         sendValidationSuccess(Ser, "fwrite", "", "")
             else:
@@ -762,6 +808,13 @@ def processIncomingRequest(newLine, Ser):
     else:
         print_line('ERROR: line({})=[{}] ! P2 LINE NOT Recognized !'.format(len(newLine), newLine), error=True)
 
+def writeJsonFile(outFSpec, dataDict):
+    # format the json data and write to file
+    with open(outFSpec, "w") as write_file:
+        json.dump(dataDict, write_file, indent = 4, sort_keys=True)
+        # append a final newline
+        write_file.write("\n")
+
 def sendValidationError(Ser, cmdPrefixStr, errorMessage):
     # format and send an error message via outgoing serial
     successStatus = False
@@ -815,6 +868,33 @@ runtimeConfig = RuntimeConfig()
 # and allocate our single runtime config store
 fileHandles = FileHandleStore()
 
+# alocate our access to our Host Info
+rpiHost = RPiHostInfo()
+
+rpi_model, rpi_model_raw = rpiHost.getDeviceModel()
+rpi_linux_release = rpiHost.getLinuxRelease()
+rpi_linux_version = rpiHost.getLinuxVersion()
+rpi_hostname, rpi_fqdn = rpiHost.getHostnames()
+
+# Write our RPi proc file
+dictHostInfo = {}
+dictHostInfo['Model'] = rpi_model
+dictHostInfo['ModelFull'] = rpi_model_raw
+dictHostInfo['OsRelease'] = rpi_linux_release
+dictHostInfo['OsVersion'] = rpi_linux_version
+dictHostInfo['Hostname'] = rpi_hostname
+dictHostInfo['FQDN'] = rpi_fqdn
+
+procFspec = os.path.join(folder_proc, 'rpiHostInfo.json')
+writeJsonFile(procFspec, dictHostInfo)
+
+# record RPi into to runtimeConfig
+runtimeConfig.setConfigNamedVarValue(runtimeConfig.keyRPiModel, rpi_model)
+runtimeConfig.setConfigNamedVarValue(runtimeConfig.keyRPiMdlFull, rpi_model_raw)
+runtimeConfig.setConfigNamedVarValue(runtimeConfig.keyRPiRel, rpi_linux_release)
+runtimeConfig.setConfigNamedVarValue(runtimeConfig.keyRPiVer, rpi_linux_version)
+runtimeConfig.setConfigNamedVarValue(runtimeConfig.keyRPiName, rpi_hostname)
+runtimeConfig.setConfigNamedVarValue(runtimeConfig.keyRPiFqdn, rpi_fqdn)
 
 # let's ensure we have all needed directories
 
@@ -840,8 +920,6 @@ print_line('Baud rate: {:,} bits/sec'.format(baudRate), verbose=True)
 ser = serial.Serial ("/dev/serial0", baudRate, timeout=1)    #Open port with baud rate & timeout
 
 _thread.start_new_thread(taskSerialListener, ( ser, ))
-
-identifyRPiHost()
 
 # run our loop
 try:
