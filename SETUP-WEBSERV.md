@@ -53,16 +53,33 @@ Do you want to continue? [Y/n]
 Let's adjust the web page folders so that creating files at the `pi` user will not interfere with the pages being dimsplayed:
 
 ```bash
-$ ls -lh /var/www/
-$ sudo chgrp www-data /var/www  # set group to the web server group
-$ sudo chmod g+s /var/www  # set sticky bit so files created under here will be set to group
-$ sudo chown -R pi:www-data /var/www/html/  # recursively change owner of files/folder within
-$ sudo chmod -R 770 /var/www/html/ 
-$ ls -lh /var/www/
-$ sudo service apache2 restart  # restart server to pick up latest changes
+ls -lh /var/www/
+sudo chgrp www-data /var/www  # set group to the web server group
+sudo chmod g+s /var/www  # set sticky bit so files created under here will be set to group
+sudo chown -R pi:www-data /var/www/html/  # recursively change owner of files/folder within
+sudo chmod g+s /var/www/html
+sudo chmod -R 770 /var/www/html/ 
+ls -lh /var/www/
+sudo service apache2 restart  # restart server to pick up latest changes
 ```
 
-TODO: *adjust apache2 setup so that .php suffix automatically invokes php so filetype is not needed on URL!*
+### Allow .php files as default page in folder
+
+Let's adjust the apache2 setup so that .php suffixed entry pages in folder just work (without needing the .php suffix)
+
+Let's edit the **/etc/apache2/sites-enabled/000-default.conf** file (using sudo vi {filename} of course)  Make the following content adjustment:
+
+```bash
+        DocumentRoot /var/www/html   # locate this line
+        DirectoryIndex index.html index.htm index.php  # add this line !!
+```
+
+Once this line is added, then restart the server to pick up the change:
+
+```bash
+sudo service apache2 restart  # restart server to pick up latest changes
+```
+
 
 ### Create PHP Test page
 
