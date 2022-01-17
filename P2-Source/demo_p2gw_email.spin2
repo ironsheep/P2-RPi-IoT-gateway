@@ -56,7 +56,7 @@ PUB main()
     ' (each time we need to send) tell the RPi to send an email message
     gw.sendEmail(@emailTo, @emailFrom, @emailSubj, @emailBody)
 
-     ' terminate communiation with our gateway RPi
+     ' terminate communication with our gateway RPi
     gw.stop()
 
 CON { license }

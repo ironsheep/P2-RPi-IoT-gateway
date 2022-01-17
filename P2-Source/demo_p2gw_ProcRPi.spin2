@@ -96,7 +96,6 @@ PUB main() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt,
                         pName := LONG[pKeySet][nIdx]
                         debug(" - ", udec_(nIdx), zstr_(pName))
 
-PRI hold() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt, pRetString
                     ' for each key read value and show it
                     repeat nIdx from 1 to nKeyCt
                         pName := LONG[pKeySet][nIdx]
@@ -108,7 +107,7 @@ PRI hold() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt,
                             debug("ERROR: Failed to read value for key=[", zstr_(pName), "]")
 
 
-     ' terminate communiation with our gateway RPi
+     ' terminate communication with our gateway RPi
     gw.stop()
 
 CON { license }

@@ -1,13 +1,13 @@
 '' =================================================================================================
 ''
-''   File....... demo_p2gw_texts.spin2
-''   Purpose.... Demonstrate sending a text message to a phone
+''   File....... demo_p2gw_1wireStatus.spin2
+''   Purpose.... Demonstrate reading 1-wire sensor and sending values to RPi web-backend
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Jan 2022
-''   Updated.... 06 Jan 2022
+''   Updated.... 17 Jan 2022
 ''
 '' =================================================================================================
 
@@ -39,30 +39,44 @@ OBJ { Objects Used by this Object }
 
 DAT { our email and hardware ID strings }
 
-p2HardwareID    byte    "P2 Edge - GWDemo",0
+p2HardwareID    byte    "P2 Edge - GWDemo4",0
 
-smsPhoneNbr     byte    "7199303881",0
-smsTextMessage  byte    "hi,\n  This is being sent from the P2 via the RPi gateway\n\nRegards,\nYour friendly P2!\n",0
+statusFName     byte    "p2-1wireValues",0
 
-PUB main()
-    '' let's have our RPi send a text message
+ourStringVar    byte    "23.05 F",0
 
-    ' start the serial connection to our gateway RPi
-    gw.startx(RX_GW, RX_GW, GW_BAUDRATE)
+CON
 
-    ' tell the RPi about how to identify this hardware
+  RX_BFFR_LEN = 80
+
+VAR { demo buffers }
+
+    byte    rdBuffer[RX_BFFR_LEN+1]
+
+PUB main() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt, pRetString
+    '' DEMO tell our RPi send an email for us
+    gw.startx(RX_GW, TX_GW, GW_BAUDRATE)
+
+    ' (one time) tell the RPi about how to identify this hardware
     gw.identify(@p2HardwareID)
 
-    ' tell the RPi to send a text message
-    gw.sendSMS(@smsPhoneNbr, @smsTextMessage)
+    ' Establish write access to named collection in /status/ folder
+    opStatus, nCollId := gw.fileAccess(gw.EFI_STATUS, gw.FM_WRITE_CREATE, @statusFName)
+    if opStatus <> gw.OP_SUCCESS
+        debug("* main: Error Failed to OPEN [", zstr_(@statusFName), "] for write!")
+    else
+        ' write string value to collection
+        opStatus := gw.fileWriteStr(nCollId, string("ourStringVar"), @ourStringVar)
+        if opStatus <> gw.OP_SUCCESS
+            debug("* main: Error Failed to write string value!")
 
-    ' terminate communication with our gateway RPi
+
+     ' terminate communication with our gateway RPi
     gw.stop()
 
-
 CON { license }
-
 {{
+
  -------------------------------------------------------------------------------------------------
   MIT License
 

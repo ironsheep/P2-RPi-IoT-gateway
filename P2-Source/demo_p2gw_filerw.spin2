@@ -92,10 +92,10 @@ PUB main() | opStatus, fileId, tmpValue, pRetString, bCompStatus, lenResult, nId
     ' Let's connect to our file
     opStatus, fileId := gw.fileAccess(gw.EFI_TMP, gw.FM_WRITE_CREATE, @filename2)
     if opStatus == gw.OP_SUCCESS
-        ' now write a named LONG value to it
+        ' now write a named STRING value to it
         opStatus := gw.fileWriteStr(fileId, string("ourStringVar"), @ourStringVar)
         if opStatus == gw.OP_SUCCESS
-            ' and then read the LONG back
+            ' and then read the STRING back
             opStatus, pRetString := gw.fileReadStr(fileId, string("ourStringVar"), @rdBuffer, RX_BFFR_LEN)
             if opStatus == gw.OP_SUCCESS
                 ' good read, compare results
@@ -125,7 +125,7 @@ PUB main() | opStatus, fileId, tmpValue, pRetString, bCompStatus, lenResult, nId
         ' FAILED open
         debug("* main: OPEN Error!")
 
-     ' terminate communiation with our gateway RPi
+     ' terminate communication with our gateway RPi
     gw.stop()
 
 CON { license }
