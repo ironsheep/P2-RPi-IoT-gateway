@@ -1,0 +1,264 @@
+'' =================================================================================================
+''
+''   File....... isp_ds18s20.spin2
+''               New methods added to original jm_ds18b20.spin2 by Jon "JonnyMac" McPhalen 12 DEC 2020
+''   Purpose.... provide access to DS18S20 1-wire device - most methods implemented
+''   Author..... Stephen M Moraco
+''               Copyright (c) 2021 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... 04 Aug 2021
+''   Updated.... 09 Aug 2021
+''
+'' =================================================================================================
+
+
+CON { fixed io pins }
+
+  RX1      = 63  { I }                                          ' programming / debug
+  TX1      = 62  { O }
+
+  SF_CS    = 61  { O }                                          ' serial flash
+  SF_SCK   = 60  { O }
+  SF_SDO   = 59  { O }
+  SF_SDI   = 58  { I }
+
+CON { 1-wire reset return values }
+
+''   %00 = bus short
+''   %01 = bad response; possible interference on bus
+''   %10 = good bus & presence detection
+''   %11 = no device
+   OW_BUS_SHORT = %00
+   OW_BAD_RESPONSE = %01
+   OW_GOOD_WITH_DVC = %10
+   OW_NO_DVC = %11
+
+CON { pin pullup values }
+
+  PU_NONE  = ow.PU_NONE                                         ' pull-up options
+  PU_1K5   = ow.PU_1K5
+  PU_3K3   = ow.PU_3K3
+  PU_15K   = ow.PU_15K
+
+
+CON { ds18s20 cmds }
+
+  RD_ROM     = $33                                              ' 1W ROM commands
+  MATCH_ROM  = $55
+  SKIP_ROM   = $CC
+  ALARM_SRCH = $EC
+
+  CVRT_TEMP  = $44                                              ' DS18xxx commands
+  WR_SPAD    = $4E
+  RD_SPAD    = $BE
+  COPY_SPAD  = $48
+  RD_EE      = $B8
+  RD_POWER   = $B4
+
+OBJ
+
+  ow    : "jm_1-wire"                                           '   1-Wire driver
+  pst   : "isp_serial_singleton"                                ' * serial IO for terminal
+
+VAR  { device state }
+
+    byte    ow_pin  ' remember the pin we started
+
+PUB null()
+
+'' This is not a top-level object
+
+PUB start(pin, pullup)
+
+'' Start 1-Wire connection on pin
+'' -- pullup is option if no external pull-up is connected
+
+  ow.start(pin, pullup)
+
+PUB stop()
+
+'' Stop 1-Wire object - reset and release pin
+
+  pinclear(ow_pin)                                              ' clear pin of smart mode, pull up, etc.
+  pinfloat(ow_pin)                                              ' stop asserting pin if was
+
+PUB reset() : result
+
+'' Resets 1-Wire bus; returns bus status
+''
+''   %00 = bus short
+''   %01 = bad response; possible interference on bus
+''   %10 = good bus & presence detection
+''   %11 = no device
+
+  return ow.reset()
+
+
+PUB read_sn(p_sn)
+
+'' Reads serial number from 1W device
+'' -- stores in array at p_sn
+'' -- only connect one device at a time for this method
+
+  ow.reset()
+  ow.write(RD_ROM)
+  repeat 8
+    byte[p_sn++] := ow.read()
+
+
+PUB read_tc(bUseDelay) : tmpC
+
+'' Reads temperature from DS18s20
+'' -- skips id, so only one device can be connected
+'' -- returns degrees C in 0.0001 degree units
+''    where {bUseDelay} means T = use wait vs. poll if F (due to use of active pullup)
+  ow.reset()
+  ow.write(SKIP_ROM)                                            ' no serial number needed
+  ow.write(CVRT_TEMP)                                           ' start temp conversion
+  if bUseDelay
+    waitms(750)                                                 ' tConv = 9-bit = 93.5 mS to 12-bit 750 mS
+  else
+    repeat                                                      ' let conversion finish
+      tmpC := ow.rd_bit()
+    until (tmpC == 1)
+  ow.reset()
+  ow.write(SKIP_ROM)
+  ow.write(RD_SPAD)                                             ' read scratchpad
+  tmpC := 0
+  tmpC.byte[0] := ow.read()                                     ' lsb of temp
+  tmpC.byte[1] := ow.read()                                     ' msb of temp
+  tmpC := (tmpC signx= 15) * 625                                ' extend sign, 0.0001� units
+  'pst.fstr1(string("--> read_tca() = 0x%.4x\r\n"), tmpC)
+  debug("--> read_tca() = ", uhex(tmpC))
+
+
+PUB read_tca(bUseDelay, p_sn) : tmpC | idx
+
+'' Reads temperature from DS18s20 at specific address
+'' -- returns degrees C in 0.0001 degree units
+'' -- p_sn is pointer to byte array with serial #
+''    where {bUseDelay} means T = use wait vs. poll if F (due to use of active pullup)
+  ow.reset()
+  ow.write(MATCH_ROM)                                           ' use serial #
+  repeat idx from 0 to 7                                        ' send serial #
+    ow.write(byte[p_sn][idx])
+  ow.write(CVRT_TEMP)                                           ' start conversion
+  if bUseDelay
+    waitms(750)                                                 ' tConv = 9-bit = 93.5 mS to 12-bit 750 mS
+  else
+    repeat                                                        ' let conversion finish
+      tmpC := ow.rd_bit()
+    until (tmpC == 1)
+  ow.reset()
+  ow.write(MATCH_ROM)
+  repeat idx from 0 to 7
+    ow.write(byte[p_sn][idx])
+  ow.write(RD_SPAD)                                             ' read scratchpad
+  tmpC := 0
+  tmpC.byte[0] := ow.read()                                     ' lsb of temp
+  tmpC.byte[1] := ow.read()                                     ' msb of temp
+  pst.fstr1(string("--> read_tca() raw = 0x%.8x\r\n"), tmpC)
+  tmpC := (tmpC signx= 15) * 625                                ' extend sign, 0.0001� units
+  pst.fstr1(string("--> read_tca() scaled = 0x%.8x\r\n"), tmpC)
+  debug("--> read_tca(sn) = ", uhex_(tmpC))
+
+PUB write_scratchpad(p_sn, wrdValue) : ok | idx
+
+'' Writes 16-bit {wrdValue} to the DS18s20 at specific address {p_sn}
+'' -- returns T/F where T means the write went well
+'' -- p_sn is pointer to byte array with serial #
+''    where {bUseDelay} means T = use wait vs. poll if F (due to use of active pullup)
+''    where {wrdValue} is the 16bit value to be written
+    ow.reset()
+    ow.write(MATCH_ROM)                                           ' use serial #
+    repeat idx from 0 to 7                                        ' send serial #
+        ow.write(byte[p_sn][idx])
+    ow.write(WR_SPAD)                                           ' start conversion
+    ow.write(wrdValue.byte[0])
+    ow.write(wrdValue.byte[1])
+    'pst.fstr1(string("--> write_scratchpad() SPAD = 0x%.4x\r\n"), wrdValue)
+  debug("--> write_scratchpad() SPAD = ", uhex_word_(wrdValue))
+
+PUB read_scratchpad(p_sn) : wrdValue | idx, tmpC
+
+'' Writes 16-bit {wrdValue} to the DS18s20 at specific address {p_sn}
+'' -- returns T/F where T means the write went well
+'' -- p_sn is pointer to byte array with serial #
+''    where {bUseDelay} means T = use wait vs. poll if F (due to use of active pullup)
+''    where {wrdValue} is the 16bit value to be written
+    tmpC := 0
+    wrdValue := 0
+    ow.reset()
+    ow.write(MATCH_ROM)                                           ' use serial #
+    repeat idx from 0 to 7                                        ' send serial #
+        ow.write(byte[p_sn][idx])
+    ow.write(RD_SPAD)                                           ' start conversion
+    tmpC.byte[0] := ow.read()                                     ' lsb of temp
+    tmpC.byte[1] := ow.read()                                     ' msb of temp
+    wrdValue.byte[0] := ow.read()                                     ' lsb of scratch value
+    wrdValue.byte[1] := ow.read()                                     ' msb of scratch value
+    'pst.fstr1(string("--> read_scratchpad() SPAD = 0x%.4x\r\n"), wrdValue)
+
+PUB copy_scratchpad(p_sn) | idx
+'' Writes 16-bit {Th,Tl} to the DS18s20 EEPROM
+'' -- returns nothing
+'' -- p_sn is pointer to byte array with serial #
+    ow.reset()
+    ow.write(MATCH_ROM)                                           ' use serial #
+    repeat idx from 0 to 7                                        ' send serial #
+        ow.write(byte[p_sn][idx])
+    ow.write(COPY_SPAD)                                           ' write Th,Tl to EEPROM
+    'pst.fstr0(string("--> copy_scratchpad()\r\n"))
+
+PUB recall_eeprom(p_sn) | idx
+'' Reads 16-bit {Th,Tl} from EEPROM to the DS18s20 Scratchpad bytes[2-3]
+'' -- returns nothing
+'' -- p_sn is pointer to byte array with serial #
+    ow.reset()
+    ow.write(MATCH_ROM)                                           ' use serial #
+    repeat idx from 0 to 7                                        ' send serial #
+        ow.write(byte[p_sn][idx])
+    ow.write(RD_EE)                                               ' read Th,Tl from EEPROM
+    'pst.fstr0(string("--> recall_eeprom()\r\n"))
+
+PUB read_full_scratchpad(p_sn, p_destBytes, maxDestBytes) : bytesReadCt | idx, validCount                              ' read the full scratchpad
+'' Reads {} bytes from DS18s20 Scratchpad
+'' -- returns count of bytes actually read
+'' -- p_sn is pointer to byte array with serial #
+    validCount := 1 #> maxDestBytes <# 9
+    bytesReadCt := 0
+    ow.reset()
+    ow.write(MATCH_ROM)                                           ' use serial #
+    repeat idx from 0 to 7                                        ' send serial #
+        ow.write(byte[p_sn][idx])
+    ow.write(RD_SPAD)                                           ' write Th,Tl to EEPROM
+    repeat idx from 0 to validCount - 1                                        ' for bytes needed...
+        byte[p_destBytes][idx] := ow.read()                                     ' read byte
+        bytesReadCt++
+    'pst.fstr3(string("--> read_full_scratchpad(0x%.8x, max=%d) = %d\r\n"), p_destBytes, maxDestBytes, bytesReadCt)
+
+CON { license }
+
+{{
+
+  Terms of Use: MIT License
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this
+  software and associated documentation files (the "Software"), to deal in the Software
+  without restriction, including without limitation the rights to use, copy, modify,
+  merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to the following
+  conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies
+  or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+  PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+  HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+  CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+  OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+}}

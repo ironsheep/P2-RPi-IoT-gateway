@@ -1,0 +1,390 @@
+'' =================================================================================================
+''
+''   File....... isp_ow_search.spin2
+''   Purpose.... Add seach routines to jm 1-wire driver
+''   Authors.... Stephen M. Moraco
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... 04 Aug 2021
+''   Updated.... 04 Aug 2021   by Stephen M. Moraco
+''
+''   {$P2}
+''
+'' =================================================================================================
+
+CON { Implementation Constants }
+
+    SRCH_ROM = $F0
+
+    MAX_FAMILY_IDS = 10       ' (adjust this if you need more...)
+    NO_SUCH_FAMILY_ID = 1000  ' value above $00 to $ff legal value range
+
+    ' forward  interface constants we need for start() - pull-up options
+    PU_NONE = ow.PU_NONE
+    PU_1K5  = ow.PU_1K5
+    PU_3K3  = ow.PU_3K3
+    PU_15K  = ow.PU_15K
+
+OBJ { External Objects  }
+
+'  main                                                         ' * master Spin cog
+    ow   : "jm_1-wire"                                          '   1-Wire driver
+    pst  : "isp_serial_singleton"                               ' * serial IO for terminal
+
+DAT  { Device S/N Storage }
+
+owPin                   long    0
+
+pExtIdBffr              long    0
+extIdCount              long    0
+
+lastDiscrepancy         long    0
+lastDeviceFlag          long    FALSE
+lastFamilyDiscrepancy   long    0
+
+crc8chk                 byte    0
+dvcIdBffr               byte    0[8]
+dvcIdCount              long    0
+
+familyIdList            byte    0[MAX_FAMILY_IDS]
+countByFamilyId         byte    0[MAX_FAMILY_IDS]
+familyIdCt              byte    0
+
+
+PUB null()
+
+'' This is not a top-level object
+
+
+PUB start(pin, pullup) : result
+
+'' Starts 1-Wire object
+'' -- pin is io for 1-Wire connection
+'' -- pullup controls high level drive configuration of the 1W bus
+    ' simply forward I/F of the OW object
+    owPin := pin
+    result := ow.start(owPin, pullup)
+
+PUB stop()
+'' Stop 1-Wire object - reset and release pin
+  pinclear(owPin)                                              ' clear pin of smart mode, pull up, etc.
+  pinfloat(owPin)                                              ' stop asserting pin if was
+
+PUB reset() : result
+'' Resets 1-Wire bus; returns bus status
+''
+''   %00 = bus short
+''   %01 = bad response; possible interference on bus
+''   %10 = good bus & presence detection
+''   %11 = no device
+    ' simply forward I/F of the OW object
+    result := ow.reset()
+
+PUB searchAll(p_sn, maxCount) : idsFoundCount | bFoundStatus, pIDBffr
+
+'' Scans 1W for device IDs seen
+'' -- stores in array at p_sn up to {maxCount} IDs
+'' -- supports 1 or more devices on same 1W
+
+    pst.fstr2(string("+ searchAll(0x%.8x, %d)\r\n"), p_sn, maxCount)
+    pIDBffr := p_sn
+
+    ' preset return buffer with zeros
+    longfill(pIDBffr, 0, maxCount * 2)
+
+    ' find ALL devices
+    idsFoundCount := 0
+    bFoundStatus := OWFirst()
+
+    repeat while (bFoundStatus)
+        dvcIdCount++    ' found one!
+        ' only return the first {maxCount} id to user
+        if idsFoundCount < maxCount
+            longmove(pIDBffr, @dvcIDBffr, 2)    ' copy our device ROM ID to callers buffer
+            ' increment count of devices found
+            pIDBffr += 8
+            idsFoundCount++
+            registerFamilyId(BYTE [@dvcIdBffr][0])
+
+        bFoundStatus := OWNext()
+
+    extIdCount := idsFoundCount
+    pst.fstr2(string("-- searchAll()  RET=%d, found=%d\r\n"), idsFoundCount, dvcIdCount)
+
+
+PUB searchFamily(bytFamilyCode, p_sn, maxCount) : idsFoundCount | pIDBffr
+
+'' Scans 1W for device IDs seen: returns only those matching {bytFamilyCode}
+'' -- stores in array at p_sn up to {maxCount} IDs
+'' -- supports 1 or more devices on same 1W
+
+    pst.fstr3(string("+ searchFamily(0x%.2x, 0x%.8x, %d)\r\n"), bytFamilyCode, p_sn, maxCount)
+    pIDBffr := p_sn
+
+    ' preset return buffer with zeros
+    longfill(pIDBffr, 0, maxCount * 2)
+
+    idsFoundCount := 0
+    owTargetSetup(bytFamilyCode)
+
+    repeat while (OWNext())
+        dvcIdCount++    ' found one!
+        ' only return the IDs matching {bytFamilyCode} but count all
+        if (BYTE [@dvcIDBffr][0] == bytFamilyCode)
+            longmove(pIDBffr, @dvcIDBffr, 2)    ' copy our device ROM ID to callers buffer
+            idsFoundCount++
+            registerFamilyId(BYTE [@dvcIdBffr][0])
+            pIDBffr += 8
+
+    extIdCount := idsFoundCount
+    pst.fstr2(string("-- searchFamily()  RET=%d, found=%d\r\n"), idsFoundCount, dvcIdCount)
+
+PUB totalDevicesFound() : devicesSeenCount
+    '' return number of devices seen on 1-wire line during search
+    devicesSeenCount := dvcIdCount
+
+PUB totalFamilyIdsFound() : familyIdsSeenCount
+    '' return the number of unique family IDs seen on 1-wire line
+    familyIdsSeenCount := familyIdCt
+
+PUB deviceCountForFamilyID(bytFamilyID) : devicesSeenCount | matchIndex, bHaveFamilyId
+    '' return the number of devices seen for family ID -or- zero if no devices found
+    devicesSeenCount := 0
+    bHaveFamilyId, matchIndex := locateFamilyId(bytFamilyID)
+    if bHaveFamilyId
+        devicesSeenCount := BYTE [@countByFamilyId][matchIndex]
+
+PUB uniqueFamilyIDforIndex(familyIdIndex) : familyId
+    '' return the family id for given index (limited by count of family IDs seen)
+    ''   -or- NO_SUCH_FAMILY_ID if bad index or none devices found
+    familyId := NO_SUCH_FAMILY_ID
+    if familyIdIndex >= 0 && familyIdIndex < MAX_FAMILY_IDS
+        familyId := byte [@familyIdList][familyIdIndex]
+
+
+CON { -- PRIVATE / Utility Methods -- }
+
+PRI owFirst() : bFoundStatus
+    ' reset the search state
+    pst.fstr0(string("+ owFirst()\r\n"))
+    clearPriorSearchArgs()
+    resetSearchArgsWithLastOf(0)
+    ' find a first device
+    return owSearch()
+
+PRI owTargetSetup(bytFamilyCode) | idIndex
+    ' Setup the search to find the device type {bytFamilyCode} on the next call
+    ' to owNext() if it is present.
+    ' set the search state to find {bytFamilyCode} type devices
+    '  with remaining 7 bytes of ID to zero
+    pst.fstr1(string("+ owTargetSetup(0x%.2x)\r\n"), bytFamilyCode)
+    clearPriorSearchArgs()
+    BYTE [@dvcIdBffr][0] := bytFamilyCode
+    resetSearchArgsWithLastOf(64)
+
+PRI owNext() : bFoundStatus
+    ' leave the search state alone
+    'pst.fstr0(string("+ owNext()\r\n"))
+    return owSearch()
+
+PRI clearPriorSearchArgs()
+    ' remove info about prior search
+    extIdCount := 0
+    dvcIdCount := 0
+    familyIdCt := 0
+    longfill(@dvcIdBffr, 0, 1 * 2)
+
+
+PRI resetSearchArgsWithLastOf(lastValue)
+    lastDiscrepancy := lastValue
+    lastDeviceFlag := FALSE
+    lastFamilyDiscrepancy := 0
+
+PRI owSearch() : bFoundStatus | id_bit_number, last_zero, rom_byte_number, id_bit, cmp_id_bit, rom_byte_mask, search_direction
+    ' perform search to locate first/next device ID on 1W line
+    'pst.fstr0(string("+ owSearch()\r\n"))
+    ' initialize for search
+    id_bit_number := 1
+    last_zero := 0
+    crc8chk := 0
+    'pst.fstr1(string("-- last_zero = %d\r\n"), last_zero)
+
+    bFoundStatus := FALSE
+    ' if the last call was not the last one
+    if (not lastDeviceFlag)
+    ' 1-wire reset with detect
+        if not owReset()
+            '' reset the search
+            'lastDiscrepancy := 0
+            'lastDeviceFlag := FALSE
+            'lastFamilyDiscrepancy := 0
+            resetSearchArgsWithLastOf(0)
+
+            pst.fstr0(string("-- owSearch()  1W-RESET - no devices\r\n"))
+        else
+            ' loop to do the search
+            rom_byte_mask := 1
+            rom_byte_number := 0
+
+            'issue the search command
+            ow.write(SRCH_ROM)
+                ' to get:
+                '   00 - device conflict
+                '   10 - all devices have 0 bit
+                '   01 - all devices have 1 bit
+                '   11 - no devices responding
+            repeat
+                ' read a bit and its complement
+                id_bit := ow.rd_bit()
+                cmp_id_bit := ow.rd_bit()
+                'pst.fstr2(string("-- rd 2 bits: (I%d, C%d)\r\n"), id_bit, cmp_id_bit)
+
+                ' check for no devices on 1-wire (--11--)
+                if id_bit == 1 && cmp_id_bit == 1
+                    'pst.fstr0(string("-- 1,1 no devices on 1W\r\n"))
+                    quit
+                else
+                    ' all devices coupled have 0 or 1 (--10--. or --01--)
+                    if (id_bit <> cmp_id_bit)
+                        search_direction := id_bit  ' bit write value for search
+                    else
+                        ' (--00--) device conflict
+                        ' if this discrepancy if before the Last Discrepancy
+                        ' on a previous next then pick the same as last time
+                        if (id_bit_number < lastDiscrepancy)
+                            search_direction := ((BYTE [@dvcIdBffr][rom_byte_number] & rom_byte_mask) <> 0) ? 1 : 0
+                            'pst.fstr5(string("-- ROM[%d] 0x%.2x, bit-%d, mask 0x%.2x - srch (%d)\r\n"), rom_byte_number, BYTE [@dvcIdBffr][rom_byte_number], id_bit_number, rom_byte_mask, search_direction)
+                        else
+                            ' if equal to last pick 1, if not then pick 0
+                            search_direction := (id_bit_number == lastDiscrepancy) ? 1 : 0
+
+                        'pst.fstr3(string("-- CONFL bit #%d, last %d - srch (%d)\r\n"), id_bit_number, lastDiscrepancy, search_direction)
+
+                        ' if 0 was picked then record its position in LastZero
+                        if (search_direction == 0)
+                            last_zero := id_bit_number
+                            'pst.fstr1(string("-- last_zero = %d\r\n"), last_zero)
+
+                            ' check for Last discrepancy in family
+                            if (last_zero < 9)
+                                lastFamilyDiscrepancy := last_zero
+
+                    ' set or clear the bit in the ROM byte rom_byte_number
+                    ' with mask rom_byte_mask
+                    if (search_direction == 1)
+                        'BYTE [@dvcIdBffr][rom_byte_number] |= rom_byte_mask
+                        BYTE [@dvcIdBffr][rom_byte_number] := BYTE [@dvcIdBffr][rom_byte_number] | rom_byte_mask
+                    else
+                        'BYTE [@dvcIdBffr][rom_byte_number] &= ~rom_byte_mask
+                        BYTE [@dvcIdBffr][rom_byte_number] := BYTE [@dvcIdBffr][rom_byte_number] & !rom_byte_mask
+
+                    ' serial number search direction write bit
+                    ow.wr_bit(search_direction)
+                    'pst.fstr1(string("-- wr bit: (%d)\r\n"), search_direction)
+                    waitms(1) ' add space to LA trace
+
+                    ' increment the byte counter id_bit_number
+                    ' and shift the mask rom_byte_mask
+                    id_bit_number++
+                    rom_byte_mask <<= 1
+
+                    'if id_bit_number > 63
+                        'pst.fstr2(string("-- ID%d: bit%d\r\n"), rom_byte_number, id_bit_number)
+
+                    ' if the mask is 0 then go to new SerialNum byte rom_byte_number and reset mask
+                    if (rom_byte_mask & $ff) == 0
+                        'pst.fstr2(string("-- ID%d: 0x%.2x\r\n"), rom_byte_number, BYTE [@dvcIdBffr][rom_byte_number])
+                        rom_byte_number++
+                        rom_byte_mask := 1
+
+            while(rom_byte_number < 8)  ' loop until through all ROM bytes 0-7
+
+            crc8chk := ow.crc8(@dvcIdBffr, 8)
+            'pst.fstr1(string("-- match crc8chk: (%d) [SHOULD Be ZERO]\r\n"), crc8chk)
+
+            ' if the search was successful (64 bits checked, good CRC) then
+            if (not ((id_bit_number < 65) || (crc8chk <> 0)))
+                ' search successful so set lastDiscrepancy, lastDeviceFlag, bFoundStatus
+                lastDiscrepancy := last_zero
+
+                ' check for last device
+                if (lastDiscrepancy == 0)
+                    lastDeviceFlag := TRUE
+                    'pst.fstr0(string("-- lastDeviceFlag: TRUE, found: TRUE\r\n"))
+
+                bFoundStatus := TRUE
+
+    ' if no device found then reset counters so next 'search' will be like a first
+    if (not bFoundStatus || BYTE [@dvcIdBffr][0] == $00)
+        'lastDiscrepancy := 0
+        'lastDeviceFlag := FALSE
+        'LastFamilyDiscrepancy := 0
+        resetSearchArgsWithLastOf(0)
+
+        bFoundStatus := FALSE
+        'pst.fstr0(string("-- lastDeviceFlag: FALSE, found: FALSE\r\n"))
+
+    'pst.fstr1(string("+ owSearch() EXIT bFoundStatus=%d\r\n"), bFoundStatus)
+    'pst.memDump(@dvcIdBffr, 8, string("Internal S/N Buffer"))
+
+
+PRI owReset() : bFoundStatus
+  ' reset the 1W bus and return T/F where T means device is present
+  bFoundStatus := (ow.reset() == %10) ? TRUE : FALSE
+
+PRI registerFamilyId(bytNewFamilyId) | famIdIndex, bIsNewValue, bMatchStatus, matchIndex
+    ' store a possibly new fily ID (count it if already registered)
+    if familyIdCt == 0
+        ' store first value
+        bIsNewValue := TRUE
+    else
+        ' determine if new value
+        bMatchStatus, matchIndex := locateFamilyId(bytNewFamilyId)
+        ' if we've seen this value it is NOT new...
+        bIsNewValue := (bMatchStatus == TRUE) ? FALSE : TRUE
+
+    if bIsNewValue
+        ' add the new value to our list
+        BYTE [@familyIdList][familyIdCt] := bytNewFamilyId
+        ' set number of times seen on wire
+        BYTE [@countByFamilyId][familyIdCt] := 1
+        familyIdCt++
+    else
+        ' simply increment the count of times seen on wire for existing value
+        BYTE [@countByFamilyId][matchIndex] := BYTE [@countByFamilyId][matchIndex] + 1
+
+
+PRI locateFamilyId(bytFamilyId) : bMatchStatus, matchIndex | famIdIndex
+' return T/F where T means {bytFamilyId} was seen. Also returns valid  {matchIndex} when T
+    bMatchStatus := FALSE
+    if familyIdCt > 0
+        repeat famIdIndex from 0 to familyIdCt - 1
+            if BYTE [@familyIdList][famIdIndex] == bytFamilyId
+                bMatchStatus := TRUE
+                matchIndex := famIdIndex
+                quit
+
+CON { license }
+
+{{
+
+  Terms of Use: MIT License
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this
+  software and associated documentation files (the "Software"), to deal in the Software
+  without restriction, including without limitation the rights to use, copy, modify,
+  merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to the following
+  conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies
+  or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+  PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+  HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+  CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+  OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+}}

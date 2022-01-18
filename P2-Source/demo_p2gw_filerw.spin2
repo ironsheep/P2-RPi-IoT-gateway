@@ -35,7 +35,7 @@ CON { RPi Gateway io pins }
 
 OBJ { Objects Used by this Object }
 
-    gw  :   "RPi-IoT-gw"                                        ' serial I/O
+    IoT_GW      :   "RPi-IoT-gw"                                        ' serial I/O
 
 DAT { our email and hardware ID strings }
 
@@ -58,20 +58,20 @@ VAR { demo buffers }
 
 PUB main() | opStatus, fileId, tmpValue, pRetString, bCompStatus, lenResult, nIdx
     '' DEMO tell our RPi send an email for us
-    gw.startx(RX_GW, TX_GW, GW_BAUDRATE)
+    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)
 
     ' (one time) tell the RPi about how to identify this hardware
-    gw.identify(@p2HardwareID)
+    IoT_GW.identify(@p2HardwareID)
 
     ' Let's connect to our file
-    opStatus, fileId := gw.fileAccess(gw.EFI_TMP, gw.FM_WRITE_CREATE, @filename)
-    if opStatus == gw.OP_SUCCESS
+    opStatus, fileId := IoT_GW.fileAccess(IoT_GW.EFI_TMP, IoT_GW.FM_WRITE_CREATE, @filename)
+    if opStatus == IoT_GW.OP_SUCCESS
         ' now write a named LONG value to it
-        opStatus := gw.fileWriteLong(fileId, string("ourVariable"), ourVariable)
-        if opStatus == gw.OP_SUCCESS
+        opStatus := IoT_GW.fileWriteLong(fileId, string("ourVariable"), ourVariable)
+        if opStatus == IoT_GW.OP_SUCCESS
             ' and then read the LONG back
-            opStatus, tmpValue := gw.fileReadLong(fileId, string("ourVariable"))
-            if opStatus == gw.OP_SUCCESS
+            opStatus, tmpValue := IoT_GW.fileReadLong(fileId, string("ourVariable"))
+            if opStatus == IoT_GW.OP_SUCCESS
                 ' good read, compare results
                 if ourVariable == tmpValue
                   ' good read
@@ -90,14 +90,14 @@ PUB main() | opStatus, fileId, tmpValue, pRetString, bCompStatus, lenResult, nId
         debug("* main: OPEN Error!")
 
     ' Let's connect to our file
-    opStatus, fileId := gw.fileAccess(gw.EFI_TMP, gw.FM_WRITE_CREATE, @filename2)
-    if opStatus == gw.OP_SUCCESS
+    opStatus, fileId := IoT_GW.fileAccess(IoT_GW.EFI_TMP, IoT_GW.FM_WRITE_CREATE, @filename2)
+    if opStatus == IoT_GW.OP_SUCCESS
         ' now write a named STRING value to it
-        opStatus := gw.fileWriteStr(fileId, string("ourStringVar"), @ourStringVar)
-        if opStatus == gw.OP_SUCCESS
+        opStatus := IoT_GW.fileWriteStr(fileId, string("ourStringVar"), @ourStringVar)
+        if opStatus == IoT_GW.OP_SUCCESS
             ' and then read the STRING back
-            opStatus, pRetString := gw.fileReadStr(fileId, string("ourStringVar"), @rdBuffer, RX_BFFR_LEN)
-            if opStatus == gw.OP_SUCCESS
+            opStatus, pRetString := IoT_GW.fileReadStr(fileId, string("ourStringVar"), @rdBuffer, RX_BFFR_LEN)
+            if opStatus == IoT_GW.OP_SUCCESS
                 ' good read, compare results
                 lenResult := strsize(pRetString)
                 if strsize(@rdBuffer) == lenResult
@@ -126,7 +126,7 @@ PUB main() | opStatus, fileId, tmpValue, pRetString, bCompStatus, lenResult, nId
         debug("* main: OPEN Error!")
 
      ' terminate communication with our gateway RPi
-    gw.stop()
+    IoT_GW.stop()
 
 CON { license }
 {{
