@@ -24,12 +24,12 @@ var
   byte  pbuf[PBUF_SIZE]                                         ' padded strings
 
 
-pub null()
+PUB null()
 
   '' This is not a top level object
 
 
-pub fmt_number(value, radix, digits, width, pad) : p_str
+PUB fmt_number(value, radix, digits, width, pad) : p_str
 
 '' Return pointer to string of value converted to number in padded field
 '' -- value is converted using radix
@@ -47,7 +47,7 @@ pub fmt_number(value, radix, digits, width, pad) : p_str
     other : p_str := string("?")
 
 
-pub dec(value, digits) : p_str | sign, len
+PUB dec(value, digits) : p_str | sign, len
 
 '' Convert decimal value to string
 '' -- digits is 0 (auto size) to 10
@@ -55,7 +55,7 @@ pub dec(value, digits) : p_str | sign, len
   p_str := itoa(value, 10, digits)
 
 
-pub dpdec(value, dp) : p_str | len, byte scratch[12]
+PUB dpdec(value, dp) : p_str | len, byte scratch[12]
 
 '' Convert value to string with decimal point
 '' -- dp is digits after decimal point
@@ -90,7 +90,7 @@ pub dpdec(value, dp) : p_str | len, byte scratch[12]
     --p_str
 
 
-pub itoa(value, radix, digits) : p_str | sign, len, d
+PUB itoa(value, radix, digits) : p_str | sign, len, d
 
 '' Convert to value string
 '' -- supports radix 10, 2, 4, 8, and 16
@@ -142,7 +142,7 @@ pub itoa(value, radix, digits) : p_str | sign, len, d
   return revstr(@nbuf)                                          ' fix order (reverse)
 
 
-pub revstr(p_str) : result | first, len, last
+PUB revstr(p_str) : result | first, len, last
 
   result := first := p_str                                      ' start
   len := strsize(p_str)                                         ' length
@@ -152,7 +152,7 @@ pub revstr(p_str) : result | first, len, last
     byte[first++], byte[last--] := byte[last], byte[first]
 
 
-pub padstr(p_str, width, padchar) : p_pad | len
+PUB padstr(p_str, width, padchar) : p_pad | len
 
 '' Pad string with padchar character
 '' -- positive width uses left pad, negative field width uses right pad
@@ -187,7 +187,7 @@ pub padstr(p_str, width, padchar) : p_pad | len
     p_pad := p_str
 
 
-con { license }
+CON { license }
 
 {{
 

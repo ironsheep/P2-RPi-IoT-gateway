@@ -1,6 +1,6 @@
 '' =================================================================================================
 ''
-''   File....... RPi-IoT-gw.spin2
+''   File....... RPi-IoT-IoT_gw.spin2
 ''   Purpose.... Provide IoT access methods
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
@@ -32,7 +32,7 @@ CON { fixed io pins }
 OBJ { Objects Used by this Object }
 
     RPi         : "jm_serial"                                   ' serial I/O
-    nstr        : "jm_nstr"                                     ' number-to-string
+    nstr        : "jm_nstrings"                                 ' number-to-string
 
 CON { driver config values}
 
@@ -77,35 +77,35 @@ bodyEnd     byte    "email|End",0
 PUB null()
 '' This is not a top level object
 
-pub startx(rxpin, txpin, baud)
+PUB startx(rxpin, txpin, baud)
 '' Start RPi gateway serial coms on rxpin and txpin at baud
     pinRx := rxpin
     pinTx := txpin
     RPi.startx(pinRx, pinTx, baud)                              ' use user serial port
 
-pub stop()
+PUB stop()
 '' Release the serial pins (if needed)
     RPi.rxflush()   ' git rid of any pending input
     ' free the pins used
     pinf(pinRx)    ' de-assert
     pinf(pinTx)    ' de-assert
 
-pub identify(pHardwareId)
+PUB identify(pHardwareId)
 '' Report to the RPi the name of this device (for email signature, etc.)
     RPi.fstr3(string("ident:hwName=%s%sobjVer=%s\n"), pHardwareId, @parmSep, @spin2ver)
 
-pub sendEmail(pEmailTo, pEmailFrom, pEmailSubj, pEmailBody)
+PUB sendEmail(pEmailTo, pEmailFrom, pEmailSubj, pEmailBody)
 '' Tell the RPi to send an email given these specifics
     RPi.fstr5(string("email-send:to=%s%sfm=%s%ssu=%s\n"), pEmailTo, @parmSep, pEmailFrom, @parmSep, pEmailSubj)
     RPi.fstr3(string("%s\n%s\n%s\n"), @bodyStart, pEmailBody, @bodyEnd)
     ' TODO add expectation of return of success or failure
 
-pub sendSMS(pSmsPhoneNbr, pSmsTextMessage)
+PUB sendSMS(pSmsPhoneNbr, pSmsTextMessage)
 '' Tell the RPi to send an SMS text message given these specifics
     RPi.fstr3(string("sms-send:phone=%s%smessage=%s\n"), pSmsPhoneNbr, @parmSep, pSmsTextMessage)
     ' TODO add expectation of return of success or failure
 
-pub fileAccess(nFolderId, nFileMode, pFileName) : opStatus, nCollId | pStr
+PUB fileAccess(nFolderId, nFileMode, pFileName) : opStatus, nCollId | pStr
 '' Tell the RPi to establish access to a named KV collection
 '' - returns {nCollId} our handle to the collection
     RPi.fstr5(string("file-access:dir=%d%smode=%d%scname=%s\n"), nFolderId, @parmSep, nFileMode, @parmSep, pFileName)
@@ -117,7 +117,7 @@ pub fileAccess(nFolderId, nFileMode, pFileName) : opStatus, nCollId | pStr
     else
         nCollId := parsedFileId
 
-pub fileWriteLong(nCollId, pVarName, nVarValue) : opStatus | pStr
+PUB fileWriteLong(nCollId, pVarName, nVarValue) : opStatus | pStr
 '' Tell the RPi to to write named long to collection {nCollId}
     opStatus := OP_FAILURE
     RPi.fstr5(string("file-write:cid=%d%skey=%s%sval=%d\n"), nCollId, @parmSep, pVarName, @parmSep, nVarValue)
@@ -126,7 +126,7 @@ pub fileWriteLong(nCollId, pVarName, nVarValue) : opStatus | pStr
     if (opStatus <> OP_SUCCESS)
         debug("fileWriteLong: str=[", zstr_(@statusMsg), "]")
 
-pub fileReadLong(nCollId, pVarName) : opStatus, nVarValue | pStr
+PUB fileReadLong(nCollId, pVarName) : opStatus, nVarValue | pStr
 '' Tell the RPi to to get named long from collection {nCollId}
     opStatus := OP_FAILURE
     RPi.fstr3(string("file-read:cid=%d%skey=%s\n"), nCollId, @parmSep, pVarName)
@@ -137,7 +137,7 @@ pub fileReadLong(nCollId, pVarName) : opStatus, nVarValue | pStr
     else
         nVarValue := parsedLongVal
 
-pub fileWriteStr(nCollId, pVarName, pVarString) : opStatus | pStr
+PUB fileWriteStr(nCollId, pVarName, pVarString) : opStatus | pStr
 '' Tell the RPi to to write named string to collection {nCollId}
     opStatus := OP_FAILURE
     RPi.fstr5(string("file-write:cid=%d%skey=%s%sval=%s\n"), nCollId, @parmSep, pVarName, @parmSep, pVarString)
@@ -146,7 +146,7 @@ pub fileWriteStr(nCollId, pVarName, pVarString) : opStatus | pStr
     if (opStatus <> OP_SUCCESS)
         debug("fileWriteStr: str=[", zstr_(@statusMsg), "]")
 
-pub fileReadStr(nCollId, pVarName, pTargetBffr, nTargetLen) : opStatus, pVarStr | pStr, nLen
+PUB fileReadStr(nCollId, pVarName, pTargetBffr, nTargetLen) : opStatus, pVarStr | pStr, nLen
 '' Tell the RPi to to get named string from collection {nCollId}
     opStatus := OP_FAILURE
     RPi.fstr3(string("file-read:cid=%d%skey=%s\n"), nCollId, @parmSep, pVarName)
@@ -207,10 +207,10 @@ PRI readRPiResponse(pBffr, nBffrMax) : pStr | nRxLenRem, pRxNextChar, nChr
         nChr := RPi.rxtime(1000)
         if (nChr <> -1)
             if (nChr == $0a)
-                BYTE[pRxNextChar] := $00 ' place term. char
+                BYTE[pRxNextChar] := $00 ' place pst. char
             else
                 BYTE[pRxNextChar] := nChr
-                BYTE[pRxNextChar + 1] := $00 ' place term. char
+                BYTE[pRxNextChar + 1] := $00 ' place pst. char
             ' TOO SLOW LOOSING DATA debug("gStr: nChr=[", uhex_byte_(nChr), "-(", lstr_(pRxNextChar, 1), ")]")
             pRxNextChar++
             nRxLenRem--

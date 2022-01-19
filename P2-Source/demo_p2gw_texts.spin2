@@ -35,7 +35,7 @@ CON { RPi Gateway io pins }
 
 OBJ { Objects Used by this Object }
 
-    gw  :   "RPi-IoT-gw"                                        ' serial I/O
+    IoT_GW      :   "RPi-IoT-gw"                                        ' serial I/O
 
 DAT { our email and hardware ID strings }
 
@@ -48,16 +48,16 @@ PUB main()
     '' let's have our RPi send a text message
 
     ' start the serial connection to our gateway RPi
-    gw.startx(RX_GW, RX_GW, GW_BAUDRATE)
+    IoT_GW.startx(RX_GW, RX_GW, GW_BAUDRATE)
 
     ' tell the RPi about how to identify this hardware
-    gw.identify(@p2HardwareID)
+    IoT_GW.identify(@p2HardwareID)
 
     ' tell the RPi to send a text message
-    gw.sendSMS(@smsPhoneNbr, @smsTextMessage)
+    IoT_GW.sendSMS(@smsPhoneNbr, @smsTextMessage)
 
-    ' terminate communiation with our gateway RPi
-    gw.stop()
+    ' terminate communication with our gateway RPi
+    IoT_GW.stop()
 
 
 CON { license }

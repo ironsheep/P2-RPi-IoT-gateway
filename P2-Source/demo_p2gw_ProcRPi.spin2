@@ -35,7 +35,7 @@ CON { RPi Gateway io pins }
 
 OBJ { Objects Used by this Object }
 
-    gw  :   "RPi-IoT-gw"                                        ' serial I/O
+    IoT_GW      :   "RPi-IoT-gw"                                        ' serial I/O
 
 DAT { our email and hardware ID strings }
 
@@ -53,14 +53,14 @@ VAR { demo buffers }
 
 PUB main() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt, pRetString
     '' DEMO tell our RPi send an email for us
-    gw.startx(RX_GW, TX_GW, GW_BAUDRATE)
+    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)
 
     ' (one time) tell the RPi about how to identify this hardware
-    gw.identify(@p2HardwareID)
+    IoT_GW.identify(@p2HardwareID)
 
     ' List collection names found in proc folder
-    opStatus, pNameSet := gw.getCollectionNames(gw.EFI_PROC)
-    if opStatus <> gw.OP_SUCCESS
+    opStatus, pNameSet := IoT_GW.getCollectionNames(IoT_GW.EFI_PROC)
+    if opStatus <> IoT_GW.OP_SUCCESS
        ' FAILED list files in folder
         debug("* main: List Files in dir Error!")
     else
@@ -76,13 +76,13 @@ PUB main() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt,
                 debug(" - ", udec_(nIdx), zstr_(pName))
 
             ' now open RPi collection for READ
-            opStatus, nCollId := gw.fileAccess(gw.EFI_PROC, gw.FM_READONLY, @rpiProcName)
-            if opStatus <> gw.OP_SUCCESS
+            opStatus, nCollId := IoT_GW.fileAccess(IoT_GW.EFI_PROC, IoT_GW.FM_READONLY, @rpiProcName)
+            if opStatus <> IoT_GW.OP_SUCCESS
                 debug("* main: Open Host proc/ file ERROR!")
             else
                 ' list keys from file
-                opStatus, pKeySet := gw.getKeyNamesInCollection(nCollId)
-                if opStatus <> gw.OP_SUCCESS
+                opStatus, pKeySet := IoT_GW.getKeyNamesInCollection(nCollId)
+                if opStatus <> IoT_GW.OP_SUCCESS
                         debug("* main: List collection keys ERROR!")
                 else
                 ' iterate over keys getting values
@@ -96,20 +96,19 @@ PUB main() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt,
                         pName := LONG[pKeySet][nIdx]
                         debug(" - ", udec_(nIdx), zstr_(pName))
 
-PRI hold() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt, pRetString
                     ' for each key read value and show it
                     repeat nIdx from 1 to nKeyCt
                         pName := LONG[pKeySet][nIdx]
-                        opStatus, pRetString := gw.fileReadStr(nCollId, pName, @rdBuffer, RX_BFFR_LEN)
-                        if opStatus == gw.OP_SUCCESS
+                        opStatus, pRetString := IoT_GW.fileReadStr(nCollId, pName, @rdBuffer, RX_BFFR_LEN)
+                        if opStatus == IoT_GW.OP_SUCCESS
                             ' good read, display KV pair
                             debug(" - ", zstr_(pName), ": [", zstr_(pRetString), "]")
                         else
                             debug("ERROR: Failed to read value for key=[", zstr_(pName), "]")
 
 
-     ' terminate communiation with our gateway RPi
-    gw.stop()
+     ' terminate communication with our gateway RPi
+    IoT_GW.stop()
 
 CON { license }
 {{

@@ -42,9 +42,10 @@ Additional pages:
 - [Unbox & setup new RPI](RPI-SETUP.md) - (*if this is your first time or you just want a reminder*)
 - [Install Gateway project on RPi](INSTALL.md) w/[Connecting the P2 to the RPi](https://github.com/ironsheep/P2-RPi-ioT-gateway/blob/main/INSTALL.md#wiring-our-serial-connection)
 - [Configure Email Service](SETUP-EMAIL.md)
-- [Configure SMS Service](SETUP-SMS.md) - *content TBA*
+- [Configure Web Server & PHP](SETUP-WEBSERV.md)
+- Configure SMS Service - *content TBA*
 - Configure Twitter Service - *content TBA*
-- Configure Apache/PHP Service - *content TBA*
+- and experience I draw from wihile creating this project: [My Prior RPi Efforts](AUTHORS-RPI-WORK.md)
 
 ---
 
@@ -74,8 +75,8 @@ Initially, we envision that this IoT gateway will support the features/services 
 | | P2 writes values to file(s) on RPi | WORKING
 | | P2 can delete own file(s) from RPi | in-progress
 | Web Server| |
-| | P2 sends values that are shown on a web page served from RPi (using file services)| up-next
-| | P2 Gets values sent from web page to the P2 (controls touched, text entered)| up-next
+| | P2 sends values that are shown on a web page served from RPi (using file services)| in-progress
+| | P2 Gets values sent from web page to the P2 (controls touched, text entered)| in-progress
 | SMS (texting) | |
 | | P2 asks RPi to send a text message to the phone number | waiting
 | | (Maybe? have to see if possible) P2 gets text message contents relayed from RPi | waiting
@@ -226,7 +227,7 @@ We keep a growing list of these DEMOs in this section:
 | [demo\_p2gw_email.spin2](P2-Source/demo_p2gw_email.spin2) | Sending email to one or more users from P2 | App | WORKING
 | [demo\_p2gw_filerw.spin2](P2-Source/demo_p2gw_filerw.spin2) | Store named values on our RPi and retrieve them from the RPi | App | WORKING
 | [demo\_p2gw_ProcRPi.spin2](P2-Source/demo_p2gw_ProcRPi.spin2) | Display RPi configuration data on our P2 Debug Terminal | App | WORKING
-| | Display live 1-wire temp sensor data on a web page | App, Web Page |
+| [DEMO 1-wire from Web Page](DEMO-1-WIRE.md) | Display live 1-wire temp sensor data on a web page | App, Web Page | WORKING
 | | Change values on a control web page causing values to be shown in P2 Debug Terminal | App, Web Page |
 
 ### Future DEMOs
