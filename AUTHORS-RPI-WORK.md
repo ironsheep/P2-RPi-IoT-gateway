@@ -41,7 +41,7 @@ I'm a Licensed Amateur Radio Operator. I want to protect my Radios from lightnin
 ![The lightning cards](./Docs/images/Actual-Cards.png)
 
 - [Lovelace Lightning Detector Card](https://github.com/ironsheep/lovelace-lightning-detector-card) - this is the Repo for the card itself (install via HACS)
-- [Lightning Detector MQTT -> HA Daemon](https://github.com/ironsheep/lightning-detector-MQTT2HA-Daemon) - this is project run on each RPi to report it's details every boot and at fixed intervals
+- [Lightning Detector MQTT -> HA Daemon](https://github.com/ironsheep/lightning-detector-MQTT2HA-Daemon) - monitor the AS3935 Lightning Detector attached to the RPi and report detection information to the MQTT broker
 - [Lightning Detector Theory of Operations](https://github.com/ironsheep/lightning-detector-MQTT2HA-Daemon/blob/master/THEOPS.md) - An explanation of how this all works and my design decisions
 
 Here are a couple *videos* showing the card in action:
