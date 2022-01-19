@@ -75,8 +75,8 @@ Initially, we envision that this IoT gateway will support the features/services 
 | | P2 writes values to file(s) on RPi | WORKING
 | | P2 can delete own file(s) from RPi | in-progress
 | Web Server| |
-| | P2 sends values that are shown on a web page served from RPi (using file services)| in-progress
-| | P2 Gets values sent from web page to the P2 (controls touched, text entered)| in-progress
+| | P2 sends values that are shown on a web page served from RPi (using file services)| WORKING
+| | P2 Gets values sent from web page to the P2 (controls touched, text entered)| WORKING
 | SMS (texting) | |
 | | P2 asks RPi to send a text message to the phone number | waiting
 | | (Maybe? have to see if possible) P2 gets text message contents relayed from RPi | waiting
