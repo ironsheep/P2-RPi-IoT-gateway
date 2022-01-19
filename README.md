@@ -45,6 +45,7 @@ Additional pages:
 - [Configure Web Server & PHP](SETUP-WEBSERV.md)
 - Configure SMS Service - *content TBA*
 - Configure Twitter Service - *content TBA*
+- and experience I draw from wihile creating this project: [My Prior RPi Efforts](AUTHORS-RPI-WORK.md)
 
 ---
 

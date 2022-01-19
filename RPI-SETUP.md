@@ -19,6 +19,10 @@ When setting up the new RPi you will be doing:
 1. Install the latest software updates (OS, security patches, etc.)
 1. DONE. Congratulations! You are ready to use this RPi as a gateway!
 
+**NOTE:** I draw from many sources when writing the following but here's a great official reference: [Raspberry Pi Documentation](https://www.raspberrypi.com/documentation/computers/getting-started.html#setting-up-your-raspberry-pi) 
+
+My goal is to provide a simplified overview of the process for our community. If you have any quesitons the official documentation should always be consulted.
+
 ## Unbox and place into case, add keyboard, mouse and HDMI display
 
 To start you'll need a Raspberry Pi. I have a fair number of them so here's some hints at how I've learned to acquire mine. First of all I tend to buy kits that have cases. Sometimes the kits with larger uSD cards are more expensive so i'll go for the kits with smaller uSD cards and then I just replace the uSD card with my own.  Here are some example kits ($50 to $150 at Amazon):

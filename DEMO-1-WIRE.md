@@ -14,14 +14,20 @@ This demo consists of a web page to be placed where the RPi web server can find 
 | [demo\_p2gw_1wireStatus.spin2](P2-Source/demo_p2gw_1wireStatus.spin2) | Display live 1-wire temp sensor data - read sensor send data to status folder on gateway | App
 | [Archive of Demo Wab Page](demoWebPageSets/demoFiles-bs1wire.tar.gz) | Display live 1-wire temp sensor data - web page shows reported sensor data along with details of the RPi host which is running the web server | Web Page Folder 
 
-Once this web page is put into place and the demo is run on the P2 you browse to the web page being presented from the RPi to see the new web content.
+Once this web page is put into place and the demo is run on the P2 you browse to the web page being presented from the RPi to see the new web sensor page: 
                                                                                             
--
+![Demo Goal](./Docs/images/demo-1-wire.png)
+
 ## Install the 1-wire demo
 
 The .spin2 source for this demo is already installed. But you will need to install the web page source. 
 
-... content TBA ...
+Installing is pretty easy. When you installed or updated the gateway project on your RPi the web-page demo files were already installed. They live in `/opt/P2-RPi-ioT-gateway/demoWebPageSets/`.  To unpack this demo file do:
+
+```bash
+cd /var/www/html
+tar -xzvf /opt/P2-RPi-ioT-gateway/demoWebPageSets/demoFiles-bs1wire.tar.gz
+```
 
 ### ...
 

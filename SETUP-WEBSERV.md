@@ -80,6 +80,12 @@ Once this line is added, then restart the server to pick up the change:
 sudo service apache2 restart  # restart server to pick up latest changes
 ```
 
+This configuration addition allows us to now have `.../folder/index.php` files as our top-level files under `/var/www/html/`  this makes it real easy to support many projects as we simply create a new `/var/www/html/{newFolder}` and then create `/var/www/html/{newFolder}/index.php` and place our new web-page content in this new file.
+
+When browsing to your new project your URL looks someting like: `http://{mypihostname|orIpAddress/{newFolder}` 
+
+*Pretty nice, right?*
+
 
 ### Create PHP Test page
 
