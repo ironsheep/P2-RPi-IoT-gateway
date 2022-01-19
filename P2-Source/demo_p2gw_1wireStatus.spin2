@@ -51,8 +51,8 @@ OBJ { Objects Used by this Object }
 
 DAT { our hardware ID strings and 1-wire buffers, collection names }
 
-bUseDelay       long    True    ' 1-wire delay vs. poll
-bShoudClear     long    True    ' yes, clear terminal on start
+bUseDelay       long    TRUE    ' 1-wire delay vs. poll
+bShoudClear     long    TRUE    ' yes, clear terminal on start
 
 sn_buff         long    0[MAX_DEVICE_SNS * 2]
 sns_Ct          long    0
@@ -123,8 +123,8 @@ PUB main() | opStatus, nIdx, nCollId, pRetString, owStatus, nTics, tempC, tempF,
                 debug("* main: ERROR 1-wire [", sdec(owStatus), "]")
                 pst.fstr1(string("* main: ERROR 1-wire %d\r\n"), owStatus)
             else
-                debug("* main: one-wire dvc found")
-                pst.fstr0(string("* main: one-wire dvc found\r\n"))
+                debug("* main: one-wire dvc(s) found")
+                pst.fstr0(string("* main: one-wire dvc(s) found\r\n"))
 
             pst.fstr0(string("\r\n"))   ' blank line
 
@@ -133,7 +133,6 @@ PUB main() | opStatus, nIdx, nCollId, pRetString, owStatus, nTics, tempC, tempF,
             if opStatus <> IoT_GW.OP_SUCCESS
                 debug("* main: ERROR Failed to OPEN [", zstr_(@statusFName), "] for write!")
             else
-                bUseDelay := False
                 repeat nLoopCt from 1 to 2 ' 2 - will be 30 (seconds) worth of reading
                     nTics := getct()                                                ' sync timing loop
 
