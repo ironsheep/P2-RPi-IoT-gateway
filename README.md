@@ -226,7 +226,7 @@ We keep a growing list of these DEMOs in this section:
 | [demo\_p2gw_email.spin2](P2-Source/demo_p2gw_email.spin2) | Sending email to one or more users from P2 | App | WORKING
 | [demo\_p2gw_filerw.spin2](P2-Source/demo_p2gw_filerw.spin2) | Store named values on our RPi and retrieve them from the RPi | App | WORKING
 | [demo\_p2gw_ProcRPi.spin2](P2-Source/demo_p2gw_ProcRPi.spin2) | Display RPi configuration data on our P2 Debug Terminal | App | WORKING
-| [demo\_p2gw_1wireStatus.spin2](P2-Source/demo_p2gw_1wireStatus.spin2) | Display live 1-wire temp sensor data on a web page | App, Web Page | in-progress
+| [DEMO 1-wire from Web Page](DEMO-1-WIRE.md) | Display live 1-wire temp sensor data on a web page | App, Web Page | WORKING
 | | Change values on a control web page causing values to be shown in P2 Debug Terminal | App, Web Page |
 
 ### Future DEMOs
