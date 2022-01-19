@@ -20,14 +20,28 @@ Once this web page is put into place and the demo is run on the P2 you browse to
 
 ## Install the 1-wire demo
 
-The .spin2 source for this demo is already installed. But you will need to install the web page source. 
+The .spin2 source for this demo is found in `/opt/P2-RPi-ioT-gateway/P2-Source` You will need to install the web page source under the web server.
 
-Installing is pretty easy. When you installed or updated the gateway project on your RPi the web-page demo files were already installed. They live in `/opt/P2-RPi-ioT-gateway/demoWebPageSets/`.  To unpack this demo file do:
+Installing is pretty easy. The web-page demo files are also present. They live in `/opt/P2-RPi-ioT-gateway/demoWebPageSets/`.  To unpack this demo file do:
 
 ```bash
 cd /var/www/html
 tar -xzvf /opt/P2-RPi-ioT-gateway/demoWebPageSets/demoFiles-bs1wire.tar.gz
 ```
+
+This should create a folder `/var/www/html/bs1wire/' which now has a top-level `index.php` page therein.
+
+After these files are unpacked you should be able to point your browser to: `http://{mypihostname|orIpAddress/bs1wire`
+
+All that's left then is run the demo .spin2 on your P2 after making sure your P2 and your RPi are connected via serial and that your Gateway Daemon is already running.
+
+This demo should provide a good reference for how to create similar services. 
+
+Enjoy!
+
+##  Tool I used to create the web page
+
+I run on a Mac desktop.  My favorite tool for creating web pages is [Bootstrap Studio](https://bootstrapstudio.io/)  This tool provides easy WYSIWYG editing, easy CSS styling, good responsive layout code, and exports tiney files for you to place on your server.
 
 ### ...
 
