@@ -59,7 +59,6 @@ CON { ds18s20 cmds }
 OBJ
 
   ow    : "jm_1-wire"                                           '   1-Wire driver
-  pst   : "isp_serial_singleton"                                ' * serial IO for terminal
 
 VAR  { device state }
 
@@ -129,7 +128,6 @@ PUB read_tc(bUseDelay) : tmpC
   tmpC.byte[0] := ow.read()                                     ' lsb of temp
   tmpC.byte[1] := ow.read()                                     ' msb of temp
   tmpC := (tmpC signx= 15) * 625                                ' extend sign, 0.0001� units
-  'pst.fstr1(string("--> read_tca() = 0x%.4x\r\n"), tmpC)
   debug("--> read_tca() = ", uhex(tmpC))
 
 
@@ -158,9 +156,7 @@ PUB read_tca(bUseDelay, p_sn) : tmpC | idx
   tmpC := 0
   tmpC.byte[0] := ow.read()                                     ' lsb of temp
   tmpC.byte[1] := ow.read()                                     ' msb of temp
-  pst.fstr1(string("--> read_tca() raw = 0x%.8x\r\n"), tmpC)
   tmpC := (tmpC signx= 15) * 625                                ' extend sign, 0.0001� units
-  pst.fstr1(string("--> read_tca() scaled = 0x%.8x\r\n"), tmpC)
   debug("--> read_tca(sn) = ", uhex_(tmpC))
 
 PUB write_scratchpad(p_sn, wrdValue) : ok | idx
@@ -177,8 +173,7 @@ PUB write_scratchpad(p_sn, wrdValue) : ok | idx
     ow.write(WR_SPAD)                                           ' start conversion
     ow.write(wrdValue.byte[0])
     ow.write(wrdValue.byte[1])
-    'pst.fstr1(string("--> write_scratchpad() SPAD = 0x%.4x\r\n"), wrdValue)
-  debug("--> write_scratchpad() SPAD = ", uhex_word_(wrdValue))
+    debug("--> write_scratchpad() SPAD = ", uhex_word_(wrdValue))
 
 PUB read_scratchpad(p_sn) : wrdValue | idx, tmpC
 
@@ -198,7 +193,6 @@ PUB read_scratchpad(p_sn) : wrdValue | idx, tmpC
     tmpC.byte[1] := ow.read()                                     ' msb of temp
     wrdValue.byte[0] := ow.read()                                     ' lsb of scratch value
     wrdValue.byte[1] := ow.read()                                     ' msb of scratch value
-    'pst.fstr1(string("--> read_scratchpad() SPAD = 0x%.4x\r\n"), wrdValue)
 
 PUB copy_scratchpad(p_sn) | idx
 '' Writes 16-bit {Th,Tl} to the DS18s20 EEPROM
@@ -209,7 +203,6 @@ PUB copy_scratchpad(p_sn) | idx
     repeat idx from 0 to 7                                        ' send serial #
         ow.write(byte[p_sn][idx])
     ow.write(COPY_SPAD)                                           ' write Th,Tl to EEPROM
-    'pst.fstr0(string("--> copy_scratchpad()\r\n"))
 
 PUB recall_eeprom(p_sn) | idx
 '' Reads 16-bit {Th,Tl} from EEPROM to the DS18s20 Scratchpad bytes[2-3]
@@ -220,7 +213,6 @@ PUB recall_eeprom(p_sn) | idx
     repeat idx from 0 to 7                                        ' send serial #
         ow.write(byte[p_sn][idx])
     ow.write(RD_EE)                                               ' read Th,Tl from EEPROM
-    'pst.fstr0(string("--> recall_eeprom()\r\n"))
 
 PUB read_full_scratchpad(p_sn, p_destBytes, maxDestBytes) : bytesReadCt | idx, validCount                              ' read the full scratchpad
 '' Reads {} bytes from DS18s20 Scratchpad
@@ -236,7 +228,6 @@ PUB read_full_scratchpad(p_sn, p_destBytes, maxDestBytes) : bytesReadCt | idx, v
     repeat idx from 0 to validCount - 1                                        ' for bytes needed...
         byte[p_destBytes][idx] := ow.read()                                     ' read byte
         bytesReadCt++
-    'pst.fstr3(string("--> read_full_scratchpad(0x%.8x, max=%d) = %d\r\n"), p_destBytes, maxDestBytes, bytesReadCt)
 
 CON { license }
 

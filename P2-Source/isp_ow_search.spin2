@@ -29,7 +29,7 @@ OBJ { External Objects  }
 
 '  main                                                         ' * master Spin cog
     ow   : "jm_1-wire"                                          '   1-Wire driver
-    pst  : "isp_serial_singleton"                               ' * serial IO for terminal
+'    pst  : "isp_serial_singleton"                               ' * serial IO for terminal
 
 DAT  { Device S/N Storage }
 
@@ -86,7 +86,7 @@ PUB searchAll(p_sn, maxCount) : idsFoundCount | bFoundStatus, pIDBffr
 '' -- stores in array at p_sn up to {maxCount} IDs
 '' -- supports 1 or more devices on same 1W
 
-    pst.fstr2(string("+ searchAll(0x%.8x, %d)\r\n"), p_sn, maxCount)
+    'pst.fstr2(string("+ searchAll(0x%.8x, %d)\r\n"), p_sn, maxCount)
     pIDBffr := p_sn
 
     ' preset return buffer with zeros
@@ -109,7 +109,7 @@ PUB searchAll(p_sn, maxCount) : idsFoundCount | bFoundStatus, pIDBffr
         bFoundStatus := OWNext()
 
     extIdCount := idsFoundCount
-    pst.fstr2(string("-- searchAll()  RET=%d, found=%d\r\n"), idsFoundCount, dvcIdCount)
+    'pst.fstr2(string("-- searchAll()  RET=%d, found=%d\r\n"), idsFoundCount, dvcIdCount)
 
 
 PUB searchFamily(bytFamilyCode, p_sn, maxCount) : idsFoundCount | pIDBffr
@@ -118,7 +118,7 @@ PUB searchFamily(bytFamilyCode, p_sn, maxCount) : idsFoundCount | pIDBffr
 '' -- stores in array at p_sn up to {maxCount} IDs
 '' -- supports 1 or more devices on same 1W
 
-    pst.fstr3(string("+ searchFamily(0x%.2x, 0x%.8x, %d)\r\n"), bytFamilyCode, p_sn, maxCount)
+    'pst.fstr3(string("+ searchFamily(0x%.2x, 0x%.8x, %d)\r\n"), bytFamilyCode, p_sn, maxCount)
     pIDBffr := p_sn
 
     ' preset return buffer with zeros
@@ -137,7 +137,7 @@ PUB searchFamily(bytFamilyCode, p_sn, maxCount) : idsFoundCount | pIDBffr
             pIDBffr += 8
 
     extIdCount := idsFoundCount
-    pst.fstr2(string("-- searchFamily()  RET=%d, found=%d\r\n"), idsFoundCount, dvcIdCount)
+    'pst.fstr2(string("-- searchFamily()  RET=%d, found=%d\r\n"), idsFoundCount, dvcIdCount)
 
 PUB totalDevicesFound() : devicesSeenCount
     '' return number of devices seen on 1-wire line during search
@@ -166,7 +166,7 @@ CON { -- PRIVATE / Utility Methods -- }
 
 PRI owFirst() : bFoundStatus
     ' reset the search state
-    pst.fstr0(string("+ owFirst()\r\n"))
+    'pst.fstr0(string("+ owFirst()\r\n"))
     clearPriorSearchArgs()
     resetSearchArgsWithLastOf(0)
     ' find a first device
@@ -177,7 +177,7 @@ PRI owTargetSetup(bytFamilyCode) | idIndex
     ' to owNext() if it is present.
     ' set the search state to find {bytFamilyCode} type devices
     '  with remaining 7 bytes of ID to zero
-    pst.fstr1(string("+ owTargetSetup(0x%.2x)\r\n"), bytFamilyCode)
+    'pst.fstr1(string("+ owTargetSetup(0x%.2x)\r\n"), bytFamilyCode)
     clearPriorSearchArgs()
     BYTE [@dvcIdBffr][0] := bytFamilyCode
     resetSearchArgsWithLastOf(64)
@@ -220,7 +220,7 @@ PRI owSearch() : bFoundStatus | id_bit_number, last_zero, rom_byte_number, id_bi
             'lastFamilyDiscrepancy := 0
             resetSearchArgsWithLastOf(0)
 
-            pst.fstr0(string("-- owSearch()  1W-RESET - no devices\r\n"))
+            'pst.fstr0(string("-- owSearch()  1W-RESET - no devices\r\n"))
         else
             ' loop to do the search
             rom_byte_mask := 1

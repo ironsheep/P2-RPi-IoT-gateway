@@ -45,8 +45,7 @@ OBJ { Objects Used by this Object }
 
     IoT_GW      :   "RPi-IoT-gw"            ' serial I/O to/from RPi
     ds18s20_OW  :   "isp_ds18s20"           ' DS18S20 one-wire temp sensor
-    pst         :   "isp_serial_singleton"  ' format to memory routines
-    ansi        :   "jm_ansi"               '   ansi support routines
+    strFmt      :   "isp_serial_singleton"  ' format to memory routines
     srchOW      :   "isp_ow_search"         '   search routines for 1-Wire
 
 DAT { our hardware ID strings and 1-wire buffers, collection names }
@@ -66,14 +65,6 @@ statusFName     byte    "p2-1wireValues",0
 tempStr         byte    "923.05 F",0
 noDvcStr        byte    "- No Dvc -",0
 
-CON { terminal }
-
-  BR_TERM  = 230_400                                            ' terminal baud rate
-
-  #0, T_PST, T_ANSI                                             ' terminal types
-
-  T_TYPE = T_PST                                                ' let's use our PST
-
 CON
 
   FMT_BFFR_LEN = 80
@@ -84,29 +75,17 @@ VAR { demo buffers }
 
 PUB main() | opStatus, nIdx, nCollId, pRetString, owStatus, nTics, tempC, tempF, pBffr, nLoopCt
 
-    pst.start(BR_TERM)                                          ' start terminal io
-    wait_for_terminal(bShoudClear)
-
     srchOW.start(OW_PIN, srchOW.PU_1K5)                         ' connect to 1W bus with internal pullup
     owStatus := srchOW.reset()                                  ' check for device
     if (owStatus == %10)                                        ' good 1W reset
         sns_Ct := srchOW.searchAll(@sn_buff, MAX_DEVICE_SNS)    ' read up to MAX_DEVICE_SNS serial #'s
-        pst.fstr1(string("scan 1-wire found = %d S/Ns\r\n"), sns_Ct)
+        debug("* main: scan 1-wire found = [", udec_(sns_Ct), "]")
 
         waitms(250)
 
         srchOW.stop()   ' release pin
 
         if sns_Ct > 0
-            pst.fstr0(string("\r\nUsing S/N = "))                             ' show tC
-            repeat nIdx from 0 to 7                                     ' display serial # bytes
-                pst.fwhex(byte [@sn_buff][nIdx], 2)
-                pst.tx(" ")
-            pst.fstr0(string("\r\n"))   ' blank line
-
-            pst.memDump(@sn_buff, 32, string("S/N Buffer"))
-            pst.fstr0(string("\r\n"))   ' blank line
-
             '' DEMO tell our RPi send an email for us
             IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)
 
@@ -121,31 +100,24 @@ PUB main() | opStatus, nIdx, nCollId, pRetString, owStatus, nTics, tempC, tempF,
 
             if (owStatus <> ds18s20_OW.OW_GOOD_WITH_DVC)
                 debug("* main: ERROR 1-wire [", sdec(owStatus), "]")
-                pst.fstr1(string("* main: ERROR 1-wire %d\r\n"), owStatus)
             else
                 debug("* main: one-wire dvc(s) found")
-                pst.fstr0(string("* main: one-wire dvc(s) found\r\n"))
-
-            pst.fstr0(string("\r\n"))   ' blank line
 
             ' Establish write access to named collection in /status/ folder
             opStatus, nCollId := IoT_GW.fileAccess(IoT_GW.EFI_STATUS, IoT_GW.FM_WRITE_CREATE, @statusFName)
             if opStatus <> IoT_GW.OP_SUCCESS
                 debug("* main: ERROR Failed to OPEN [", zstr_(@statusFName), "] for write!")
             else
-                repeat nLoopCt from 1 to 2 ' 2 - will be 30 (seconds) worth of reading
+                repeat nLoopCt from 1 to 30 ' (seconds) worth of reading
                     nTics := getct()                                                ' sync timing loop
 
                     tempC := ds18s20_OW.read_tca(bUseDelay, @sn_buff)                            ' read the temperature
-                    pst.fstr1(string("  -- %6.2f C"), (tempC + 50)/100)         ' round to 1/100th degrees
                     tempF := tempC * 9 / 5 + 32_0000                              ' convert to Fahrenheit
-                    pst.fstr1(string(", %6.2f F"), (tempF + 50)/100)
-                    pst.fstr1(string(" -- #%d\r\n"), nLoopCt)
 
-                    pBffr := pst.sStr1(string("%6.2f C"), (tempC + 50)/100, @fmtBuffer)
+                    pBffr := strFmt.sStr1(string("%6.2f C"), (tempC + 50)/100, @fmtBuffer)
                     debug("* main: 1-wire says [", zstr_(pBffr), "]")
 
-                    pBffr := pst.sStr1(string("%6.2f F"), (tempF + 50)/100, @fmtBuffer)
+                    pBffr := strFmt.sStr1(string("%6.2f F"), (tempF + 50)/100, @fmtBuffer)
                     debug("* main: 1-wire says [", zstr_(pBffr), "]")
 
                     ' write string value to collection
@@ -162,25 +134,6 @@ PUB main() | opStatus, nIdx, nCollId, pRetString, owStatus, nTics, tempC, tempF,
 
             ' terminate communication with our gateway RPi
             IoT_GW.stop()
-
-
-PRI wait_for_terminal(bShouldClear)
-
-  ' Download to RAM with F10
-  ' F12 to open PST
-  ' Click [Enable]
-  ' Press Enter
-
-  pst.rxflush()
-  pst.rx()
-
-  if (bShouldClear)
-    if (T_TYPE == T_PST)
-      pst.tx(pst.CLS)
-    else
-      pst.str(ansi.hide_cursor())
-      pst.str(ansi.home())
-      pst.str(ansi.cls())
 
 CON { license }
 {{

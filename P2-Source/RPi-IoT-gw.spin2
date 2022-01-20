@@ -207,10 +207,10 @@ PRI readRPiResponse(pBffr, nBffrMax) : pStr | nRxLenRem, pRxNextChar, nChr
         nChr := RPi.rxtime(1000)
         if (nChr <> -1)
             if (nChr == $0a)
-                BYTE[pRxNextChar] := $00 ' place pst. char
+                BYTE[pRxNextChar] := $00 ' place term char
             else
                 BYTE[pRxNextChar] := nChr
-                BYTE[pRxNextChar + 1] := $00 ' place pst. char
+                BYTE[pRxNextChar + 1] := $00 ' place term char
             ' TOO SLOW LOOSING DATA debug("gStr: nChr=[", uhex_byte_(nChr), "-(", lstr_(pRxNextChar, 1), ")]")
             pRxNextChar++
             nRxLenRem--
