@@ -1,0 +1,325 @@
+'' =================================================================================================
+''
+''   File....... isp_queue_serial.spin2
+''   Purpose.... provide serial line receiver that queues each line received
+''
+''   Authors.... Stephen M. Moraco
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Jan 2022
+''   Updated.... 20 Jan 2022
+''
+'' =================================================================================================
+
+CON { Object Interface: PUBLIC ENUMs }
+
+CON { fixed io pins }
+
+  RX1      = 63  { I }                                          ' programming / debug
+  TX1      = 62  { O }
+
+  SF_CS    = 61  { O }                                          ' serial flash
+  SF_SCK   = 60  { O }
+  SF_SDO   = 59  { O }
+  SF_SDI   = 58  { I }
+
+OBJ { Objects Used by this Object }
+
+    RPi         : "jm_serial"                                   ' serial I/O
+    nstr        : "jm_nstrings"                                 ' number-to-string
+
+CON { driver config values }
+
+    SER_RX_BUFF_MAX = 256
+    MAX_SINGLE_STRING_LEN = 120
+    RX_QUEUED_STR_MAX = 8
+    STACK_SIZE_LONGS = 48
+
+CON { test values }
+
+  CLK_FREQ = 200_000_000                                        ' system freq as a constant
+  _clkfreq = CLK_FREQ                                           ' set system clock
+
+  RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
+  TX_GW    = 24  { O }
+
+  GW_BAUDRATE = 500_000   ' 500kb/s - allow P2 rx to keep up!
+
+VAR { pin info saves }
+
+    long    pinRx
+    long    pinTx
+
+    long    rxCogId
+
+DAT { string constants }
+
+pQStrHead       long    0
+pQStrTail       long    0
+pQStrCount      long    0
+pRxByteHead     long    0
+pRxByteCount    long    0
+pRxByteMax      long    0
+bInString       long    FALSE
+pRxStrStart     long    0
+
+taskStack       long    0[STACK_SIZE_LONGS]
+
+rxStrPtrSet     long    0[RX_QUEUED_STR_MAX]
+
+serialRxBffr    byte    0[SER_RX_BUFF_MAX]
+
+CON { test control values }
+
+  #0, CT_UNKNOWN, CT_IDLE, CT_STOP, CT_PLACE_STR
+
+DAT { test control vars }
+
+eTestCtrl       long    0
+eTestParam      long    0
+eTestCtrlPrior  long    0
+
+ctStrIdle       byte    "IDLE",0
+ctStrStop       byte    "STOP",0
+ctStrPlcStr       byte    "PLACE_STR",0
+ctStrUnknown      byte    "CT_????",0
+
+greenStr        byte    "Green String", $0a, 0
+redStr        byte    "Red String", $0a, 0
+
+userRxBuffer    byte    0[MAX_SINGLE_STRING_LEN+1]
+
+PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus
+'' This is not a top level object
+   ' but is our test code main for now...
+    startx(RX_GW, TX_GW, GW_BAUDRATE)
+    ' =========================================
+    ' test code
+    ' -----------------------------------------
+    ' have serial place str in buffer
+    eTestCtrl := CT_IDLE
+    waitms(250)
+
+    eTestParam := @greenStr
+    eTestCtrl := CT_PLACE_STR
+    ' then report the string arrived
+    ' check to see if string arrived
+    '  display string
+    '  free string
+    bWaitStatus := TRUE ' yes, let's wait for strings to arrive
+    pStr := getNextString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
+
+    waitms(25077)
+    eTestParam := @redStr
+    eTestCtrl := CT_PLACE_STR
+    ' then report the string arrived
+    ' check to see if string arrived
+    '  display string
+    '  free string
+
+    pStr := getNextString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
+
+    bStatus := rxStringPresent()
+    debug("! end is T/F:", ubin_byte(bStatus))
+
+
+    ' =========================================
+    stop()
+
+PUB startx(rxpin, txpin, baud)
+'' Start RPi gateway serial coms on rxpin and txpin at baud
+    pinRx := rxpin
+    pinTx := txpin
+    RPi.startx(pinRx, pinTx, baud)                              ' use user serial port
+
+    ' start our rx task in own cog
+    rxCogId := cogspin(newcog, TaskSerialRx(@serialRxBffr, SER_RX_BUFF_MAX), @taskStack)
+    if rxCogId == -1    ' did fail?
+        debug("!! ERROR filed to start RX-QUE task")
+
+PUB stop()
+'' Release the serial pins and free up the rcvr cog
+    RPi.rxflush()   ' git rid of any pending input
+    ' free the pins used
+    pinf(pinRx)    ' de-assert
+    pinf(pinTx)    ' de-assert
+
+    ' free the cog used
+    if(rxCogId)
+        cogstop(rxCogId - 1)
+        rxCogId := 0
+
+PUB getNextString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWrappedStr
+'' Return return str or 0 if none
+'' if {bShouldWait} is TRUE wait until string arrives before returning
+    debug("getNextString: ENTRY")
+    pStr := 0
+    if bShouldWait == TRUE
+        bStringArrived := TRUE
+        repeat until rxStringPresent()
+    else
+        bStringArrived := rxStringPresent()
+
+    if bStringArrived == TRUE
+        pStr := pUserDest
+        pWrappedStr := dequeueRxStr()
+        copyWrappedStr(pUserDest, pWrappedStr, lenDest)
+        freeWrappedString(pWrappedStr)
+        debug("getNextString: str=[", zstr_(pUserDest), "]")
+    else
+        debug("getNextString: str=[] - NOT PRESENT")
+
+
+' ====================================================
+'  SERIAL RX QUEUE routines
+'
+PRI TaskSerialRx(pRxBffr, lenRxBffr)
+' our serial receive loop
+    ' record setup details
+    debug("TASK[Rx] started pRxBfr=", uhex_(pRxBffr), ", len=", udec_(lenRxBffr), ", rxBffr=[", uhex_(@serialRxBffr), "]")
+    pRxByteHead := pRxBffr
+    pRxByteMax := lenRxBffr
+    pRxByteCount := 0
+
+    bInString := FALSE
+
+    pQStrHead := @rxStrPtrSet
+    pQStrTail := @rxStrPtrSet
+    pQStrCount := 0
+
+    ' run loop (test-version for now)
+    repeat TRUE
+        if(eTestCtrl == CT_PLACE_STR)
+           eTestCtrl := CT_IDLE
+           fakeRxStr(eTestParam)
+        if eTestCtrlPrior <> eTestCtrl
+            showTestState(eTestCtrlPrior, eTestCtrl)
+            eTestCtrlPrior := eTestCtrl
+
+PRI showTestState(ePrior, eNew) | pFrom, pTo
+' display task state
+    pFrom := nameForState(ePrior)
+    pTo := nameForState(eNew)
+    debug("TASK[Rx] state [", zstr_(pFrom), "] -> [", zstr_(pTo), "]")
+
+PRI nameForState(eNew) : pStr
+' return string for state value
+    if eNew == CT_IDLE
+      pStr := @ctStrIdle
+    elseif  eNew == CT_STOP
+      pStr := @ctStrStop
+    elseif  eNew == CT_PLACE_STR
+      pStr := @ctStrPlcStr
+    else
+      pStr := @ctStrUnknown
+
+PRI fakeRxStr(pStr) | nIdx
+' place string into buffer as if it was received
+    debug("TASK[Rx] str=[", zstr_(pStr), "]")
+    repeat nIdx from 0 to strsize(pStr) - 1
+       enqueueRx(byte[pStr][nIdx])
+
+PRI enqueueRx(nChr)
+' place byte into rx queue, if EOL then place term instead and engueue string ptr!
+    if (pRxByteCount < pRxByteMax)
+        if bInString == FALSE
+            bInString := TRUE
+            pRxStrStart := pRxByteHead
+        'debug("[RX Task] rxChr=", uhex_(nChr))
+        if (nChr <> $0a)
+            byte [pRxByteHead++] := nChr
+        else
+            byte [pRxByteHead++] := $00 ' place term instead of EOL
+            enqueueRxStr(pRxStrStart)
+            bInString := FALSE
+
+    else
+        debug("!! ERROR [RX Task] char-queue full!!")
+
+PRI enqueueRxStr(pStr)
+' report string arrival to listener (place string pointer in queue)
+    if pQStrCount < RX_QUEUED_STR_MAX
+        LONG [pQStrHead++] := pStr
+        ' if head goes off end of set then wrap
+        if pQStrHead > @long[@rxStrPtrSet][RX_QUEUED_STR_MAX-1]
+            pQStrHead := @long[@rxStrPtrSet][0]
+        ' mark arrival of new in queue
+        pQStrCount++
+        debug("TASK[Rx] enqueueStr=[", zstr_(pStr), "]")
+    else
+        debug("!! ERROR [RX Task] string-queue full!!")
+    debug("TASK[Rx] enqueueStr: ", udec(pQStrCount))
+
+PRI dequeueRxStr() : pRmStr
+' remove string from queue, listener done with it
+    pRmStr :=LONG [pQStrTail++]
+    if pQStrTail > @long[@rxStrPtrSet][RX_QUEUED_STR_MAX-1]
+        pQStrTail := @long[@rxStrPtrSet][0]
+    pQStrCount--
+    debug("TASK[Rx] dequeueRxStr:", uhex(pRmStr), udec(pQStrCount))
+
+PRI freeWrappedString(pRmStr)
+    ' zero our string memory
+    debug("TASK[Rx] freeWrappedString:", uhex(pRmStr))
+    zeroWrappedStr(pRmStr)
+
+PRI zeroWrappedStr(pRmStr) | nIdx, pSrc, nLen
+' fill space occuppied by string with zero's
+'  NOTE handle buffer wrap!
+'    string can start near and and wrap to front!
+    pSrc := pRmStr
+    nLen := strsize(pRmStr)
+    repeat nIdx from 0 to nLen - 1
+        ' if pointing beyond end, wrap to front!
+        if pSrc > @BYTE[@serialRxBffr][SER_RX_BUFF_MAX-1]
+          pSrc -= SER_RX_BUFF_MAX
+        BYTE[pSrc++] := 0
+    debug("- zeroWrappedStr: ", uhex(pRmStr), udec(nLen))
+
+PRI copyWrappedStr(pUserDest, pSrcStr, lenDest) | nIdx, pSrc, pDest, destLen
+' copy possible wrapped string {pSrcStr} to {pUserDest} (use min(strlen,lenDest) as bytes to move)
+'  NOTE handle buffer wrap!
+'    string can start near and and wrap to front!
+    pDest := pUserDest
+    destLen := strsize(pSrcStr)
+    if (destLen > lenDest)
+      destLen := lenDest
+    pSrc:= pSrcStr
+    repeat nIdx from 0 to destLen - 1
+        ' if pointing beyond end, wrap to front!
+        if pSrc > @BYTE[@serialRxBffr][SER_RX_BUFF_MAX-1]
+          pSrc -= SER_RX_BUFF_MAX
+        BYTE[pDest++] := BYTE[pSrc++]
+    BYTE[pDest] := 0  ' place final terminator
+    debug("- copyWrappedStr: str=[", zstr_(pUserDest), "]")
+
+
+PRI rxStringPresent() : presentStatus
+' return T/F where T means have a received string!
+    presentStatus := (pQStrCount > 0) ? TRUE : FALSE
+    debug("?? rxStringPresent[T/F]: ", ubin_byte(presentStatus))
+
+CON { license }
+
+{{
+
+  Terms of Use: MIT License
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this
+  software and associated documentation files (the "Software"), to deal in the Software
+  without restriction, including without limitation the rights to use, copy, modify,
+  merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to the following
+  conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies
+  or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+  PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+  HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+  CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+  OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+}}
