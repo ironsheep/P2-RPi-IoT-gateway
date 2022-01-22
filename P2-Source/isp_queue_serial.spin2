@@ -30,7 +30,7 @@ OBJ { Objects Used by this Object }
 
 CON { driver config values }
 
-    STACK_SIZE_LONGS = 48   ' 32 crashes!
+    STACK_SIZE_LONGS = 64   ' 48, 32 crashes!
 
     RX_CHR_Q_MAX_BYTES = 80    ' 80 = testing size, else 512
     MAX_SINGLE_STRING_LEN = 79  ' 79 = testing size, else 120
@@ -46,6 +46,9 @@ CON { test values }
   TX_GW    = 24  { O }
 
   GW_BAUDRATE = 500_000   ' 500kb/s - allow P2 rx to keep up!
+
+  DO_NOT_WRITE_MARK = $addee5e5
+  NOT_WRITTEN_MARK = $a5a50df0
 
 VAR { pin info saves }
 
@@ -64,6 +67,7 @@ bTestMode       long    TRUE
 
 ' TASK use variables
 taskStack       long    0[STACK_SIZE_LONGS]
+endStackMark    long    DO_NOT_WRITE_MARK
 
 pRxByteHead     long    0   ' our QUEUE control vars - received BYTEs
 nRxByteCount    long    0
@@ -94,8 +98,10 @@ CON { test control values }
 
   #0, CT_UNKNOWN, CT_IDLE, CT_STOP, CT_PLACE_STR, CT_PLACE_N_MSGS
 
-
+  #0, TST_UNKNOWN, TST_PASS, TST_FAIL
 DAT { test control vars }
+
+bDbgShoMem      long    FALSE
 
 eTestCtrl       long    0
 eTestParam      long    0
@@ -112,7 +118,9 @@ redStr        byte    "Red String", $0a, 0
 
 userRxBuffer    byte    0[MAX_SINGLE_STRING_LEN+1]
 
-PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus, nCtParm
+nStackDepth          long    STACK_SIZE_LONGS
+
+PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus, nCtParm, bPassFail
 '' This is not a top level object
    ' but is our test code main for now...
     startx(RX_GW, TX_GW, GW_BAUDRATE)
@@ -147,20 +155,40 @@ PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus, nCtParm
     debug(">> 001 is T/F:", ubin_byte(bStatus))
 }
 
-    ' next tests:
-    ' - fill to buffer max detect goood everrun
     ' - drop buffer size to smaller so fewer messages needed for following tests
-    ' - fill with exactfit messages - ensure wrap works
-    ' - fill with non-exact fit messages - ensure wrap works
-    ' - restore buffer to production size [512b]
-    ' - cut over to actual RX with RPi
-    ' - do multi-message rx and unload - ensuring this all works
-    ' ========= ready for production use =========
+
+    resetRxStatus() ' reset problem indicators
     eTestCtrl := CT_IDLE
     waitms(250)
 
+    ' - fill to buffer max detect goood everrun
+    nCtParm := 9    ' our N      EXACT FILL of queue space
+    eTestParam := nCtParm
+    eTestCtrl := CT_PLACE_N_MSGS
+    waitms(500)
+
+    if rxStringsCount() < nCtParm
+        debug(">> ERR too few strings reported")
+    else
+        debug(">> all strings reported in")
+    'repeat ' hold here
+
+    repeat nCtParm
+        pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
+
+    bStatus := haveRxString()
+    debug(">> 002 is T/F:", ubin_byte(bStatus))
+
+    ' this test should overrun
+    bPassFail :=  (bQueOverrun == TRUE) ? TST_PASS : TST_FAIL
+    testReport(string("(1) Rx too many"), bPassFail)
+
+    resetRxStatus() ' reset problem indicators
+    flushRxQueue()
+
     ' - fill to buffer N strings, see if all report correctly
-    nCtParm := 2    ' our N
+    ' - fill with exactfit messages - ensure wrap works
+    nCtParm := 8    ' our N      EXACT FILL of queue space
     eTestParam := nCtParm
     eTestCtrl := CT_PLACE_N_MSGS
     waitms(250)
@@ -169,26 +197,65 @@ PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus, nCtParm
     debug(">> all strings reported in")
     'repeat ' hold here
 
-    repeat 2
+    repeat nCtParm
         pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
 
-    'until rxStringsCount() == 0
+    bStatus := haveRxString()
+    debug(">> 003 is T/F:", ubin_byte(bStatus))
 
+    ' this test should NOT overrun
+    bPassFail :=  (bQueOverrun == FALSE) ? TST_PASS : TST_FAIL
+    testReport(string("(2) Rx Exact full"), bPassFail)
+
+    resetRxStatus() ' reset problem indicators
+
+    ' - fill with non-exact fit messages - ensure wrap works
+    bPassFail := TST_PASS
+    repeat 4    ' 3 ok
+        nCtParm := 3    ' our N      EXACT FILL of queue space
+        eTestParam := nCtParm
+        eTestCtrl := CT_PLACE_N_MSGS
+        waitms(250)
+
+        if rxStringsCount() < nCtParm
+            debug(">> ERR too few strings reported")
+            bPassFail := TST_FAIL
+        else
+            debug(">> all strings reported in")
+
+        repeat rxStringsCount()
+            pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
 
     bStatus := haveRxString()
-    debug(">> 002 is T/F:", ubin_byte(bStatus))
+    debug(">> 003 is T/F:", ubin_byte(bStatus))
+
+    ' this test should NOT overrun
+    if (bQueOverrun == TRUE)
+        bPassFail := TST_FAIL
+
+    testReport(string("(3) Rx wrap test"), bPassFail)
+
+    resetRxStatus() ' reset problem indicators
+
+
+    ' next tests:
+    ' - restore buffer to production size [512b]
+    ' - cut over to actual RX with RPi
+    ' - do multi-message rx and unload - ensuring this all works
+    ' ========= ready for production use =========
 
     ' =========================================
     stop()
 
 CON { - - - - - }
 
-
 PUB startx(rxpin, txpin, baud)
 '' Start RPi gateway serial coms on rxpin and txpin at baud
     pinRx := rxpin
     pinTx := txpin
     RPi.startx(pinRx, pinTx, baud)                              ' use user serial port
+
+    prepStackForCheck() ' for our internal test use
 
     ' start our rx task in own cog
     rxCogId := cogspin(newcog, TaskSerialRx(@serialRxBffr, RX_CHR_Q_MAX_BYTES), @taskStack)
@@ -210,7 +277,7 @@ PUB stop()
 PUB haveRxString() : presentStatus
 '' return T/F where T means have received a string!
     presentStatus := (nQStrCount > 0) ? TRUE : FALSE
-    debug("?? haveRxString[T/F]: ", ubin_byte(presentStatus))
+    'debug("?? haveRxString[T/F]: ", ubin_byte(presentStatus))
 
 PUB rxStringsCount() : nCount
 '' Return count of strings received
@@ -219,7 +286,7 @@ PUB rxStringsCount() : nCount
 PUB getRxString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWrappedStr
 '' Return {pStr} or 0 if none
 '' if {bShouldWait} is TRUE wait until string arrives before returning
-    debug("getRxString: ENTRY")
+    'debug("getRxString: ENTRY")
     pStr := 0
     if bShouldWait == TRUE
         bStringArrived := TRUE
@@ -250,6 +317,12 @@ PUB flushRxQueue()
     nRxByteCount := 0
     nQStrCount := 0
 
+PUB resetRxStatus()
+'' reset all task failure indicators
+    bQueOverrun := FALSE
+    bStrQueOverrun := FALSE
+
+
 CON { ----- TASK ----- }
 ' ====================================================
 '  SERIAL RX QUEUE routines
@@ -269,6 +342,7 @@ PRI TaskSerialRx(pRxBffr, lenRxBffr)
         ' run loop (test-version for now)
         debug("TASK[Rx] ** TEST LOOP Running **")
         repeat
+            checkStack()
             if (eTestCtrl == CT_PLACE_STR)
                 eTestCtrl := CT_IDLE
                 tskFakeRxStr(eTestParam)
@@ -289,14 +363,18 @@ PRI TaskSerialRx(pRxBffr, lenRxBffr)
             if (nTaskChr <> -1)
                 tskEnqueueRx(nTaskChr)
 
-PRI tskFakeRxStr(pStr) | nIdx
+PRI tskFakeRxStr(pStr) | nIdx, nStatusValue
 ' place string into buffer as if it was received
     debug("TASK[Rx] str=[", zstr_(pStr), "]")
     repeat nIdx from 0 to strsize(pStr) - 1
-       tskEnqueueRx(byte[pStr][nIdx])
+       nStatusValue := tskEnqueueRx(byte[pStr][nIdx])
+       if nStatusValue
+            debug("EEE Abort string write EEE")
+            quit
 
-PRI tskEnqueueRx(nChr)
+PRI tskEnqueueRx(nChr) : bFailedStatus
 ' place byte into rx queue, if EOL then place term instead and engueue string ptr!
+    bFailedStatus := FALSE
     if (nRxByteCount < nRxByteMax)
         if bInString == FALSE
             bInString := TRUE
@@ -311,11 +389,17 @@ PRI tskEnqueueRx(nChr)
             if bInString == TRUE
                 tskEnqueueRxStr(pNewStrStart)
                 bInString := FALSE
+        ' wrap ptr if needed...
+        if pRxByteHead > @BYTE [@serialRxBffr][RX_CHR_Q_MAX_BYTES - 1]
+            pRxByteHead := @serialRxBffr
     else
+        bQueOverrun := TRUE ' signal that we lost incoming data!!!
         debug("TASK[Rx] !! ERROR  char-queue full!! ", sdec(nRxByteCount), sdec(nRxByteMax))
+        bFailedStatus := TRUE
 
 PRI tskEnqueueRxStr(pStr)
 ' report string arrival to listener (place string pointer in queue)
+    checkGoodStringPtr(pStr)
     if nQStrCount < RX_STR_Q_MAX_LONGS
         LONG [@rxStrPtrSet][nQStrHeadIdx++] := pStr
         ' if head goes off end-of-set then wrap
@@ -325,8 +409,20 @@ PRI tskEnqueueRxStr(pStr)
         nQStrCount++
         debug("TASK[Rx] enqueueStr(", udec_(strsize(pStr)), ")=[", zstr_(pStr), "] ", uhex_long(pStr))
     else
+        bStrQueOverrun := TRUE ' signal that we lost incoming data!!!
         debug("TASK[Rx] !! ERROR string-queue full!!")
     debug("TASK[Rx] enqueueStr: ", udec(nQStrCount))
+
+PRI checkGoodStringPtr(pStr)
+' report and halt if string not valid (with circular queue range)
+if pStr < @serialRxBffr or pStr > @BYTE[@serialRxBffr][RX_CHR_Q_MAX_BYTES-1]
+   debug("EEE have BAD ptr to string! ", uhex_long(pStr), uhex_long(pRxByteStart), uhex_long(pRxByteStart + RX_CHR_Q_MAX_BYTES - 1))
+   lockupForAnly()
+
+PRI lockupForAnly()
+' tell that we are halting then halt (effictivly)
+    debug("---- FAIL - stopping here for Analysis of above ^^^")
+    repeat      ' hold here for now
 
 CON { ----- Support ----- }
 
@@ -338,6 +434,7 @@ PRI dequeueRxStr() : pRmStr
         if nQStrTailIdx > RX_STR_Q_MAX_LONGS - 1
             nQStrTailIdx := 0
         nQStrCount--
+        'if bDbgShoMem
         debug("-- dequeueRxStr:", uhex_long(pRmStr), udec(nQStrCount))
     else
         debug("-- dequeueRxStr() !! ERROR string-queue empty!!")
@@ -345,7 +442,8 @@ PRI dequeueRxStr() : pRmStr
 
 PRI freeWrappedString(pRmStr)
     ' zero our string memory
-    debug("-- freeWrappedString:", uhex_long(pRmStr))
+    if bDbgShoMem
+        debug("-- freeWrappedString:", uhex_long(pRmStr))
     zeroWrappedStr(pRmStr)
 
 PRI zeroWrappedStr(pRmStr) | nIdx, pSrc, nLen
@@ -360,7 +458,8 @@ PRI zeroWrappedStr(pRmStr) | nIdx, pSrc, nLen
           pSrc -= RX_CHR_Q_MAX_BYTES
         BYTE[pSrc++] := 0
     nRxByteCount -= nLen + 1
-    debug("-- zeroWrappedStr: ", uhex_long(pRmStr), udec(nLen), udec(nRxByteCount))
+    if bDbgShoMem
+        debug("-- zeroWrappedStr: ", uhex_long(pRmStr), udec(nLen), udec(nRxByteCount))
 
 PRI copyWrappedStr(pUserDest, pSrcStr, lenDest) | nIdx, pSrc, pDest, destLen
 ' copy possible wrapped string {pSrcStr} to {pUserDest} (use min(strlen,lenDest) as bytes to move)
@@ -377,9 +476,44 @@ PRI copyWrappedStr(pUserDest, pSrcStr, lenDest) | nIdx, pSrc, pDest, destLen
           pSrc -= RX_CHR_Q_MAX_BYTES
         BYTE[pDest++] := BYTE[pSrc++]
     BYTE[pDest] := 0  ' place final terminator
-    debug("-- copyWrappedStr: str=[", zstr_(pUserDest), "]")
+    if bDbgShoMem
+        debug("-- copyWrappedStr: str=[", zstr_(pUserDest), "]")
 
 CON { ----- TEST Support ----- }
+
+PRI prepStackForCheck()
+' reset all failure indicators
+
+    longfill(@taskStack, NOT_WRITTEN_MARK, STACK_SIZE_LONGS)
+    endStackMark := DO_NOT_WRITE_MARK
+
+PRI checkStack()
+    if endStackMark <> DO_NOT_WRITE_MARK
+        debug("^^^ STACK Overflow! Depth greater than ", udec(nStackDepth),  " longs")
+        lockupForAnly()
+
+PRI reportStackUse()
+    nStkChkUsed := 0
+    repeat nStkChkIdx from 0 to STACK_SIZE_LONGS - 1
+        if LONG[@taskStack][nStkChkIdx] <> NOT_WRITTEN_MARK
+            nStkChkUsed++
+        else
+            quit    ' done we have our count
+    debug("^^^ STACK used ", udec(nStkChkUsed), " of ", udec(nStackDepth))
+
+PRI testReport(pTestId, bPassFail) | pResult
+    pResult := (bPassFail == TST_PASS) ? @rsltPass : @rsltFail
+    debug("+++ ---------")
+    debug("+++ TEST [", zstr_(pTestId), "] - ", zstr_(pResult))
+    reportStackUse()
+    checkStack()
+    'dumpStack()
+
+    if bPassFail == TST_FAIL
+        lockupForAnly()
+
+PRI dumpStack()
+    dbgMemDump(@taskStack, (STACK_SIZE_LONGS + 1) * 4, string("TASK Stack"))
 
 DAT { test message things }
 
@@ -388,6 +522,12 @@ testMsgCt       LONG    0
 testMsgStr      BYTE    "Test "
 testMsgNbr      BYTE    "000x"
 testMsgEOL      BYTE    $0a, 0
+
+rsltPass        BYTE    "pass",0
+rsltFail        BYTE    "FAIL",0
+
+nStkChkUsed     LONG    0
+nStkChkIdx      LONG    0
 
 PRI genTestMsg() : pMsg | nDigit, nRemainder
 ' return pointer to a simple message
@@ -401,7 +541,7 @@ PRI genTestMsg() : pMsg | nDigit, nRemainder
         nDigit := nRemainder / 100
         nRemainder -= nDigit * 100
         BYTE[@testMsgNbr][1] := nDigit + $30
-    if nRemainder > 99
+    if nRemainder > 9
         nDigit := nRemainder / 10
         nRemainder -= nDigit * 10
         BYTE[@testMsgNbr][2] := nDigit + $30
@@ -454,7 +594,7 @@ PRI dbgMemDump(pBytes, lenBytes, pMessage) | rowCount, rowLen, pCurrByte, lastRo
 
 PRI dbgMemDumpRow(pBytes, lenBytes) '| rowCount, rowLen, pCurrByte, bytIndex
 ' emit address followed by bytes
-    debug("  ", uhex_long_(pBytes), ": ", uhex_byte_array_(pBytes, lenBytes))
+    debug(" ", uhex_long_(pBytes), ": ", uhex_byte_array_(pBytes, lenBytes))
 
 
 CON { license }

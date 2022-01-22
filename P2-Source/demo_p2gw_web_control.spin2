@@ -1,0 +1,124 @@
+'' =================================================================================================
+''
+''   File....... demo_p2gw_web_control.spin2
+''   Purpose.... Demonstrate control of {} from RPi web-backend
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Jan 2022
+''   Updated.... 22 Jan 2022
+''
+'' =================================================================================================
+
+CON { timing }
+
+  CLK_FREQ = 200_000_000                                        ' system freq as a constant
+  _clkfreq = CLK_FREQ                                           ' set system clock
+
+CON { fixed io pins }
+
+  RX1      = 63  { I }                                          ' programming / debug
+  TX1      = 62  { O }
+
+  SF_CS    = 61  { O }                                          ' serial flash
+  SF_SCK   = 60  { O }
+  SF_SDO   = 59  { O }
+  SF_SDI   = 58  { I }
+
+CON { RPi Gateway io pins }
+
+  RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
+  TX_GW    = 24  { O }
+
+  GW_BAUDRATE = 500_000   ' 500kb/s - allow P2 rx to keep up!
+
+CON { 1-wire devices io pins }
+
+  OW_PIN = 16
+
+  MAX_DEVICE_SNS = 10
+
+  MAX_DEVICE_SCRATCH_BYTES = 9
+
+OBJ { Objects Used by this Object }
+
+    IoT_GW      :   "RPi-IoT-gw"            ' serial I/O to/from RPi
+    ds18s20_OW  :   "isp_ds18s20"           ' DS18S20 one-wire temp sensor
+    strFmt      :   "isp_serial_singleton"  ' format to memory routines
+    srchOW      :   "isp_ow_search"         '   search routines for 1-Wire
+
+DAT { our hardware ID strings and 1-wire buffers, collection names }
+
+bUseDelay       long    TRUE    ' 1-wire delay vs. poll
+bShoudClear     long    TRUE    ' yes, clear terminal on start
+
+sn_buff         long    0[MAX_DEVICE_SNS * 2]
+sns_Ct          long    0
+
+scratchBffr     byte    0[MAX_DEVICE_SCRATCH_BYTES]
+
+p2HardwareID    byte    "P2 Edge - GWDemo4",0
+
+statusFName     byte    "p2-ctlValue",0
+controlFName    byte    "p2-ctlValue",0
+
+tempStr         byte    "923.05 F",0
+noDvcStr        byte    "- No Dvc -",0
+
+CON
+
+  FMT_BFFR_LEN = 80
+
+VAR { demo buffers }
+
+    byte    fmtBuffer[FMT_BFFR_LEN+1]
+
+PUB main() | opStatus, nIdx, nCollId
+
+    '' DEMO run our web-control demo
+    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)
+
+    ' (one time) tell the RPi about how to identify this hardware
+    IoT_GW.identify(@p2HardwareID)
+
+    ' Establish write access to named collection in /status/ folder
+    opStatus, nCollId := IoT_GW.fileAccess(IoT_GW.EFI_STATUS, IoT_GW.FM_WRITE_CREATE, @statusFName)
+    if opStatus <> IoT_GW.OP_SUCCESS
+        debug("* main: ERROR Failed to OPEN [", zstr_(@statusFName), "] for write!")
+    else
+        opStatus, nCollId := IoT_GW.fileAccess(IoT_GW.EFI_STATUS, IoT_GW.FM_LISTEN, @statusFName)
+        if opStatus <> IoT_GW.OP_SUCCESS
+            debug("* main: ERROR Failed to OPEN [", zstr_(@statusFName), "] for write!")
+        else
+
+     ' terminate communication with our gateway RPi
+    IoT_GW.stop()
+
+CON { license }
+{{
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2022 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}
