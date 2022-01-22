@@ -30,10 +30,12 @@ OBJ { Objects Used by this Object }
 
 CON { driver config values }
 
-    SER_RX_BUFF_MAX = 256
-    MAX_SINGLE_STRING_LEN = 120
-    RX_QUEUED_STR_MAX = 8
-    STACK_SIZE_LONGS = 48
+    STACK_SIZE_LONGS = 48   ' 32 crashes!
+
+    RX_CHR_Q_MAX_BYTES = 80    ' 80 = testing size, else 512
+    MAX_SINGLE_STRING_LEN = 79  ' 79 = testing size, else 120
+    RX_STR_Q_MAX_LONGS = 10  ' 10 strings waiting to be picked up - MAX
+
 
 CON { test values }
 
@@ -52,26 +54,46 @@ VAR { pin info saves }
 
     long    rxCogId
 
-DAT { string constants }
+DAT { Queued RX data }
 
-pQStrHead       long    0
-pQStrTail       long    0
-pQStrCount      long    0
-pRxByteHead     long    0
-pRxByteCount    long    0
-pRxByteMax      long    0
-bInString       long    FALSE
-pRxStrStart     long    0
+' user set variables at task init
+pRxByteStart    long    0
+nRxByteMax      long    0
 
+bTestMode       long    TRUE
+
+' TASK use variables
 taskStack       long    0[STACK_SIZE_LONGS]
 
-rxStrPtrSet     long    0[RX_QUEUED_STR_MAX]
+pRxByteHead     long    0   ' our QUEUE control vars - received BYTEs
+nRxByteCount    long    0
 
-serialRxBffr    byte    0[SER_RX_BUFF_MAX]
+bInString       long    FALSE
+pNewStrStart    long    0
+
+bQueOverrun     long    FALSE
+bStrQueOverrun  long    FALSE
+
+nQStrHeadIdx    long    0   ' our QUEUE control vars - received strings
+nQStrTailIdx    long    0
+nQStrCount      long    0
+nQStrFill       long    $deadf00d
+rxStrPtrSet     long    0[RX_STR_Q_MAX_LONGS]   ' our circular buffer - ptrs to received strings
+
+serialRxBffr    byte    0[RX_CHR_Q_MAX_BYTES]   ' our circular buffer - received chars
+
+' task vars
+nLoopCt         long    0
+pNextMsg        long    0
+nTaskChr            long    0
+' tsk vars
+
+CON { - - - - - }
 
 CON { test control values }
 
-  #0, CT_UNKNOWN, CT_IDLE, CT_STOP, CT_PLACE_STR
+  #0, CT_UNKNOWN, CT_IDLE, CT_STOP, CT_PLACE_STR, CT_PLACE_N_MSGS
+
 
 DAT { test control vars }
 
@@ -81,21 +103,23 @@ eTestCtrlPrior  long    0
 
 ctStrIdle       byte    "IDLE",0
 ctStrStop       byte    "STOP",0
-ctStrPlcStr       byte    "PLACE_STR",0
-ctStrUnknown      byte    "CT_????",0
+ctStrPlcStr     byte    "PLACE_STR",0
+ctStrPlcNMsgs   byte    "PLACE_N_MSGS",0
+ctStrUnknown    byte    "CT_????",0
 
 greenStr        byte    "Green String", $0a, 0
 redStr        byte    "Red String", $0a, 0
 
 userRxBuffer    byte    0[MAX_SINGLE_STRING_LEN+1]
 
-PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus
+PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus, nCtParm
 '' This is not a top level object
    ' but is our test code main for now...
     startx(RX_GW, TX_GW, GW_BAUDRATE)
     ' =========================================
     ' test code
     ' -----------------------------------------
+{
     ' have serial place str in buffer
     eTestCtrl := CT_IDLE
     waitms(250)
@@ -107,7 +131,7 @@ PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus
     '  display string
     '  free string
     bWaitStatus := TRUE ' yes, let's wait for strings to arrive
-    pStr := getNextString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
+    pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
 
     waitms(25077)
     eTestParam := @redStr
@@ -117,14 +141,48 @@ PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus
     '  display string
     '  free string
 
-    pStr := getNextString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
+    pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
 
-    bStatus := rxStringPresent()
-    debug("! end is T/F:", ubin_byte(bStatus))
+    bStatus := haveRxString()
+    debug(">> 001 is T/F:", ubin_byte(bStatus))
+}
 
+    ' next tests:
+    ' - fill to buffer max detect goood everrun
+    ' - drop buffer size to smaller so fewer messages needed for following tests
+    ' - fill with exactfit messages - ensure wrap works
+    ' - fill with non-exact fit messages - ensure wrap works
+    ' - restore buffer to production size [512b]
+    ' - cut over to actual RX with RPi
+    ' - do multi-message rx and unload - ensuring this all works
+    ' ========= ready for production use =========
+    eTestCtrl := CT_IDLE
+    waitms(250)
+
+    ' - fill to buffer N strings, see if all report correctly
+    nCtParm := 2    ' our N
+    eTestParam := nCtParm
+    eTestCtrl := CT_PLACE_N_MSGS
+    waitms(250)
+
+    repeat while rxStringsCount() < nCtParm
+    debug(">> all strings reported in")
+    'repeat ' hold here
+
+    repeat 2
+        pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
+
+    'until rxStringsCount() == 0
+
+
+    bStatus := haveRxString()
+    debug(">> 002 is T/F:", ubin_byte(bStatus))
 
     ' =========================================
     stop()
+
+CON { - - - - - }
+
 
 PUB startx(rxpin, txpin, baud)
 '' Start RPi gateway serial coms on rxpin and txpin at baud
@@ -133,7 +191,7 @@ PUB startx(rxpin, txpin, baud)
     RPi.startx(pinRx, pinTx, baud)                              ' use user serial port
 
     ' start our rx task in own cog
-    rxCogId := cogspin(newcog, TaskSerialRx(@serialRxBffr, SER_RX_BUFF_MAX), @taskStack)
+    rxCogId := cogspin(newcog, TaskSerialRx(@serialRxBffr, RX_CHR_Q_MAX_BYTES), @taskStack)
     if rxCogId == -1    ' did fail?
         debug("!! ERROR filed to start RX-QUE task")
 
@@ -149,118 +207,145 @@ PUB stop()
         cogstop(rxCogId - 1)
         rxCogId := 0
 
-PUB getNextString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWrappedStr
-'' Return return str or 0 if none
+PUB haveRxString() : presentStatus
+'' return T/F where T means have received a string!
+    presentStatus := (nQStrCount > 0) ? TRUE : FALSE
+    debug("?? haveRxString[T/F]: ", ubin_byte(presentStatus))
+
+PUB rxStringsCount() : nCount
+'' Return count of strings received
+    nCount := nQStrCount
+
+PUB getRxString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWrappedStr
+'' Return {pStr} or 0 if none
 '' if {bShouldWait} is TRUE wait until string arrives before returning
-    debug("getNextString: ENTRY")
+    debug("getRxString: ENTRY")
     pStr := 0
     if bShouldWait == TRUE
         bStringArrived := TRUE
-        repeat until rxStringPresent()
+        repeat until haveRxString()
     else
-        bStringArrived := rxStringPresent()
+        bStringArrived := haveRxString()
 
     if bStringArrived == TRUE
         pStr := pUserDest
         pWrappedStr := dequeueRxStr()
         copyWrappedStr(pUserDest, pWrappedStr, lenDest)
         freeWrappedString(pWrappedStr)
-        debug("getNextString: str=[", zstr_(pUserDest), "]")
+        debug("getRxString: str=[", zstr_(pUserDest), "]")
     else
-        debug("getNextString: str=[] - NOT PRESENT")
+        debug("getRxString: str=[] - NOT PRESENT")
 
+PUB flushRxQueue()
+'' reset all Rx Queue control and data (emptying it!)
+    bytefill(@serialRxBffr, 0, RX_CHR_Q_MAX_BYTES)
+    longfill(@rxStrPtrSet, 0, RX_STR_Q_MAX_LONGS)
+    pRxByteHead := pRxByteStart
 
+    bInString := FALSE
+
+    nQStrHeadIdx := 0
+    nQStrTailIdx := 0
+
+    nRxByteCount := 0
+    nQStrCount := 0
+
+CON { ----- TASK ----- }
 ' ====================================================
 '  SERIAL RX QUEUE routines
 '
 PRI TaskSerialRx(pRxBffr, lenRxBffr)
-' our serial receive loop
-    ' record setup details
-    debug("TASK[Rx] started pRxBfr=", uhex_(pRxBffr), ", len=", udec_(lenRxBffr), ", rxBffr=[", uhex_(@serialRxBffr), "]")
-    pRxByteHead := pRxBffr
-    pRxByteMax := lenRxBffr
-    pRxByteCount := 0
+' our serial receive to queue loop
+    ' preserve incoming values
+    pRxByteStart := pRxBffr
+    nRxByteMax := lenRxBffr
 
-    bInString := FALSE
+    ' NOTE parameters are for DEBUG use only
+    flushRxQueue()
 
-    pQStrHead := @rxStrPtrSet
-    pQStrTail := @rxStrPtrSet
-    pQStrCount := 0
+    debug("TASK[Rx] started ", uhex(pRxByteStart), ", ", udec(nRxByteMax), ", rxBffr=[", uhex_(@serialRxBffr), "]")
 
-    ' run loop (test-version for now)
-    repeat TRUE
-        if(eTestCtrl == CT_PLACE_STR)
-           eTestCtrl := CT_IDLE
-           fakeRxStr(eTestParam)
-        if eTestCtrlPrior <> eTestCtrl
-            showTestState(eTestCtrlPrior, eTestCtrl)
-            eTestCtrlPrior := eTestCtrl
-
-PRI showTestState(ePrior, eNew) | pFrom, pTo
-' display task state
-    pFrom := nameForState(ePrior)
-    pTo := nameForState(eNew)
-    debug("TASK[Rx] state [", zstr_(pFrom), "] -> [", zstr_(pTo), "]")
-
-PRI nameForState(eNew) : pStr
-' return string for state value
-    if eNew == CT_IDLE
-      pStr := @ctStrIdle
-    elseif  eNew == CT_STOP
-      pStr := @ctStrStop
-    elseif  eNew == CT_PLACE_STR
-      pStr := @ctStrPlcStr
+    if bTestMode
+        ' run loop (test-version for now)
+        debug("TASK[Rx] ** TEST LOOP Running **")
+        repeat
+            if (eTestCtrl == CT_PLACE_STR)
+                eTestCtrl := CT_IDLE
+                tskFakeRxStr(eTestParam)
+            elseif (eTestCtrl == CT_PLACE_N_MSGS)
+                eTestCtrl := CT_IDLE
+                nLoopCt := eTestParam
+                repeat nLoopCt
+                        pNextMsg := genTestMsg()
+                        tskFakeRxStr(pNextMsg)
+            if (eTestCtrlPrior <> eTestCtrl)
+                showTestState(eTestCtrlPrior, eTestCtrl)
+                eTestCtrlPrior := eTestCtrl
     else
-      pStr := @ctStrUnknown
+        ' read serial input forever placing chars in RX Circ Queue
+        debug("TASK[Rx] ** Live LOOP rcvg fm RPi **")
+        repeat
+            nTaskChr := RPi.rxtime(1000)
+            if (nTaskChr <> -1)
+                tskEnqueueRx(nTaskChr)
 
-PRI fakeRxStr(pStr) | nIdx
+PRI tskFakeRxStr(pStr) | nIdx
 ' place string into buffer as if it was received
     debug("TASK[Rx] str=[", zstr_(pStr), "]")
     repeat nIdx from 0 to strsize(pStr) - 1
-       enqueueRx(byte[pStr][nIdx])
+       tskEnqueueRx(byte[pStr][nIdx])
 
-PRI enqueueRx(nChr)
+PRI tskEnqueueRx(nChr)
 ' place byte into rx queue, if EOL then place term instead and engueue string ptr!
-    if (pRxByteCount < pRxByteMax)
+    if (nRxByteCount < nRxByteMax)
         if bInString == FALSE
             bInString := TRUE
-            pRxStrStart := pRxByteHead
-        'debug("[RX Task] rxChr=", uhex_(nChr))
+            pNewStrStart := pRxByteHead
+            debug("TASK[Rx] ", uhex_long(pNewStrStart), ubin_byte(bInString))
+        'debug("TASK[Rx] rxChr=", uhex_(nChr))
+        nRxByteCount++
         if (nChr <> $0a)
             byte [pRxByteHead++] := nChr
         else
             byte [pRxByteHead++] := $00 ' place term instead of EOL
-            enqueueRxStr(pRxStrStart)
-            bInString := FALSE
-
+            if bInString == TRUE
+                tskEnqueueRxStr(pNewStrStart)
+                bInString := FALSE
     else
-        debug("!! ERROR [RX Task] char-queue full!!")
+        debug("TASK[Rx] !! ERROR  char-queue full!! ", sdec(nRxByteCount), sdec(nRxByteMax))
 
-PRI enqueueRxStr(pStr)
+PRI tskEnqueueRxStr(pStr)
 ' report string arrival to listener (place string pointer in queue)
-    if pQStrCount < RX_QUEUED_STR_MAX
-        LONG [pQStrHead++] := pStr
-        ' if head goes off end of set then wrap
-        if pQStrHead > @long[@rxStrPtrSet][RX_QUEUED_STR_MAX-1]
-            pQStrHead := @long[@rxStrPtrSet][0]
+    if nQStrCount < RX_STR_Q_MAX_LONGS
+        LONG [@rxStrPtrSet][nQStrHeadIdx++] := pStr
+        ' if head goes off end-of-set then wrap
+        if nQStrHeadIdx > RX_STR_Q_MAX_LONGS - 1
+            nQStrHeadIdx := 0
         ' mark arrival of new in queue
-        pQStrCount++
-        debug("TASK[Rx] enqueueStr=[", zstr_(pStr), "]")
+        nQStrCount++
+        debug("TASK[Rx] enqueueStr(", udec_(strsize(pStr)), ")=[", zstr_(pStr), "] ", uhex_long(pStr))
     else
-        debug("!! ERROR [RX Task] string-queue full!!")
-    debug("TASK[Rx] enqueueStr: ", udec(pQStrCount))
+        debug("TASK[Rx] !! ERROR string-queue full!!")
+    debug("TASK[Rx] enqueueStr: ", udec(nQStrCount))
+
+CON { ----- Support ----- }
 
 PRI dequeueRxStr() : pRmStr
 ' remove string from queue, listener done with it
-    pRmStr :=LONG [pQStrTail++]
-    if pQStrTail > @long[@rxStrPtrSet][RX_QUEUED_STR_MAX-1]
-        pQStrTail := @long[@rxStrPtrSet][0]
-    pQStrCount--
-    debug("TASK[Rx] dequeueRxStr:", uhex(pRmStr), udec(pQStrCount))
+    'dumpStrQ(string("B4 String Ptr Que"))
+    if nQStrCount > 0
+        pRmStr := LONG[@rxStrPtrSet][nQStrTailIdx++]
+        if nQStrTailIdx > RX_STR_Q_MAX_LONGS - 1
+            nQStrTailIdx := 0
+        nQStrCount--
+        debug("-- dequeueRxStr:", uhex_long(pRmStr), udec(nQStrCount))
+    else
+        debug("-- dequeueRxStr() !! ERROR string-queue empty!!")
+    'dumpStrQ(string("FTER String Ptr Que"))
 
 PRI freeWrappedString(pRmStr)
     ' zero our string memory
-    debug("TASK[Rx] freeWrappedString:", uhex(pRmStr))
+    debug("-- freeWrappedString:", uhex_long(pRmStr))
     zeroWrappedStr(pRmStr)
 
 PRI zeroWrappedStr(pRmStr) | nIdx, pSrc, nLen
@@ -271,10 +356,11 @@ PRI zeroWrappedStr(pRmStr) | nIdx, pSrc, nLen
     nLen := strsize(pRmStr)
     repeat nIdx from 0 to nLen - 1
         ' if pointing beyond end, wrap to front!
-        if pSrc > @BYTE[@serialRxBffr][SER_RX_BUFF_MAX-1]
-          pSrc -= SER_RX_BUFF_MAX
+        if pSrc > @BYTE[@serialRxBffr][RX_CHR_Q_MAX_BYTES-1]
+          pSrc -= RX_CHR_Q_MAX_BYTES
         BYTE[pSrc++] := 0
-    debug("- zeroWrappedStr: ", uhex(pRmStr), udec(nLen))
+    nRxByteCount -= nLen + 1
+    debug("-- zeroWrappedStr: ", uhex_long(pRmStr), udec(nLen), udec(nRxByteCount))
 
 PRI copyWrappedStr(pUserDest, pSrcStr, lenDest) | nIdx, pSrc, pDest, destLen
 ' copy possible wrapped string {pSrcStr} to {pUserDest} (use min(strlen,lenDest) as bytes to move)
@@ -287,17 +373,89 @@ PRI copyWrappedStr(pUserDest, pSrcStr, lenDest) | nIdx, pSrc, pDest, destLen
     pSrc:= pSrcStr
     repeat nIdx from 0 to destLen - 1
         ' if pointing beyond end, wrap to front!
-        if pSrc > @BYTE[@serialRxBffr][SER_RX_BUFF_MAX-1]
-          pSrc -= SER_RX_BUFF_MAX
+        if pSrc > @BYTE[@serialRxBffr][RX_CHR_Q_MAX_BYTES-1]
+          pSrc -= RX_CHR_Q_MAX_BYTES
         BYTE[pDest++] := BYTE[pSrc++]
     BYTE[pDest] := 0  ' place final terminator
-    debug("- copyWrappedStr: str=[", zstr_(pUserDest), "]")
+    debug("-- copyWrappedStr: str=[", zstr_(pUserDest), "]")
 
+CON { ----- TEST Support ----- }
 
-PRI rxStringPresent() : presentStatus
-' return T/F where T means have a received string!
-    presentStatus := (pQStrCount > 0) ? TRUE : FALSE
-    debug("?? rxStringPresent[T/F]: ", ubin_byte(presentStatus))
+DAT { test message things }
+
+testMsgCt       LONG    0
+
+testMsgStr      BYTE    "Test "
+testMsgNbr      BYTE    "000x"
+testMsgEOL      BYTE    $0a, 0
+
+PRI genTestMsg() : pMsg | nDigit, nRemainder
+' return pointer to a simple message
+    pMsg := @testMsgStr
+    nRemainder := testMsgCt++
+    if nRemainder > 999
+        nDigit := nRemainder / 1000
+        nRemainder -= nDigit * 1000
+        BYTE[@testMsgNbr][0] := nDigit + $30
+    if nRemainder > 99
+        nDigit := nRemainder / 100
+        nRemainder -= nDigit * 100
+        BYTE[@testMsgNbr][1] := nDigit + $30
+    if nRemainder > 99
+        nDigit := nRemainder / 10
+        nRemainder -= nDigit * 10
+        BYTE[@testMsgNbr][2] := nDigit + $30
+    BYTE[@testMsgNbr][3] := nRemainder + $30
+
+PRI showTestState(ePrior, eNew) | pFrom, pTo
+' display task state
+    pFrom := nameForState(ePrior)
+    pTo := nameForState(eNew)
+    debug("TEST state [", zstr_(pFrom), "] -> [", zstr_(pTo), "]")
+
+PRI nameForState(eNew) : pStr
+' return string for state value
+    if eNew == CT_IDLE
+      pStr := @ctStrIdle
+    elseif  eNew == CT_STOP
+      pStr := @ctStrStop
+    elseif  eNew == CT_PLACE_STR
+      pStr := @ctStrPlcStr
+    elseif  eNew == CT_PLACE_N_MSGS
+      pStr := @ctStrPlcNMsgs
+    else
+      pStr := @ctStrUnknown
+
+PRI dumpStrQ(pMsg)
+' dump our full string-que so we can visually inspect
+    dbgMemDump(@nQStrHeadIdx, (4 + RX_STR_Q_MAX_LONGS) * 4, pMsg)
+
+PRI dbgMemDump(pBytes, lenBytes, pMessage) | rowCount, rowLen, pCurrByte, lastRowByteCount, bytesSoFar
+' Dump rows of hex values with address preceeding
+
+    if pMessage
+        debug("** ", zstr_(pMessage), ":")
+
+    rowCount := lenBytes / 16
+    lastRowByteCount := lenBytes - (rowCount * 16)
+    pCurrByte := pBytes
+    bytesSoFar := 0
+
+    ' emit full lines
+    if rowCount > 0
+        repeat rowCount
+            dbgMemDumpRow(pCurrByte, 16)
+            pCurrByte += 16
+            bytesSoFar += 16
+
+    if  bytesSoFar < lenBytes
+        ' emit last line
+        dbgMemDumpRow(pCurrByte, lastRowByteCount)
+
+PRI dbgMemDumpRow(pBytes, lenBytes) '| rowCount, rowLen, pCurrByte, bytIndex
+' emit address followed by bytes
+    debug("  ", uhex_long_(pBytes), ": ", uhex_byte_array_(pBytes, lenBytes))
+
 
 CON { license }
 

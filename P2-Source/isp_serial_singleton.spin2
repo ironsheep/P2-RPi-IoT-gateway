@@ -363,6 +363,12 @@ PUB sStr1(p_str, arg1, pOutBuf): pBufFirst
 
   pBufFirst := sFormat(p_str, @arg1, pOutBuf)
 
+PUB sStr2(p_str, arg1, arg2, pOutBuf): pBufFirst
+
+'' Emit string with formatting characters and two arguments.
+
+  pBufFirst := sFormat(p_str, @arg1, pOutBuf)
+
 
 PUB sFormat(p_str, p_args, pOutBuf) : pBufFirst | idx, c, asc, field, digits, pBffr
 
@@ -659,6 +665,43 @@ PRI memDumpRow(pBytes, lenBytes) | rowCount, rowLen, pCurrByte, bytIndex
         if bytIndex == 7
             fstr0(string(" "))
     fstr0(string("\r\n"))
+
+PUB dbgMemDump(pBytes, lenBytes, pMessage) | rowCount, rowLen, pCurrByte, lastRowByteCount, bytesSoFar
+
+'' Dump rows of hex values with address preceeding
+
+    if pMessage
+        debug("** ", zstr_(pMessage), ":")
+
+    rowCount := lenBytes / 16
+    lastRowByteCount := lenBytes - (rowCount * 16)
+    pCurrByte := pBytes
+    bytesSoFar := 0
+
+    ' emit full lines
+    if rowCount > 0
+        repeat rowCount
+            dbgMemDumpRow(pCurrByte, 16)
+            pCurrByte += 16
+            bytesSoFar += 16
+
+    if  bytesSoFar < lenBytes
+        ' emit last line
+        dbgMemDumpRow(pCurrByte, lastRowByteCount)
+
+PRI dbgMemDumpRow(pBytes, lenBytes) '| rowCount, rowLen, pCurrByte, bytIndex
+    ' emit address
+    'fstr1(string("  0x%.8x: "), pBytes)
+    debug("  ", uhex_long_(pBytes), ": ", uhex_byte_array_(pBytes, lenBytes))
+    ' emit 8 bytes
+    ' emit gap
+    ' emit 8 bytes
+    'repeat bytIndex from 0 to lenBytes - 1
+    '    fstr1(string("0x%.2x "), BYTE [pBytes][bytIndex])
+    '    if bytIndex == 7
+    '        fstr0(string(" "))
+    'fstr0(string("\r\n"))   ' newline
+    'debug("")   ' newline
 
 
 CON { license }
