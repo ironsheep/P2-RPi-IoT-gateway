@@ -47,6 +47,7 @@ OBJ { Objects Used by this Object }
     ds18s20_OW  :   "isp_ds18s20"           ' DS18S20 one-wire temp sensor
     strFmt      :   "isp_serial_singleton"  ' format to memory routines
     srchOW      :   "isp_ow_search"         '   search routines for 1-Wire
+    rxQue       :   "isp_queue_serial"      ' acces our received data
 
 DAT { our hardware ID strings and 1-wire buffers, collection names }
 
@@ -68,32 +69,81 @@ noDvcStr        byte    "- No Dvc -",0
 
 CON
 
-  FMT_BFFR_LEN = 80
+  MAX_NAME_IN_BYTES = 40
+  MAX_VALUE_IN_BYTES = 128
 
 VAR { demo buffers }
 
-    byte    fmtBuffer[FMT_BFFR_LEN+1]
+    byte    nameBuffer[MAX_NAME_IN_BYTES+1]
+    byte    valueBuffer[MAX_VALUE_IN_BYTES+1]
 
-PUB main() | opStatus, nIdx, nCollId
+PUB main() | eOpStatus, nIdx, nCollId, eRxQStatus, eCmdId
 
     '' DEMO run our web-control demo
-    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)
+    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)    ' tell singleton our pins and rate
 
     ' (one time) tell the RPi about how to identify this hardware
     IoT_GW.identify(@p2HardwareID)
 
     ' Establish write access to named collection in /status/ folder
-    opStatus, nCollId := IoT_GW.fileAccess(IoT_GW.EFI_STATUS, IoT_GW.FM_WRITE_CREATE, @statusFName)
-    if opStatus <> IoT_GW.OP_SUCCESS
+    eOpStatus, nCollId := IoT_GW.fileAccess(IoT_GW.EFI_STATUS, IoT_GW.FM_WRITE_CREATE, @statusFName)
+    if eOpStatus <> IoT_GW.OP_SUCCESS
         debug("* main: ERROR Failed to OPEN [", zstr_(@statusFName), "] for write!")
     else
-        opStatus, nCollId := IoT_GW.fileAccess(IoT_GW.EFI_STATUS, IoT_GW.FM_LISTEN, @statusFName)
-        if opStatus <> IoT_GW.OP_SUCCESS
-            debug("* main: ERROR Failed to OPEN [", zstr_(@statusFName), "] for write!")
+        ' Establish listen access to named collection in /control/ folder
+        ' this tell RPi to send content changes as they happen, "live"
+        eOpStatus, nCollId := IoT_GW.fileAccess(IoT_GW.EFI_CONTROL, IoT_GW.FM_LISTEN, @controlFName)
+        if eOpStatus <> IoT_GW.OP_SUCCESS
+            debug("* main: ERROR Failed to OPEN [", zstr_(@controlFName), "] for listen!")
         else
+
+            repeat
+                ' read our device status values and send
+                ' check for and handle any control value changes
+                if rxQue.haveControlUpdate()
+                    eRxQStatus := rxQue.getControlAndValue(@nameBuffer, @valueBuffer)
+                    if eRxQStatus == rxQue.PSE_SUCCESS
+                        ' handle indirect return values
+                          eCmdId := idCommand(@cmdstr) ' convert command to enum
+                          if eCmdId <> CMD_UNKNOWN
+                            if eCmdId == CMD_1
+                            elseif eCmdId == CMD_2
+                            else
+                                debug("EEE - cmd" , udec(eCmdId), " NOT YET Supported!")
+
 
      ' terminate communication with our gateway RPi
     IoT_GW.stop()
+
+CON { ----- Command Defs and Recognizer ----- }
+
+CON { command Enum values }
+
+#0, CMD_UNKNOWN, CMD_1, CMD_2
+
+DAT { command string }
+
+cmd1        byte    CMD_1, "CMD",0
+cmd2        byte    CMD_2, "cmd2",0
+
+cmdTbl1st   long    @cmd1
+' NOTE insert more commands here
+cmdTblLast  long    @cmd2
+cmdCt       byte    ((@cmdTblLast-@cmdTbl1st) / 4) + 1
+
+
+PRI idCommand(pCmdStr) : eCmdIdValue | nIdx, pCmdEntry, pPossCmdStr
+' identify command requested
+    eCmdIdValue := CMD_UNKNOWN
+
+    repeat nIdx from 0 to cmdCt - 1
+        pCmdEntry := LONG[@cmdTbl1st][nIdx]
+        pPossCmdStr := @BYTE[pCmdEntry][1]
+        if strcomp(pCmdStr, pPossCmdStr)
+            eCmdIdValue := BYTE[pCmdEntry][0]
+
+    if eCmdIdValue == CMD_UNKNOWN
+        debug("EEE idCommand: Unknown command [", zstr_(pCmdStr), "]!")
 
 CON { license }
 {{

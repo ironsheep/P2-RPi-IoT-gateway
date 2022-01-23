@@ -1,0 +1,163 @@
+'' =================================================================================================
+''
+''   File....... isp_ws2118_string.spin2
+''   Purpose.... Our light string object (collected from jm_ class files)
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Jan 2022
+''   Updated.... 22 Jan 2022
+''
+'' =================================================================================================
+
+OBJ { 0objects used by this object }
+  timer : "jm_ez_timer"                                         '   simple delta timer
+  strip : "jm_rgbx_pixel"                                       ' * smart pixel driver
+
+
+PUB null()
+
+'' This is not a top level object
+
+PUB start(nPixels)
+'' configure this object
+    actualPixelCt := nPixels
+
+PUB set_delay(tset)
+'' Convert delay slider from 0..100 (tset) to delay for each state
+
+  case state
+    3 : delay := map(tset, 0, 100, 5000,  500)
+    4 : delay := map(tset, 0, 100,   64,    8)
+    5 : delay := map(tset, 0, 100, 1000,  100)
+    6 : delay := map(tset, 0, 100, 1000,   50)
+
+
+PUB map(value, inmin, inmax, outmin, outmax) : result
+'' Maps value in range inmin..inmax to new value in range outmin..outmax
+
+  if (value <= inmin)
+    return outmin
+  elseif (value >= inmax)
+    return outmax
+  else
+    return (value-inmin) * (outmax-outmin) / (inmax-inmin) + outmin
+
+
+PUB flash()
+
+  if ((timer.millis() < delay) && (dirty == false))             ' timer expired or update?
+    return
+
+  timer.start()
+  dirty := false
+  substate := (substate == 0) ? 1 : 0                           ' toggle substate
+
+  strip.set_all(color1[substate])                               ' show Color1 or Color2
+
+
+CON { object internal constants }
+
+  MAX_PIXELS = 50
+  'CMD_SIZE = 16
+
+var { internal object variables }
+
+  long  phase
+  long  direction
+
+
+  long  state                                                   ' program state
+  long  color1
+  long  color2
+  long  delay
+
+  long  dirty                                                   ' force update
+  long  substate                                                ' program sub-state
+
+  long  pixbuf[MAX_PIXELS]                                        ' pixel buffer
+  long  actualPixelCt   ' actual pixels in string
+
+PUB fade()
+
+  if ((timer.millis() < delay) && (dirty == false))
+    return
+
+  timer.start()
+
+  if (dirty)                                                    ' first run?
+    phase, direction := 0, 1                                    '  set phase & direction
+    dirty := false
+
+  phase += direction                                            ' update phase
+  strip.set_all(strip.morph(Color1, Color2, phase))             ' update color
+
+  if (phase == 255)                                             ' check direction change
+    direction := -1
+  elseif (phase == 0)
+    direction := 1
+
+
+PUB chase() | buf[4], ch
+
+  if ((timer.millis() < delay) && (dirty == false))
+    return
+
+  timer.start()
+  dirty := false
+
+  longfill(@buf, Color2, 4)                                     ' fill w/background
+  buf[substate] := Color1                                       ' set foreground
+
+  ch := 0                                                       ' start at front
+  repeat actualPixelCt/4                                             ' fill buffer w/chase seq
+    longmove(@pixbuf[ch], @buf, 4)
+    ch += 4
+
+  longmove(@pixbuf[ch], @buf, actualPixelCt-ch)                      ' finish partial sequence
+
+  if (++substate == 4)                                          ' update substate
+    substate := 0
+
+
+PUB twinkle() | ch, level
+
+  if ((timer.millis() < delay) && (dirty == false))
+    return
+
+  timer.start()
+  dirty := false
+
+  repeat ch from 0 to actualPixelCt-1                                ' fill string
+    level := prng.xrandomize(1, 4)                              ' 25 to 100%
+    strip.set(ch, strip.scale_rgbw(Color1, 64*level))
+
+
+CON { license }
+{{
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2022 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}

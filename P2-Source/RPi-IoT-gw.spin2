@@ -1,7 +1,7 @@
 '' =================================================================================================
 ''
 ''   File....... RPi-IoT-IoT_gw.spin2
-''   Purpose.... Provide IoT access methods
+''   Purpose.... (Singleton) Provide IoT access methods
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
@@ -42,7 +42,7 @@ CON { driver config values}
 
   RX_MAX_NAMES = 20
 
-VAR { pin info saves }
+DAT { pin info saves }
 
     long    pinRx
     long    pinTx
@@ -64,7 +64,7 @@ VAR { pin info saves }
 
 DAT { string constants }
 
-spin2ver    byte    "0.0.1",0
+spin2ver    byte    "0.0.2",0
 
 ' -------------------------------
 ' the following are identical to that found in our deamon python script

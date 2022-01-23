@@ -13,6 +13,9 @@
 
 CON { Object Interface: PUBLIC ENUMs }
 
+' parse (PSE) results
+  #0, PSE_UNKNOWN, PSE_SUCCESS, PSE_FAILURE
+
 CON { fixed io pins }
 
   RX1      = 63  { I }                                          ' programming / debug
@@ -273,6 +276,23 @@ PUB stop()
     if(rxCogId)
         cogstop(rxCogId - 1)
         rxCogId := 0
+
+CON { ----- Status-Reponses Interface ----- }
+
+PUB haveResponse() : bResponseStatus
+'' return T/F where T means a reponse has been received and needs to be handled
+    bResponseStatus := FALSE
+
+CON { ----- Control Changes Interface ----- }
+
+PUB haveControlUpdate() : bControlStatus
+'' return T/F where T means a control value change has been received and needs to be handled
+    bControlStatus := FALSE ' none for now...
+
+PUB getControlAndValue(pName, pValue) : nStatus
+'' interpret control change request and return KV parts
+
+CON { ----- General Strings Interface ----- }
 
 PUB haveRxString() : presentStatus
 '' return T/F where T means have received a string!
