@@ -18,6 +18,20 @@ Once this web page is put into place and the demo is run on the P2 you browse to
                                                                                             
 ![Demo Goal](./Docs/images/demo-1-wire.png)
 
+## Wiring the 1-wire device
+
+The **demo\_p2gw_1wireStatus.spin2** program is configured to use P2 pin 16 for the 1-wire device.
+
+
+**P2 Connections expected by Demo:**
+
+| P2 Purpose | P2 Pin # |
+| --- | --- |
+| Signal ground | GND near Pin 16|
+| 1-wire data (DS18S20) | 16
+
+Pick a pin on your P2 dev board to be used for 1-wire communications. The demo file provided by this project defines this pin to be 16. Feel free to choose a different pin. Just remember to adjust the constant in your code to use your pin choice.
+
 ## Install the 1-wire demo
 
 The .spin2 source for this demo is found in `/opt/P2-RPi-ioT-gateway/P2-Source` You will need to install the web page source under the web server.
