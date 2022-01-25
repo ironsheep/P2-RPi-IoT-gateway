@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import _thread
 from datetime import datetime
+from math import e
 from time import time, sleep, localtime, strftime
 import os
 import subprocess
@@ -21,6 +22,8 @@ from subprocess import Popen, PIPE
 import sendgrid
 from sendgrid.helpers.mail import Content, Email, Mail
 from enum import Enum, unique
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE,SIG_DFL)
@@ -66,7 +69,8 @@ FolderId = Enum('FolderId', [
 FileMode = Enum('FileMode', [
      'FM_READONLY',
      'FM_WRITE',
-     'FM_WRITE_CREATE'], start=200)
+     'FM_WRITE_CREATE',
+     'FM_LISTEN'], start=200)
 
 #for fileMode in FileMode:
 #    print(fileMode, fileMode.value)
@@ -357,6 +361,7 @@ class FileDetails:
 class FileHandleStore:
 
     dctLiveFiles = {}  # runtime hash of known files (not persisted)
+    dctWatchedFiles = {}  # runtime hash of files being watched (not persisted)
     nNextFileId = 1  # initial collId value (1 - 99,999)
 
     def handleStringForFile(self, fileName, fileMode, dirSpec):
@@ -366,6 +371,23 @@ class FileHandleStore:
         desiredFileId = int(fileIdKey)
         self.dctLiveFiles[fileIdKey] = FileDetails(fileName, fileMode, dirSpec)
         return desiredFileId
+
+    def addWatchForHandle(self, possibleFileId):
+        # record that we are now watching this file!
+        fileIdKey = self.keyForFileId(possibleFileId)
+        desiredFileDetails = self.dctLiveFiles[fileIdKey]
+        self.dctWatchedFiles[fileIdKey] = desiredFileDetails
+
+    def isWatchedFSpec(self, possibleFSpec):
+        # return T/F where T means a watch of {possibleFSpec} is requested
+        bChangeStatus = False
+        if len(self.dctWatchedFiles.keys()) > 0:
+            for fileIdKey in self.dctWatchedFiles.keys():
+                possibleFileDetails = self.dctWatchedFiles[fileIdKey]
+                if possibleFileDetails.fileSpec == possibleFSpec:
+                    bChangeStatus = True
+                    break   # we have our answer, abort loop
+        return bChangeStatus
 
     def fpsecForHandle(self, possibleFileId):
         # return the fileSpec associated with the given collId
@@ -394,6 +416,45 @@ class FileHandleStore:
         # return file id as 5-char string
         desiredFileIdStr = '{:05d}'.format(int(possibleFileId))
         return desiredFileIdStr
+
+# -----------------------------------------------------------------------------
+#  methods for filesystem watching
+# -----------------------------------------------------------------------------
+
+class Watcher:
+    DIRECTORY_TO_WATCH = folder_control
+
+    def __init__(self):
+        self.observer = Observer()
+
+    def run(self):
+        event_handler = Handler()
+        self.observer.schedule(event_handler, self.DIRECTORY_TO_WATCH, recursive=True)
+        self.observer.start()
+        try:
+            while True:
+                sleep(5)
+        except e:
+            self.observer.stop()
+            print_line('ERROR Watcher: suffered an exception: {}'.format(e), error=True)
+
+        self.observer.join()
+
+class Handler(FileSystemEventHandler):
+
+    @staticmethod
+    def on_any_event(event):
+        if event.is_directory:
+            return None
+
+        elif event.event_type == 'created':
+            # Take any action here when a file is first created.
+            print_line("Received FileCreate event - [{}]".format(event.src_path), debug=True)
+
+        elif event.event_type == 'modified':
+            # Taken any action here when a file is modified.
+            print_line("Received FileModified event - [{}]".format(event.src_path), debug=True)
+            reportFileChanged(event.src_path)
 
 
 # -----------------------------------------------------------------------------
@@ -807,6 +868,7 @@ def processIncomingRequest(newLine, Ser):
 
     elif newLine.startswith(cmdFileAccess):
         print_line('* HANDLE send File Open-equiv', info=True)
+        bNeedFileWatch = False
         nameValuePairs = getNameValuePairs(newLine, cmdFileAccess)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -841,20 +903,37 @@ def processIncomingRequest(newLine, Ser):
                             bCanAccessStatus = True
                             # if file should exist ensure it does, report if not
                             if FileMode(modeId) == FileMode.FM_READONLY or FileMode(modeId) == FileMode.FM_WRITE:
+                                # P2 wants to access read/write an existing file
                                 # determine if filename exists in dir
                                 if not os.path.exists(filespec):
+                                    # if it doesn't exist report the error!
                                     print_line('ERROR file named=[{}] not found fspec=[{}]'.format(filename, filespec), debug=True)
                                     errorTxt = 'bad fname={} - file NOT found'.format(filename)
                                     sendValidationError(Ser, "faccess", errorTxt)
                                     bCanAccessStatus = False
-                            if FileMode(modeId) == FileMode.FM_WRITE_CREATE:
+                            elif FileMode(modeId) == FileMode.FM_WRITE_CREATE:
+                                # P2 will write to file, so create empty if doesn't exist
                                 if not os.path.exists(filespec):
                                     # let's create the file
                                     print_line('* create empty file [{}]'.format(filespec), verbose=True)
                                     open(filespec, 'a').close() # equiv to touch(1)
+                            elif FileMode(modeId) == FileMode.FM_LISTEN:
+                                # P2 wants to be notified of content changes to this file!
+                                # first, warn if this is not in control DIR!
+                                if FolderId(dirID) != FolderId.EFI_CONTROL:
+                                    print_line('ERROR attempt to watch file named=[{}] not in /control/ folder. Folder=[{}]'.format(filename, FolderId(dirID)), error=True)
+                                    errorTxt = 'bad fname={} not in /control/! folder={}'.format(filename, FolderId(dirID))
+                                    sendValidationError(Ser, "faccess", errorTxt)
+                                    bCanAccessStatus = False
+                                else:
+                                    # Register need to report changes!
+                                    bNeedFileWatch = True
                             if bCanAccessStatus == True:
                                 # return findings as response
                                 newFileIdStr = fileHandles.handleStringForFile(filename, FileMode(modeId), dirSpec)
+                                if bNeedFileWatch:
+                                    # activate our file watching!
+                                    fileHandles.addWatchForHandle(newFileIdStr)
                                 sendValidationSuccess(Ser, "faccess", "collId", newFileIdStr)
             else:
                 print_line('processIncomingRequest nameValueStr({})=[{}] ! missing FileAccess params !'.format(len(newLine), newLine), warning=True)
@@ -902,7 +981,7 @@ def processInput(Ser):
 def genSomeOutput(Ser):
     newOutLine = b'Hello p2\n'
     print_line('genSomeOutput line({})=({})'.format(len(newOutLine), newOutLine), debug=True)
-    ser.write(newOutLine)
+    Ser.write(newOutLine)
 
 def mainLoop(ser):
     while True:             # Event Loop
@@ -962,6 +1041,29 @@ for dirSpec in folderSpecByFolderId.values():
     else:
         print_line('Dir [{}] - OK'.format(dirSpec), debug=True)
 
+
+def reportFileChanged(fSpec):
+    if fileHandles.isWatchedFSpec(fSpec):
+        print_line('CHK File [{}] is watched'.format(fSpec), debug=True)
+    else:
+         print_line('CHK File [{}] is NOT watched'.format(fSpec), debug=True)
+
+    # FIXME: UNDONE load json file and send vars to P2
+
+    print_line('Fspec [{}] Changed'.format(fSpec), debug=True)
+    # load json file
+    filesize = os.path.getsize(fSpec)
+    fileDict = {}   # start empty
+    if filesize > 0:    # if we have existing content, preload it
+        with open(fSpec, "r") as read_file:
+            fileDict = json.load(read_file)
+
+        for varName in fileDict.keys():
+            varValue = fileDict[varName]
+            print_line('Control [{}] = [{}]'.format(varName, varValue), debug=True)
+            # send var to P2
+
+
 # start our input task
 # 1,440,000 = 150x 9600 baud
 #   864,000 =  90x 9600 baud
@@ -973,6 +1075,10 @@ print_line('Baud rate: {:,} bits/sec'.format(baudRate), verbose=True)
 ser = serial.Serial ("/dev/serial0", baudRate, timeout=1)    #Open port with baud rate & timeout
 
 _thread.start_new_thread(taskSerialListener, ( ser, ))
+
+# start our file-system watcher
+dirWatcher = Watcher()
+dirWatcher.run()
 
 # run our loop
 try:

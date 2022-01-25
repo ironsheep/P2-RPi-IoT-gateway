@@ -60,7 +60,7 @@ scratchBffr     byte    0[MAX_DEVICE_SCRATCH_BYTES]
 
 p2HardwareID    byte    "P2 Edge - GWDemo4",0
 
-statusFName     byte    "p2-ctlValue",0
+statusFName     byte    "p2-statusValue",0
 controlFName    byte    "p2-ctlValue",0
 
 tempStr         byte    "923.05 F",0

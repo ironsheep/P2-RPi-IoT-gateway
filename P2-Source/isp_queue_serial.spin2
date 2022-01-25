@@ -50,8 +50,8 @@ CON { driver config values }
 
     STACK_SIZE_LONGS = 64   ' 48, 32 crashes!
 
-    RX_CHR_Q_MAX_BYTES = 80    ' 80 = testing size, else 512
-    MAX_SINGLE_STRING_LEN = 79  ' 79 = testing size, else 120
+    RX_CHR_Q_MAX_BYTES = 512    ' 80 = testing size, else 512
+    MAX_SINGLE_STRING_LEN = 128 ' 79 = testing size, else 128
     RX_STR_Q_MAX_LONGS = 10  ' 10 strings waiting to be picked up - MAX
 
 
