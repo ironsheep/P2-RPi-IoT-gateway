@@ -35,7 +35,7 @@ CON { RPi Gateway io pins }
 
 OBJ { Objects Used by this Object }
 
-    IoT_GW      :   "RPi-IoT-gw"                                        ' serial I/O
+    IoT_GW      :   "isp_rpi_iot_gw"                            ' serial I/O
 
 DAT { our email and hardware ID strings }
 

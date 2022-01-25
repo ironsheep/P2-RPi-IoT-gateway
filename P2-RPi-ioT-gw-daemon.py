@@ -576,6 +576,7 @@ def processIncomingRequest(newLine, Ser):
         # Send the email if we know enough to do so...
         if runtimeConfig.haveNeededEmailKeys() == True:
             sendEmailFromConfig()
+            sendValidationSuccess(Ser, "email", "", "")
 
     elif gatheringEmailBody == True:
         bodyLinesAr = newLine.split('\\n')

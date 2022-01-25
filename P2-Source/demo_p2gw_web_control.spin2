@@ -43,11 +43,10 @@ CON { 1-wire devices io pins }
 
 OBJ { Objects Used by this Object }
 
-    IoT_GW      :   "RPi-IoT-gw"            ' serial I/O to/from RPi
-    ds18s20_OW  :   "isp_ds18s20"           ' DS18S20 one-wire temp sensor
-    strFmt      :   "isp_serial_singleton"  ' format to memory routines
-    srchOW      :   "isp_ow_search"         '   search routines for 1-Wire
-    rxQue       :   "isp_queue_serial"      ' acces our received data
+    IoT_GW      :   "isp_rpi_iot_gw"            ' serial I/O to/from RPi
+    rxQue       :   "isp_queue_serial"          ' acces our received data
+    ' our demo hardware
+    LEDstr      :   "isp_ws2118_string"         ' string of 50 LED for demo
 
 DAT { our hardware ID strings and 1-wire buffers, collection names }
 

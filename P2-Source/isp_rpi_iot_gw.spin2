@@ -1,6 +1,6 @@
 '' =================================================================================================
 ''
-''   File....... RPi-IoT-IoT_gw.spin2
+''   File....... isp_rpi_iot_gw.spin2
 ''   Purpose.... (Singleton) Provide IoT access methods
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
@@ -33,6 +33,7 @@ OBJ { Objects Used by this Object }
 
     RPi         : "jm_serial"                                   ' serial I/O
     nstr        : "jm_nstrings"                                 ' number-to-string
+    RPiRxQ      : "isp_queue_serial"                            ' Queued Receive on top of serial I/O
 
 CON { driver config values}
 
@@ -42,25 +43,25 @@ CON { driver config values}
 
   RX_MAX_NAMES = 20
 
-DAT { pin info saves }
+DAT { pin info saves, GateWay buffers }
 
-    long    pinRx
-    long    pinTx
+pinRx               long    0
+pinTx               long    0
 
-    long    parsedFileId
-    long    parsedLongVal
+parsedFileId        long    0
+parsedLongVal       long    0
 
-    long    parsedNameSet[RX_MAX_NAMES+1]
-    byte    parsedNamesValue[RX_BFFR_LEN+1]
+parsedNameSet       long    0[RX_MAX_NAMES+1]
+parsedNamesValue    byte    0[RX_BFFR_LEN+1]
 
-    byte    parsedStrValue[RX_BFFR_LEN+1]
+parsedStrValue      byte    0[RX_BFFR_LEN+1]
 
-    byte    bffrRx[RX_BFFR_LEN+1]
+bffrRx              byte    0[RX_BFFR_LEN+1]
 
     ' filled by statusParse() when error returned
-    byte    statusMsg[RX_BFFR_LEN+1]
-    byte    subsysId[RX_SYSTEM_ID_LEN+1]
-    byte    keyName[RX_SYSTEM_ID_LEN+1]
+statusMsg           byte    0[RX_BFFR_LEN+1]
+subsysId            byte    0[RX_SYSTEM_ID_LEN+1]
+keyName             byte    0[RX_SYSTEM_ID_LEN+1]
 
 DAT { string constants }
 
@@ -82,9 +83,11 @@ PUB startx(rxpin, txpin, baud)
     pinRx := rxpin
     pinTx := txpin
     RPi.startx(pinRx, pinTx, baud)                              ' use user serial port
+    RPiRxQ.startx(pinRx, pinTx, baud)  ' start back-end cog
 
 PUB stop()
 '' Release the serial pins (if needed)
+    RPiRxQ.stop()   ' stop back-end cog
     RPi.rxflush()   ' git rid of any pending input
     ' free the pins used
     pinf(pinRx)    ' de-assert
@@ -94,11 +97,16 @@ PUB identify(pHardwareId)
 '' Report to the RPi the name of this device (for email signature, etc.)
     RPi.fstr3(string("ident:hwName=%s%sobjVer=%s\n"), pHardwareId, @parmSep, @spin2ver)
 
-PUB sendEmail(pEmailTo, pEmailFrom, pEmailSubj, pEmailBody)
+PUB sendEmail(pEmailTo, pEmailFrom, pEmailSubj, pEmailBody) | pStr, opStatus
 '' Tell the RPi to send an email given these specifics
     RPi.fstr5(string("email-send:to=%s%sfm=%s%ssu=%s\n"), pEmailTo, @parmSep, pEmailFrom, @parmSep, pEmailSubj)
     RPi.fstr3(string("%s\n%s\n%s\n"), @bodyStart, pEmailBody, @bodyEnd)
     ' TODO add expectation of return of success or failure
+    pStr := RPiRxQ.readRPiResponse(@bffrRx, RX_BFFR_LEN)
+    ' parse result for success and fileID and return both
+    opStatus := statusParse(pStr)
+    if (opStatus <> OP_SUCCESS)
+        debug("sendEmail: str=[", zstr_(@statusMsg), "]")
 
 PUB sendSMS(pSmsPhoneNbr, pSmsTextMessage)
 '' Tell the RPi to send an SMS text message given these specifics
@@ -109,7 +117,7 @@ PUB fileAccess(nFolderId, nFileMode, pFileName) : opStatus, nCollId | pStr
 '' Tell the RPi to establish access to a named KV collection
 '' - returns {nCollId} our handle to the collection
     RPi.fstr5(string("file-access:dir=%d%smode=%d%scname=%s\n"), nFolderId, @parmSep, nFileMode, @parmSep, pFileName)
-    pStr := readRPiResponse(@bffrRx, RX_BFFR_LEN)
+    pStr := RPiRxQ.readRPiResponse(@bffrRx, RX_BFFR_LEN)
     ' parse result for success and fileID and return both
     opStatus := statusParse(pStr)
     if (opStatus <> OP_SUCCESS)
@@ -121,7 +129,7 @@ PUB fileWriteLong(nCollId, pVarName, nVarValue) : opStatus | pStr
 '' Tell the RPi to to write named long to collection {nCollId}
     opStatus := OP_FAILURE
     RPi.fstr5(string("file-write:cid=%d%skey=%s%sval=%d\n"), nCollId, @parmSep, pVarName, @parmSep, nVarValue)
-    pStr := readRPiResponse(@bffrRx, RX_BFFR_LEN)
+    pStr := RPiRxQ.readRPiResponse(@bffrRx, RX_BFFR_LEN)
     opStatus := statusParse(pStr)
     if (opStatus <> OP_SUCCESS)
         debug("fileWriteLong: str=[", zstr_(@statusMsg), "]")
@@ -130,7 +138,7 @@ PUB fileReadLong(nCollId, pVarName) : opStatus, nVarValue | pStr
 '' Tell the RPi to to get named long from collection {nCollId}
     opStatus := OP_FAILURE
     RPi.fstr3(string("file-read:cid=%d%skey=%s\n"), nCollId, @parmSep, pVarName)
-    pStr := readRPiResponse(@bffrRx, RX_BFFR_LEN)
+    pStr := RPiRxQ.readRPiResponse(@bffrRx, RX_BFFR_LEN)
     opStatus := statusParse(pStr)
     if (opStatus <> OP_SUCCESS)
         debug("fileReadLong: str=[", zstr_(@statusMsg), "]")
@@ -141,7 +149,7 @@ PUB fileWriteStr(nCollId, pVarName, pVarString) : opStatus | pStr
 '' Tell the RPi to to write named string to collection {nCollId}
     opStatus := OP_FAILURE
     RPi.fstr5(string("file-write:cid=%d%skey=%s%sval=%s\n"), nCollId, @parmSep, pVarName, @parmSep, pVarString)
-    pStr := readRPiResponse(@bffrRx, RX_BFFR_LEN)
+    pStr := RPiRxQ.readRPiResponse(@bffrRx, RX_BFFR_LEN)
     opStatus := statusParse(pStr)
     if (opStatus <> OP_SUCCESS)
         debug("fileWriteStr: str=[", zstr_(@statusMsg), "]")
@@ -150,7 +158,7 @@ PUB fileReadStr(nCollId, pVarName, pTargetBffr, nTargetLen) : opStatus, pVarStr 
 '' Tell the RPi to to get named string from collection {nCollId}
     opStatus := OP_FAILURE
     RPi.fstr3(string("file-read:cid=%d%skey=%s\n"), nCollId, @parmSep, pVarName)
-    pStr := readRPiResponse(@bffrRx, RX_BFFR_LEN)
+    pStr := RPiRxQ.readRPiResponse(@bffrRx, RX_BFFR_LEN)
     opStatus := statusParse(pStr)
     if (opStatus <> OP_SUCCESS)
         debug("fileReadStr: str=[", zstr_(@statusMsg), "]")
@@ -172,7 +180,7 @@ PUB getCollectionNames(nFolderId) : opStatus, pNameSet | pStr
 '' each additional long is a pointer to a zstr (name of a collection)
     opStatus := OP_FAILURE
     RPi.fstr1(string("folder-list:dir=%d\n"), nFolderId)
-    pStr := readRPiResponse(@bffrRx, RX_BFFR_LEN)
+    pStr := RPiRxQ.readRPiResponse(@bffrRx, RX_BFFR_LEN)
     ' Ex: folist:status=True^|^ct=2^|^names=P2-P2-Edge-GWDemo3,rpiHostInfo\n'
     opStatus := statusParse(pStr)
     if (opStatus <> OP_SUCCESS)
@@ -188,34 +196,13 @@ PUB getKeyNamesInCollection(nCollId) : opStatus, pKeySet | pStr
 '' each additional long is a pointer to a zstr (key found in collection)
     opStatus := OP_FAILURE
     RPi.fstr1(string("key-list:cid=%d\n"), nCollId)
-    pStr := readRPiResponse(@bffrRx, RX_BFFR_LEN)
+    pStr := RPiRxQ.readRPiResponse(@bffrRx, RX_BFFR_LEN)
     ' Ex: kylist:status=True^|^ct=2^|^names=FQDN,Hostname\n'
     opStatus := statusParse(pStr)
     if (opStatus <> OP_SUCCESS)
         debug("getKeyNames: str=[", zstr_(@statusMsg), "]")
     else
         pKeySet := @parsedNameSet
-
-PRI readRPiResponse(pBffr, nBffrMax) : pStr | nRxLenRem, pRxNextChar, nChr
-' read serial input until newline received
-    debug("gStr: entry...")
-    pStr := pBffr
-    nRxLenRem := nBffrMax
-    pRxNextChar := pBffr
-    BYTE[pRxNextChar] := $00   ' start with emtpy string
-    repeat
-        nChr := RPi.rxtime(1000)
-        if (nChr <> -1)
-            if (nChr == $0a)
-                BYTE[pRxNextChar] := $00 ' place term char
-            else
-                BYTE[pRxNextChar] := nChr
-                BYTE[pRxNextChar + 1] := $00 ' place term char
-            ' TOO SLOW LOOSING DATA debug("gStr: nChr=[", uhex_byte_(nChr), "-(", lstr_(pRxNextChar, 1), ")]")
-            pRxNextChar++
-            nRxLenRem--
-    until (nChr == $0a or nRxLenRem == 0 or nChr == -1)
-    debug("gStr: str=[", zstr_(pStr), "]")
 
 PRI statusParse(pRxBffr) : nStatus | lenRemaining, sep, nIdx, fullIdx, nChr, pSrchBffr, pName, pValue, ignore, matchStatus, nLongIdx
     ' Examples: "faccess:status=True,fileid=9999,exists=False\n"

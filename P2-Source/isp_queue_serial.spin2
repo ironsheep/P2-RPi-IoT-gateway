@@ -11,6 +11,21 @@
 ''
 '' =================================================================================================
 
+' implemented as a receive COG storing characters in a larger circular buffer. As complete strings
+' are identified (denoted by LF char at end) the LF is replaced by a zero terminator and the
+' pointer to the newly arrived string is stored in a circular queue of arrived strings.
+
+' There are two types of strings being received:  strings prefixed with "ctrl:" which denote
+' control value changes arriving at P2 from RPi and all others which are status reports
+' or lists of information requested by the P2 of the RPi.
+
+' control value changes are stored in one queue while status reports are stored in another
+'  this provides a means to isolate the two streams so status messages can arrive without
+'  having to wait for the control messages to be processed.
+
+' another advantage is that a whole group of control value changes can arrive before any of
+' them need to be processed.
+
 CON { Object Interface: PUBLIC ENUMs }
 
 ' parse (PSE) results
@@ -41,15 +56,15 @@ CON { driver config values }
 
 
 CON { test values }
-
+{
   CLK_FREQ = 200_000_000                                        ' system freq as a constant
   _clkfreq = CLK_FREQ                                           ' set system clock
 
-  RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
-  TX_GW    = 24  { O }
+  RX_GW    = 25  '- I -                                          ' Raspberry Pi (RPi) Gateway
+  TX_GW    = 24  '- O -
 
   GW_BAUDRATE = 500_000   ' 500kb/s - allow P2 rx to keep up!
-
+}
   DO_NOT_WRITE_MARK = $addee5e5
   NOT_WRITTEN_MARK = $a5a50df0
 
@@ -66,7 +81,7 @@ DAT { Queued RX data }
 pRxByteStart    long    0
 nRxByteMax      long    0
 
-bTestMode       long    TRUE
+bTestMode       long    FALSE
 
 ' TASK use variables
 taskStack       long    0[STACK_SIZE_LONGS]
@@ -77,6 +92,9 @@ nRxByteCount    long    0
 
 bInString       long    FALSE
 pNewStrStart    long    0
+
+pRsltStrStart   long    0
+pRsltQueOverrun long    FALSE
 
 bQueOverrun     long    FALSE
 bStrQueOverrun  long    FALSE
@@ -92,8 +110,10 @@ serialRxBffr    byte    0[RX_CHR_Q_MAX_BYTES]   ' our circular buffer - received
 ' task vars
 nLoopCt         long    0
 pNextMsg        long    0
-nTaskChr            long    0
+nTaskChr        long    0
 ' tsk vars
+
+strCtrlPrefix   byte    "ctrl:",0
 
 CON { - - - - - }
 
@@ -102,6 +122,7 @@ CON { test control values }
   #0, CT_UNKNOWN, CT_IDLE, CT_STOP, CT_PLACE_STR, CT_PLACE_N_MSGS
 
   #0, TST_UNKNOWN, TST_PASS, TST_FAIL
+
 DAT { test control vars }
 
 bDbgShoMem      long    FALSE
@@ -125,130 +146,132 @@ nStackDepth          long    STACK_SIZE_LONGS
 
 PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus, nCtParm, bPassFail
 '' This is not a top level object
-   ' but is our test code main for now...
-    startx(RX_GW, TX_GW, GW_BAUDRATE)
-    ' =========================================
-    ' test code
-    ' -----------------------------------------
-{
-    ' have serial place str in buffer
-    eTestCtrl := CT_IDLE
-    waitms(250)
 
-    eTestParam := @greenStr
-    eTestCtrl := CT_PLACE_STR
-    ' then report the string arrived
-    ' check to see if string arrived
-    '  display string
-    '  free string
-    bWaitStatus := TRUE ' yes, let's wait for strings to arrive
-    pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
+    if bTestMode == TRUE
+    ' but is our test code main for now...
+        'startx(RX_GW, TX_GW, GW_BAUDRATE)
+        ' =========================================
+        ' test code
+        ' -----------------------------------------
+    {
+        ' have serial place str in buffer
+        eTestCtrl := CT_IDLE
+        waitms(250)
 
-    waitms(25077)
-    eTestParam := @redStr
-    eTestCtrl := CT_PLACE_STR
-    ' then report the string arrived
-    ' check to see if string arrived
-    '  display string
-    '  free string
-
-    pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
-
-    bStatus := haveRxString()
-    debug(">> 001 is T/F:", ubin_byte(bStatus))
-}
-
-    ' - drop buffer size to smaller so fewer messages needed for following tests
-
-    resetRxStatus() ' reset problem indicators
-    eTestCtrl := CT_IDLE
-    waitms(250)
-
-    ' - fill to buffer max detect goood everrun
-    nCtParm := 9    ' our N      EXACT FILL of queue space
-    eTestParam := nCtParm
-    eTestCtrl := CT_PLACE_N_MSGS
-    waitms(500)
-
-    if rxStringsCount() < nCtParm
-        debug(">> ERR too few strings reported")
-    else
-        debug(">> all strings reported in")
-    'repeat ' hold here
-
-    repeat nCtParm
+        eTestParam := @greenStr
+        eTestCtrl := CT_PLACE_STR
+        ' then report the string arrived
+        ' check to see if string arrived
+        '  display string
+        '  free string
+        bWaitStatus := TRUE ' yes, let's wait for strings to arrive
         pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
 
-    bStatus := haveRxString()
-    debug(">> 002 is T/F:", ubin_byte(bStatus))
+        waitms(25077)
+        eTestParam := @redStr
+        eTestCtrl := CT_PLACE_STR
+        ' then report the string arrived
+        ' check to see if string arrived
+        '  display string
+        '  free string
 
-    ' this test should overrun
-    bPassFail :=  (bQueOverrun == TRUE) ? TST_PASS : TST_FAIL
-    testReport(string("(1) Rx too many"), bPassFail)
-
-    resetRxStatus() ' reset problem indicators
-    flushRxQueue()
-
-    ' - fill to buffer N strings, see if all report correctly
-    ' - fill with exactfit messages - ensure wrap works
-    nCtParm := 8    ' our N      EXACT FILL of queue space
-    eTestParam := nCtParm
-    eTestCtrl := CT_PLACE_N_MSGS
-    waitms(250)
-
-    repeat while rxStringsCount() < nCtParm
-    debug(">> all strings reported in")
-    'repeat ' hold here
-
-    repeat nCtParm
         pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
 
-    bStatus := haveRxString()
-    debug(">> 003 is T/F:", ubin_byte(bStatus))
+        bStatus := haveRxString()
+        debug(">> 001 is T/F:", ubin_byte(bStatus))
+    }
 
-    ' this test should NOT overrun
-    bPassFail :=  (bQueOverrun == FALSE) ? TST_PASS : TST_FAIL
-    testReport(string("(2) Rx Exact full"), bPassFail)
+        ' - drop buffer size to smaller so fewer messages needed for following tests
 
-    resetRxStatus() ' reset problem indicators
+        resetRxStatus() ' reset problem indicators
+        eTestCtrl := CT_IDLE
+        waitms(250)
 
-    ' - fill with non-exact fit messages - ensure wrap works
-    bPassFail := TST_PASS
-    repeat 4    ' 3 ok
-        nCtParm := 3    ' our N      EXACT FILL of queue space
+        ' - fill to buffer max detect goood everrun
+        nCtParm := 9    ' our N      EXACT FILL of queue space
+        eTestParam := nCtParm
+        eTestCtrl := CT_PLACE_N_MSGS
+        waitms(500)
+
+        if rxStringsCount() < nCtParm
+            debug(">> ERR too few strings reported")
+        else
+            debug(">> all strings reported in")
+        'repeat ' hold here
+
+        repeat nCtParm
+            pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
+
+        bStatus := haveRxString()
+        debug(">> 002 is T/F:", ubin_byte(bStatus))
+
+        ' this test should overrun
+        bPassFail :=  (bQueOverrun == TRUE) ? TST_PASS : TST_FAIL
+        testReport(string("(1) Rx too many"), bPassFail)
+
+        resetRxStatus() ' reset problem indicators
+        flushRxQueue()
+
+        ' - fill to buffer N strings, see if all report correctly
+        ' - fill with exactfit messages - ensure wrap works
+        nCtParm := 8    ' our N      EXACT FILL of queue space
         eTestParam := nCtParm
         eTestCtrl := CT_PLACE_N_MSGS
         waitms(250)
 
-        if rxStringsCount() < nCtParm
-            debug(">> ERR too few strings reported")
-            bPassFail := TST_FAIL
-        else
-            debug(">> all strings reported in")
+        repeat while rxStringsCount() < nCtParm
+        debug(">> all strings reported in")
+        'repeat ' hold here
 
-        repeat rxStringsCount()
+        repeat nCtParm
             pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
 
-    bStatus := haveRxString()
-    debug(">> 003 is T/F:", ubin_byte(bStatus))
+        bStatus := haveRxString()
+        debug(">> 003 is T/F:", ubin_byte(bStatus))
 
-    ' this test should NOT overrun
-    if (bQueOverrun == TRUE)
-        bPassFail := TST_FAIL
+        ' this test should NOT overrun
+        bPassFail :=  (bQueOverrun == FALSE) ? TST_PASS : TST_FAIL
+        testReport(string("(2) Rx Exact full"), bPassFail)
 
-    testReport(string("(3) Rx wrap test"), bPassFail)
+        resetRxStatus() ' reset problem indicators
 
-    resetRxStatus() ' reset problem indicators
+        ' - fill with non-exact fit messages - ensure wrap works
+        bPassFail := TST_PASS
+        repeat 4    ' 3 ok
+            nCtParm := 3    ' our N      EXACT FILL of queue space
+            eTestParam := nCtParm
+            eTestCtrl := CT_PLACE_N_MSGS
+            waitms(250)
+
+            if rxStringsCount() < nCtParm
+                debug(">> ERR too few strings reported")
+                bPassFail := TST_FAIL
+            else
+                debug(">> all strings reported in")
+
+            repeat rxStringsCount()
+                pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
+
+        bStatus := haveRxString()
+        debug(">> 003 is T/F:", ubin_byte(bStatus))
+
+        ' this test should NOT overrun
+        if (bQueOverrun == TRUE)
+            bPassFail := TST_FAIL
+
+        testReport(string("(3) Rx wrap test"), bPassFail)
+
+        resetRxStatus() ' reset problem indicators
 
 
-    ' next tests:
-    ' - restore buffer to production size [512b]
-    ' - cut over to actual RX with RPi
-    ' - do multi-message rx and unload - ensuring this all works
-    ' ========= ready for production use =========
+        ' next tests:
+        ' - restore buffer to production size [512b]
+        ' - cut over to actual RX with RPi
+        ' - do multi-message rx and unload - ensuring this all works
+        ' ========= ready for production use =========
 
-    ' =========================================
-    stop()
+        ' =========================================
+        stop()
 
 CON { - - - - - }
 
@@ -279,18 +302,51 @@ PUB stop()
 
 CON { ----- Status-Reponses Interface ----- }
 
-PUB haveResponse() : bResponseStatus
+  WAIT_FOR_STRING = TRUE
+
+PUB readRPiResponse(pBffr, nBffrMax) : pStr
+'' wait for, then return the next status string received
+    debug("gStr: entry...")
+    pStr := getResultString(pBffr, nBffrMax, WAIT_FOR_STRING)
+    debug("gStr: str=[", zstr_(pStr), "]")
+
+PUB haveStatusUpdate() : bResponseStatus
 '' return T/F where T means a reponse has been received and needs to be handled
-    bResponseStatus := FALSE
+    bResponseStatus := (pRsltStrStart > 0) ? TRUE : FALSE
+
+PUB rxResultStringsCount() : nCount
+'' Return count of strings received
+    nCount := (pRsltStrStart <> 0) ? 1 : 0
+
+PUB getResultString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWrappedStr
+'' Return {pStr} or 0 if none
+'' if {bShouldWait} is TRUE wait until string arrives before returning
+    'debug("getRxString: ENTRY")
+    pStr := 0
+    if bShouldWait == TRUE
+        bStringArrived := TRUE
+        repeat until haveStatusUpdate() == TRUE
+    else
+        bStringArrived := haveStatusUpdate()
+
+    if bStringArrived == TRUE
+        pStr := pUserDest
+        pWrappedStr := dequeueResultRxStr()
+        copyWrappedStr(pUserDest, pWrappedStr, lenDest)
+        freeWrappedString(pWrappedStr)
+        debug("getRsltString: str=[", zstr_(pUserDest), "]")
+    else
+        debug("getRsltString: str=[] - NOT PRESENT")
 
 CON { ----- Control Changes Interface ----- }
 
 PUB haveControlUpdate() : bControlStatus
 '' return T/F where T means a control value change has been received and needs to be handled
-    bControlStatus := FALSE ' none for now...
+    bControlStatus := (rxStringsCount() > 0) ? TRUE : FALSE' none for now...
 
 PUB getControlAndValue(pName, pValue) : nStatus
 '' interpret control change request and return KV parts
+    nStatus := FALSE
 
 CON { ----- General Strings Interface ----- }
 
@@ -310,7 +366,7 @@ PUB getRxString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWrapp
     pStr := 0
     if bShouldWait == TRUE
         bStringArrived := TRUE
-        repeat until haveRxString()
+        repeat until haveRxString() == TRUE
     else
         bStringArrived := haveRxString()
 
@@ -336,6 +392,8 @@ PUB flushRxQueue()
 
     nRxByteCount := 0
     nQStrCount := 0
+
+    pRsltStrStart := 0
 
 PUB resetRxStatus()
 '' reset all task failure indicators
@@ -399,7 +457,7 @@ PRI tskEnqueueRx(nChr) : bFailedStatus
         if bInString == FALSE
             bInString := TRUE
             pNewStrStart := pRxByteHead
-            debug("TASK[Rx] ", uhex_long(pNewStrStart), ubin_byte(bInString))
+            'debug("TASK[Rx] ", uhex_long(pNewStrStart), ubin_byte(bInString))
         'debug("TASK[Rx] rxChr=", uhex_(nChr))
         nRxByteCount++
         if (nChr <> $0a)
@@ -407,7 +465,10 @@ PRI tskEnqueueRx(nChr) : bFailedStatus
         else
             byte [pRxByteHead++] := $00 ' place term instead of EOL
             if bInString == TRUE
+            if strHasPrefix(pNewStrStart, @strCtrlPrefix) == TRUE
                 tskEnqueueRxStr(pNewStrStart)
+            else
+                tskEnqueueResultRxStr(pNewStrStart)
                 bInString := FALSE
         ' wrap ptr if needed...
         if pRxByteHead > @BYTE [@serialRxBffr][RX_CHR_Q_MAX_BYTES - 1]
@@ -416,6 +477,21 @@ PRI tskEnqueueRx(nChr) : bFailedStatus
         bQueOverrun := TRUE ' signal that we lost incoming data!!!
         debug("TASK[Rx] !! ERROR  char-queue full!! ", sdec(nRxByteCount), sdec(nRxByteMax))
         bFailedStatus := TRUE
+
+PRI strHasPrefix(pTargetStr, pPrefix) : bHasStatus | nIdx
+    bHasStatus := TRUE
+    repeat nIdx from 0 to strsize(pPrefix)
+        if BYTE[pTargetStr][nIdx] <> BYTE[pPrefix][nIdx]
+            bHasStatus := False
+            quit    ' outta here, we have our answer!
+
+PRI tskEnqueueResultRxStr(pStr)
+' report string arrival to listener (place string pointer in queue)
+    if pRsltStrStart <> 0
+        pRsltQueOverrun := TRUE
+    else
+        pRsltStrStart := pStr
+        'debug("TASK[Rx] enqueueRsltStr(", udec_(strsize(pStr)), ")=[", zstr_(pStr), "] ", uhex_long(pStr))
 
 PRI tskEnqueueRxStr(pStr)
 ' report string arrival to listener (place string pointer in queue)
@@ -427,11 +503,11 @@ PRI tskEnqueueRxStr(pStr)
             nQStrHeadIdx := 0
         ' mark arrival of new in queue
         nQStrCount++
-        debug("TASK[Rx] enqueueStr(", udec_(strsize(pStr)), ")=[", zstr_(pStr), "] ", uhex_long(pStr))
+        'debug("TASK[Rx] enqueueStr(", udec_(strsize(pStr)), ")=[", zstr_(pStr), "] ", uhex_long(pStr))
     else
         bStrQueOverrun := TRUE ' signal that we lost incoming data!!!
         debug("TASK[Rx] !! ERROR string-queue full!!")
-    debug("TASK[Rx] enqueueStr: ", udec(nQStrCount))
+    'debug("TASK[Rx] enqueueStr: ", udec(nQStrCount))
 
 PRI checkGoodStringPtr(pStr)
 ' report and halt if string not valid (with circular queue range)
@@ -459,6 +535,14 @@ PRI dequeueRxStr() : pRmStr
     else
         debug("-- dequeueRxStr() !! ERROR string-queue empty!!")
     'dumpStrQ(string("FTER String Ptr Que"))
+
+PRI dequeueResultRxStr() : pRsltStr
+' remove string from queue, listener done with it
+    'dumpStrQ(string("B4 String Ptr Que"))
+    pRsltStr := 0
+    if pRsltStrStart <> 0
+        pRsltStr := pRsltStrStart
+        pRsltStrStart := 0  ' mark as empty
 
 PRI freeWrappedString(pRmStr)
     ' zero our string memory
