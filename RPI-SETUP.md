@@ -21,11 +21,11 @@ When setting up the new RPi you will be doing:
 
 **NOTE:** I draw from many sources when writing the following but here's a great official reference: [Raspberry Pi Documentation](https://www.raspberrypi.com/documentation/computers/getting-started.html#setting-up-your-raspberry-pi) 
 
-My goal is to provide a simplified overview of the process for our community. If you have any quesitons the official documentation should always be consulted.
+My goal is to provide a simplified overview of the process for our community. If you have any questions the official documentation should always be consulted.
 
 ## Unbox and place into case, add keyboard, mouse and HDMI display
 
-To start you'll need a Raspberry Pi. I have a fair number of them so here's some hints at how I've learned to acquire mine. First of all I tend to buy kits that have cases. Sometimes the kits with larger uSD cards are more expensive so i'll go for the kits with smaller uSD cards and then I just replace the uSD card with my own.  Here are some example kits ($50 to $150 at Amazon):
+To start you'll need a Raspberry Pi. I have a fair number of them so here are some hints at how I've learned to acquire mine. First of all I tend to buy kits that have cases. Sometimes the kits with larger uSD cards are more expensive so i'll go for the kits with smaller uSD cards and then I just replace the uSD card with my own.  Here are some example kits ($50 to $150 at Amazon):
 
 ![RPi Kits](Docs/images/Typical-RPi-Kits-wCase.png)
 
@@ -33,7 +33,7 @@ I tend to run my RPi's headless, meaning they are network attached (wired or wir
 
 ![Turn-on Keyboard/Display](Docs/images/kbd-hdmi-7in.png)
 
-This is a [Logitech k400 series Keyboard with touchpad](https://www.amazon.com/Logitech-Wireless-Keyboard-Touchpad-PC-connected/dp/B014EUQOGK) ~$40 and a something like [7" LCD display with HDMI input](https://www.amazon.com/Loncevon-Portable-Computer-Raspberry-Headphone/dp/B06XQJVXHL) ~$65.  Neighter of these links are what I have since I purchased mine so long ago but these should work if you need to purchase equipment like what I use.
+This is a [Logitech k400 series Keyboard with touchpad](https://www.amazon.com/Logitech-Wireless-Keyboard-Touchpad-PC-connected/dp/B014EUQOGK) ~$40 and a something like [7" LCD display with HDMI input](https://www.amazon.com/Loncevon-Portable-Computer-Raspberry-Headphone/dp/B06XQJVXHL) ~$65.  Neither of these links are what I have since I purchased mine so long ago but these should work if you need to purchase equipment like what I use.
 
 ## Locate and initialize a uSD card with your desired OS
 
@@ -53,7 +53,7 @@ Now you'll want to copy the downloaded image to the new uSD card. The Raspberry 
 
 If you are new to this then I suggest you follow their instructions.
 
-**HEADS UP!!!** If you are new to all of this please SKIP the next sections headed with **"Reference ONLY..."** as these are for advanced users only!  As a beginner you can skip to the section **[Boot the RPi after insterting the uSD card](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/RPI-SETUP.md#boot-the-rpi-after-insterting-the-usd-card)** after copying the new image to your uSD card.
+**HEADS UP!!!** If you are new to all of this please SKIP the next sections headed with **"Reference ONLY..."** as this reference info is for advanced users only!  As a beginner you can skip to the section **[Boot the RPi after insterting the uSD card](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/RPI-SETUP.md#boot-the-rpi-after-insterting-the-usd-card)** after copying the new image to your uSD card.
 
 **--->>> Begin SKIP <<<---**
 
@@ -135,7 +135,7 @@ Look near the bottom of this screen and you can see navigation buttons. This wil
   - set your Country
   - set your Language
   - set your Timezone
-  - (optionally, you can check the two use ... boxes if they apply to you.)
+  - (optionally, you can check the two `Use ...` boxes if they apply to you.)
   - Press [Next] - this will put up a progress bar while your selections are recorded
 - **Change Password**: (**Security Implications**) yes, please never leave a default password!
   - Enter you new password twice (use checkbox `Hide chaaracters` to see what you typed if it helps)
