@@ -132,22 +132,22 @@ My RPi was connected via a LAN cable so you can see the IP address my RPi obatin
 Look near the bottom of this screen and you can see navigation buttons. This will be true for each of the following screens. You'll mostly be using [Next] but there  will be one case where we use [Skip].  Here's a list of the screens:
 
 - **Set Country**:
- - set your Country
- - set your Language
- - set your Timezone
- - (optionally, you can check the two use ... boxes if they apply to you.)
- - Press [Next] - this will put up a progress bar while your selections are recorded
+  - set your Country
+  - set your Language
+  - set your Timezone
+  - (optionally, you can check the two use ... boxes if they apply to you.)
+  - Press [Next] - this will put up a progress bar while your selections are recorded
 - **Change Password**: (**Security Implications**) yes, please never leave a default password!
- - Enter you new password twice (use checkbox `Hide chaaracters` to see what you typed if it helps)
- - Press [Next] - to activate your new password
+  - Enter you new password twice (use checkbox `Hide chaaracters` to see what you typed if it helps)
+  - Press [Next] - to activate your new password
 - **Set Up Screen**:
- - (answer what it's asking)
- - Press [Next]
+  - (answer what it's asking)
+  - Press [Next]
 - **Update Software**:
- - *Yep, you found it. We'll do this later so that we can ensure our new scripts work.*
- - So this time Press [Skip]
+  - *Yep, you found it. We'll do this later so that we can ensure our new scripts work.*
+  - So this time Press [Skip]
 - **Setup Complete**:
- - All filled in let's press [Done]
+  - All filled in let's press [Done]
 
 ### Configure services you need
 
