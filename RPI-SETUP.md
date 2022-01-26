@@ -21,11 +21,11 @@ When setting up the new RPi you will be doing:
 
 **NOTE:** I draw from many sources when writing the following but here's a great official reference: [Raspberry Pi Documentation](https://www.raspberrypi.com/documentation/computers/getting-started.html#setting-up-your-raspberry-pi) 
 
-My goal is to provide a simplified overview of the process for our community. If you have any quesitons the official documentation should always be consulted.
+My goal is to provide a simplified overview of the process for our community. If you have any questions the official documentation should always be consulted.
 
 ## Unbox and place into case, add keyboard, mouse and HDMI display
 
-To start you'll need a Raspberry Pi. I have a fair number of them so here's some hints at how I've learned to acquire mine. First of all I tend to buy kits that have cases. Sometimes the kits with larger uSD cards are more expensive so i'll go for the kits with smaller uSD cards and then I just replace the uSD card with my own.  Here are some example kits ($50 to $150 at Amazon):
+To start you'll need a Raspberry Pi. I have a fair number of them so here are some hints at how I've learned to acquire mine. First of all I tend to buy kits that have cases. Sometimes the kits with larger uSD cards are more expensive so i'll go for the kits with smaller uSD cards and then I just replace the uSD card with my own.  Here are some example kits ($50 to $150 at Amazon):
 
 ![RPi Kits](Docs/images/Typical-RPi-Kits-wCase.png)
 
@@ -33,7 +33,7 @@ I tend to run my RPi's headless, meaning they are network attached (wired or wir
 
 ![Turn-on Keyboard/Display](Docs/images/kbd-hdmi-7in.png)
 
-This is a [Logitech k400 series Keyboard with touchpad](https://www.amazon.com/Logitech-Wireless-Keyboard-Touchpad-PC-connected/dp/B014EUQOGK) ~$40 and a something like [7" LCD display with HDMI input](https://www.amazon.com/Loncevon-Portable-Computer-Raspberry-Headphone/dp/B06XQJVXHL) ~$65.  Neighter of these links are what I have since I purchased mine so long ago but these should work if you need to purchase equipment like what I use.
+This is a [Logitech k400 series Keyboard with touchpad](https://www.amazon.com/Logitech-Wireless-Keyboard-Touchpad-PC-connected/dp/B014EUQOGK) ~$40 and a something like [7" LCD display with HDMI input](https://www.amazon.com/Loncevon-Portable-Computer-Raspberry-Headphone/dp/B06XQJVXHL) ~$65.  Neither of these links are what I have since I purchased mine so long ago but these should work if you need to purchase equipment like what I use.
 
 ## Locate and initialize a uSD card with your desired OS
 
@@ -53,7 +53,7 @@ Now you'll want to copy the downloaded image to the new uSD card. The Raspberry 
 
 If you are new to this then I suggest you follow their instructions.
 
-**HEADS UP!!!** If you are new to all of this please SKIP the next sections headed with **"Reference ONLY..."** as these are for advanced users only!  As a beginner you can skip to the section **[Boot the RPi after insterting the uSD card](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/RPI-SETUP.md#boot-the-rpi-after-insterting-the-usd-card)** after copying the new image to your uSD card.
+**HEADS UP!!!** If you are new to all of this please SKIP the next sections headed with **"Reference ONLY..."** as this reference info is for advanced users only!  As a beginner you can skip to the section **[Boot the RPi after insterting the uSD card](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/RPI-SETUP.md#boot-the-rpi-after-insterting-the-usd-card)** after copying the new image to your uSD card.
 
 **--->>> Begin SKIP <<<---**
 
@@ -123,21 +123,47 @@ At this point we need to make the RPi a good citizen on your network, configure 
 
 ### Configure the RPi to join your network
 
-When you first start your RPi the file system on the SD card will be expanded to take up the entire size of the SD card. The filesystem you copied to this card was smaller intentionally. So the RPi detects this and adjusts the filesystem on the uSD to the size of the card you chose. Now it boots the desktop but you are first prompted to set your locale (*I'm in the USA, in the Denver timezone*) so I choose US Keyboard / layout and choose the Denver timezone.
+When you first start your RPi the file system on the SD card will be expanded to take up the entire size of the SD card. The filesystem you copied to this card was smaller intentionally. So the RPi detects this and adjusts the filesystem on the uSD to the size of the card you chose. Now it boots the desktop and starts the initial setup app:
+ 
+![Initial Setup](Docs/images/pi-welcome.jpg)
 
-After you've answered these questions the system ...
+My RPi was connected via a LAN cable so you can see the IP address my RPi obatined when it booted in the bottom right of this image  (`192.168.100.43`.)  If yours is not connected, and your model of RPi support wireless, you will be prompted in a later step to join your wifi network. Either way, you will need networking to complete this setup so please make sure it is available.
 
-... Instructions TBA ...
+Look near the bottom of this screen and you can see navigation buttons. This will be true for each of the following screens. You'll mostly be using [Next] but there  will be one case where we use [Skip].  Here's a list of the screens:
+
+- **Set Country**:
+  - set your Country
+  - set your Language
+  - set your Timezone
+  - (optionally, you can check the two `Use ...` boxes if they apply to you.)
+  - Press [Next] - this will put up a progress bar while your selections are recorded
+- **Change Password**: (**Security Implications**) yes, please never leave a default password!
+  - Enter you new password twice (use checkbox `Hide chaaracters` to see what you typed if it helps)
+  - Press [Next] - to activate your new password
+- **Set Up Screen**:
+  - (answer what it's asking)
+  - Press [Next]
+- **Update Software**:
+  - *Yep, you found it. We'll do this later so that we can ensure our new scripts work.*
+  - So this time Press [Skip]
+- **Setup Complete**:
+  - All filled in let's press [Done]
 
 ### Configure services you need
 
-Now, let's use raspi-config to enable SSH and VNC.
+Now, let's use raspi-config to enable SSH and VNC.  Open a term window and type in `sudo raspi-config`:
 
-```bash
-$ sudo raspi-config
-```
+![Terminal to start raspi-config](Docs/images/term-raspi-config.jpg)
 
-... Instructions TBA ...
+Raspi-Config open and should look something like this:
+
+![raspi-config](Docs/images/raspi-config.jpg)
+
+From this interface, do the following:
+
+- Within "System Options" you'll enter the new Hostname (in `S4 Hostname`) for your RPi
+- Within "Interface Options" you'll enable SSH (in `P2 SSH`) and VNC (in `P3 VNC`)
+- When done, you'll be asked to reboot the RPi.  Do so!
 
 ### Install the latest software updates (OS, security patches, etc.)
 
