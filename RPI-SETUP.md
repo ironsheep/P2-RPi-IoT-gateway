@@ -123,21 +123,47 @@ At this point we need to make the RPi a good citizen on your network, configure 
 
 ### Configure the RPi to join your network
 
-When you first start your RPi the file system on the SD card will be expanded to take up the entire size of the SD card. The filesystem you copied to this card was smaller intentionally. So the RPi detects this and adjusts the filesystem on the uSD to the size of the card you chose. Now it boots the desktop but you are first prompted to set your locale (*I'm in the USA, in the Denver timezone*) so I choose US Keyboard / layout and choose the Denver timezone.
+When you first start your RPi the file system on the SD card will be expanded to take up the entire size of the SD card. The filesystem you copied to this card was smaller intentionally. So the RPi detects this and adjusts the filesystem on the uSD to the size of the card you chose. Now it boots the desktop and starts the initial setup app:
+ 
+![Initial Setup](Docs/images/pi-welcome.jpg)
 
-After you've answered these questions the system ...
+My RPi was connected via a LAN cable so you can see the IP address my RPi obatined when it booted in the bottom right of this image  (`192.168.100.43`.)  If yours is not connected, and your model of RPi support wireless, you will be prompted in a later step to join your wifi network. Either way, you will need networking to complete this setup so please make sure it is available.
 
-... Instructions TBA ...
+Look near the bottom of this screen and you can see navigation buttons. This will be true for each of the following screens. You'll mostly be using [Next] but there  will be one case where we use [Skip].  Here's a list of the screens:
+
+- **Set Country**:
+ - set your Country
+ - set your Language
+ - set your Timezone
+ - (optionally, you can check the two use ... boxes if they apply to you.)
+ - Press [Next] - this will put up a progress bar while your selections are recorded
+- **Change Password**: (**Security Implications**) yes, please never leave a default password!
+ - Enter you new password twice (use checkbox `Hide chaaracters` to see what you typed if it helps)
+ - Press [Next] - to activate your new password
+- **Set Up Screen**:
+ - (answer what it's asking)
+ - Press [Next]
+- **Update Software**:
+ - *Yep, you found it. We'll do this later so that we can ensure our new scripts work.*
+ - So this time Press [Skip]
+- **Setup Complete**:
+ - All filled in let's press [Done]
 
 ### Configure services you need
 
-Now, let's use raspi-config to enable SSH and VNC.
+Now, let's use raspi-config to enable SSH and VNC.  Open a term window and type in `sudo raspi-config`:
 
-```bash
-$ sudo raspi-config
-```
+![Terminal to start raspi-config](Docs/images/term-raspi-config.jpg)
 
-... Instructions TBA ...
+Raspi-Config open and should look something like this:
+
+![raspi-config](Docs/images/raspi-config.jpg)
+
+From this interface, do the following:
+
+- Within "System Options" you'll enter the new Hostname (in `S4 Hostname`) for your RPi
+- Within "Interface Options" you'll enable SSH (in `P2 SSH`) and VNC (in `P3 VNC`)
+- When done, you'll be asked to reboot the RPi.  Do so!
 
 ### Install the latest software updates (OS, security patches, etc.)
 
