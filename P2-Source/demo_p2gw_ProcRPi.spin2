@@ -52,7 +52,7 @@ VAR { demo buffers }
     byte    rdBuffer[RX_BFFR_LEN+1]
 
 PUB main() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt, pRetString
-    '' DEMO tell our RPi send an email for us
+    '' DEMO Tell our RPi send an email for us
     IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)
 
     ' (one time) tell the RPi about how to identify this hardware

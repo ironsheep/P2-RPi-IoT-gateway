@@ -45,7 +45,7 @@ smsPhoneNbr     byte    "7199303881",0
 smsTextMessage  byte    "hi,\n  This is being sent from the P2 via the RPi gateway\n\nRegards,\nYour friendly P2!\n",0
 
 PUB main()
-    '' let's have our RPi send a text message
+    '' DEMO Tell our RPi send a text message
 
     ' start the serial connection to our gateway RPi
     IoT_GW.startx(RX_GW, RX_GW, GW_BAUDRATE)

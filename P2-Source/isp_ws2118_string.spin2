@@ -11,17 +11,18 @@
 ''
 '' =================================================================================================
 
-OBJ { 0objects used by this object }
-  timer : "jm_ez_timer"                                         '   simple delta timer
-  strip : "jm_rgbx_pixel"                                       ' * smart pixel driver
+OBJ { objects used by this object }
 
+  timer : "jm_ez_timer"                                         '   simple delta timer
+  LEDs  : "jm_rgbx_pixel"                                       ' * smart pixel driver
+  prng  : "jm_prng"                                             '   random numbers
 
 PUB null()
 
 '' This is not a top level object
 
 PUB start(nPixels)
-'' configure this object
+'' Configure this object
     actualPixelCt := nPixels
 
 PUB set_delay(tset)
@@ -54,7 +55,7 @@ PUB flash()
   dirty := false
   substate := (substate == 0) ? 1 : 0                           ' toggle substate
 
-  strip.set_all(color1[substate])                               ' show Color1 or Color2
+  LEDs.set_all(color1[substate])                               ' show Color1 or Color2
 
 
 CON { object internal constants }
@@ -91,7 +92,7 @@ PUB fade()
     dirty := false
 
   phase += direction                                            ' update phase
-  strip.set_all(strip.morph(Color1, Color2, phase))             ' update color
+  LEDs.set_all(LEDs.morph(Color1, Color2, phase))             ' update color
 
   if (phase == 255)                                             ' check direction change
     direction := -1
@@ -131,7 +132,7 @@ PUB twinkle() | ch, level
 
   repeat ch from 0 to actualPixelCt-1                                ' fill string
     level := prng.xrandomize(1, 4)                              ' 25 to 100%
-    strip.set(ch, strip.scale_rgbw(Color1, 64*level))
+    LEDs.set(ch, LEDs.scale_rgbw(Color1, 64*level))
 
 
 CON { license }

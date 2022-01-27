@@ -28,8 +28,8 @@
 
 CON { Object Interface: PUBLIC ENUMs }
 
-' parse (PSE) results
-  #0, PSE_UNKNOWN, PSE_SUCCESS, PSE_FAILURE
+  #200, FM_READONLY, FM_WRITE, FM_WRITE_CREATE, FM_LISTEN
+  #0, OP_SUCCESS, OP_FAILURE
 
 CON { fixed io pins }
 
@@ -54,6 +54,9 @@ CON { driver config values }
     MAX_SINGLE_STRING_LEN = 128 ' 79 = testing size, else 128
     RX_STR_Q_MAX_LONGS = 10  ' 10 strings waiting to be picked up - MAX
 
+    RX_BFFR_LEN = 128
+    RX_SYSTEM_ID_LEN = 20
+    RX_MAX_NAMES = 20
 
 CON { test values }
 {
@@ -74,6 +77,7 @@ VAR { pin info saves }
     long    pinTx
 
     long    rxCogId
+
 
 DAT { Queued RX data }
 
@@ -113,7 +117,26 @@ pNextMsg        long    0
 nTaskChr        long    0
 ' tsk vars
 
-strCtrlPrefix   byte    "ctrl:",0
+    ' used by controlParse()
+strCtrlPrefix       byte    "ctrl:",0
+' -------------------------------
+' the following are identical to that found in our deamon python script
+'   (!!!they must be kept in sync!!!)
+parmSep     byte    "^|^",0     ' chars that will not be found in user data
+' -------------------------------
+
+    ' filled by statusParse() when error returned
+parsedFileId        long    0
+parsedLongVal       long    0
+
+parsedNameSet       long    0[RX_MAX_NAMES+1]
+parsedNamesValue    byte    0[RX_BFFR_LEN+1]
+bffrRx              byte    0[RX_BFFR_LEN+1]
+
+
+statusMsg           byte    0[RX_BFFR_LEN+1]
+subsysId            byte    0[RX_SYSTEM_ID_LEN+1]
+keyName             byte    0[RX_SYSTEM_ID_LEN+1]
 
 CON { - - - - - }
 
@@ -165,7 +188,7 @@ PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus, nCtParm, bPassFail
         '  display string
         '  free string
         bWaitStatus := TRUE ' yes, let's wait for strings to arrive
-        pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
+        pStr := getCtrlString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
 
         waitms(25077)
         eTestParam := @redStr
@@ -175,7 +198,7 @@ PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus, nCtParm, bPassFail
         '  display string
         '  free string
 
-        pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
+        pStr := getCtrlString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
 
         bStatus := haveRxString()
         debug(">> 001 is T/F:", ubin_byte(bStatus))
@@ -200,7 +223,7 @@ PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus, nCtParm, bPassFail
         'repeat ' hold here
 
         repeat nCtParm
-            pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
+            pStr := getCtrlString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
 
         bStatus := haveRxString()
         debug(">> 002 is T/F:", ubin_byte(bStatus))
@@ -224,7 +247,7 @@ PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus, nCtParm, bPassFail
         'repeat ' hold here
 
         repeat nCtParm
-            pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
+            pStr := getCtrlString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
 
         bStatus := haveRxString()
         debug(">> 003 is T/F:", ubin_byte(bStatus))
@@ -250,7 +273,7 @@ PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus, nCtParm, bPassFail
                 debug(">> all strings reported in")
 
             repeat rxStringsCount()
-                pStr := getRxString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
+                pStr := getCtrlString(@userRxBuffer, MAX_SINGLE_STRING_LEN, bWaitStatus)
 
         bStatus := haveRxString()
         debug(">> 003 is T/F:", ubin_byte(bStatus))
@@ -300,58 +323,57 @@ PUB stop()
         cogstop(rxCogId - 1)
         rxCogId := 0
 
-CON { ----- Status-Reponses Interface ----- }
+CON { ----- Status-Reponse Interface ----- }
 
   WAIT_FOR_STRING = TRUE
 
-PUB readRPiResponse(pBffr, nBffrMax) : pStr
-'' wait for, then return the next status string received
-    debug("gStr: entry...")
-    pStr := getResultString(pBffr, nBffrMax, WAIT_FOR_STRING)
-    debug("gStr: str=[", zstr_(pStr), "]")
+PUB getNParseStatusReponse() : opStatus, pStatusMsg | pStr
+'' Wait for expected response string then parse it returning values from it
+    pStr := getResultString(@bffrRx, RX_BFFR_LEN, WAIT_FOR_STRING)
+    debug("gnpsr: rsp=[", zstr_(pStr), "]")
+    ' parse result for success and error message and return both
+    opStatus, pStatusMsg := statusParse(pStr)
 
 PUB haveStatusUpdate() : bResponseStatus
-'' return T/F where T means a reponse has been received and needs to be handled
+'' Return T/F where T means a reponse has been received and needs to be handled
     bResponseStatus := (pRsltStrStart > 0) ? TRUE : FALSE
 
 PUB rxResultStringsCount() : nCount
 '' Return count of strings received
     nCount := (pRsltStrStart <> 0) ? 1 : 0
 
-PUB getResultString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWrappedStr
-'' Return {pStr} or 0 if none
-'' if {bShouldWait} is TRUE wait until string arrives before returning
-    'debug("getRxString: ENTRY")
-    pStr := 0
-    if bShouldWait == TRUE
-        bStringArrived := TRUE
-        repeat until haveStatusUpdate() == TRUE
-    else
-        bStringArrived := haveStatusUpdate()
+PUB getParsedCollectionID(): nCollId
+'' Return the collection ID stashed by statusParse()
+    nCollId := parsedFileId
 
-    if bStringArrived == TRUE
-        pStr := pUserDest
-        pWrappedStr := dequeueResultRxStr()
-        copyWrappedStr(pUserDest, pWrappedStr, lenDest)
-        freeWrappedString(pWrappedStr)
-        debug("getRsltString: str=[", zstr_(pUserDest), "]")
-    else
-        debug("getRsltString: str=[] - NOT PRESENT")
+PUB getParsedValue() : nLongValue
+'' Return the long value stashed by statusParse()
+    nLongValue := parsedLongVal
+
+PUB getParsedNameSet() : pNameSet
+'' Return a pointer to a string pointer-array filled-in by statusParse()
+    pNameSet := @parsedNameSet
 
 CON { ----- Control Changes Interface ----- }
 
 PUB haveControlUpdate() : bControlStatus
-'' return T/F where T means a control value change has been received and needs to be handled
+'' Return T/F where T means a control value change has been received and needs to be handled
     bControlStatus := (rxStringsCount() > 0) ? TRUE : FALSE' none for now...
+    'if (bControlStatus == TRUE)
+    '    debug("!! control message arrived")
 
-PUB getControlAndValue(pName, pValue) : nStatus
-'' interpret control change request and return KV parts
-    nStatus := FALSE
+PUB getControlAndValue(pName, nLenName, pValue, nLenValue) : opStatus | pStr
+'' Interpret control change request and return KV parts
+    pstr := getCtrlString(@userRxBuffer, MAX_SINGLE_STRING_LEN, WAIT_FOR_STRING)
+    debug("gcav: ctl=[", zstr_(pStr), "]") ', uhex_long(pName), udec(nLenName), uhex_long(pValue), udec(nLenValue))
+    ' now split string into our two parts
+    ' Ex: 'ctrl:tempSensorStr=48 degr F',0
+    opStatus := controlParse(pStr, pName, nLenName, pValue, nLenValue)
 
 CON { ----- General Strings Interface ----- }
 
 PUB haveRxString() : presentStatus
-'' return T/F where T means have received a string!
+'' Return T/F where T means have received a string!
     presentStatus := (nQStrCount > 0) ? TRUE : FALSE
     'debug("?? haveRxString[T/F]: ", ubin_byte(presentStatus))
 
@@ -359,28 +381,28 @@ PUB rxStringsCount() : nCount
 '' Return count of strings received
     nCount := nQStrCount
 
-PUB getRxString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWrappedStr
+PUB getCtrlString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWrappedStr
 '' Return {pStr} or 0 if none
-'' if {bShouldWait} is TRUE wait until string arrives before returning
-    'debug("getRxString: ENTRY")
+''  if {bShouldWait} is TRUE wait until string arrives before returning
+    'debug("getCtrlString: ENTRY")
     pStr := 0
     if bShouldWait == TRUE
         bStringArrived := TRUE
-        repeat until haveRxString() == TRUE
+        repeat until haveControlUpdate() == TRUE
     else
-        bStringArrived := haveRxString()
+        bStringArrived := haveControlUpdate()
 
     if bStringArrived == TRUE
         pStr := pUserDest
         pWrappedStr := dequeueRxStr()
         copyWrappedStr(pUserDest, pWrappedStr, lenDest)
         freeWrappedString(pWrappedStr)
-        debug("getRxString: str=[", zstr_(pUserDest), "]")
+        'debug("getCtrlString: str=[", zstr_(pUserDest), "]")
     else
-        debug("getRxString: str=[] - NOT PRESENT")
+        debug("getCtrlString: str=[] - NOT PRESENT")
 
 PUB flushRxQueue()
-'' reset all Rx Queue control and data (emptying it!)
+'' Reset all Rx Queue control and data (emptying it!)
     bytefill(@serialRxBffr, 0, RX_CHR_Q_MAX_BYTES)
     longfill(@rxStrPtrSet, 0, RX_STR_Q_MAX_LONGS)
     pRxByteHead := pRxByteStart
@@ -396,7 +418,7 @@ PUB flushRxQueue()
     pRsltStrStart := 0
 
 PUB resetRxStatus()
-'' reset all task failure indicators
+'' Reset all task failure indicators
     bQueOverrun := FALSE
     bStrQueOverrun := FALSE
 
@@ -439,18 +461,18 @@ PRI TaskSerialRx(pRxBffr, lenRxBffr)
         repeat
             nTaskChr := RPi.rxtime(1000)
             if (nTaskChr <> -1)
-                tskEnqueueRx(nTaskChr)
+                tskEnqueueChar(nTaskChr)
 
 PRI tskFakeRxStr(pStr) | nIdx, nStatusValue
 ' place string into buffer as if it was received
     debug("TASK[Rx] str=[", zstr_(pStr), "]")
     repeat nIdx from 0 to strsize(pStr) - 1
-       nStatusValue := tskEnqueueRx(byte[pStr][nIdx])
+       nStatusValue := tskEnqueueChar(byte[pStr][nIdx])
        if nStatusValue
             debug("EEE Abort string write EEE")
             quit
 
-PRI tskEnqueueRx(nChr) : bFailedStatus
+PRI tskEnqueueChar(nChr) : bFailedStatus
 ' place byte into rx queue, if EOL then place term instead and engueue string ptr!
     bFailedStatus := FALSE
     if (nRxByteCount < nRxByteMax)
@@ -465,11 +487,12 @@ PRI tskEnqueueRx(nChr) : bFailedStatus
         else
             byte [pRxByteHead++] := $00 ' place term instead of EOL
             if bInString == TRUE
-            if strHasPrefix(pNewStrStart, @strCtrlPrefix) == TRUE
-                tskEnqueueRxStr(pNewStrStart)
-            else
-                tskEnqueueResultRxStr(pNewStrStart)
                 bInString := FALSE
+                'debug("TASK[Rx]  STR=[", zstr_(pNewStrStart), "]")
+                if strHasPrefix(pNewStrStart, @strCtrlPrefix) == TRUE
+                    tskEnqueueCtrlStr(pNewStrStart)
+                else
+                    tskEnqueueStatusStr(pNewStrStart)
         ' wrap ptr if needed...
         if pRxByteHead > @BYTE [@serialRxBffr][RX_CHR_Q_MAX_BYTES - 1]
             pRxByteHead := @serialRxBffr
@@ -480,12 +503,12 @@ PRI tskEnqueueRx(nChr) : bFailedStatus
 
 PRI strHasPrefix(pTargetStr, pPrefix) : bHasStatus | nIdx
     bHasStatus := TRUE
-    repeat nIdx from 0 to strsize(pPrefix)
+    repeat nIdx from 0 to strsize(pPrefix) - 1
         if BYTE[pTargetStr][nIdx] <> BYTE[pPrefix][nIdx]
             bHasStatus := False
             quit    ' outta here, we have our answer!
 
-PRI tskEnqueueResultRxStr(pStr)
+PRI tskEnqueueStatusStr(pStr)
 ' report string arrival to listener (place string pointer in queue)
     if pRsltStrStart <> 0
         pRsltQueOverrun := TRUE
@@ -493,7 +516,7 @@ PRI tskEnqueueResultRxStr(pStr)
         pRsltStrStart := pStr
         'debug("TASK[Rx] enqueueRsltStr(", udec_(strsize(pStr)), ")=[", zstr_(pStr), "] ", uhex_long(pStr))
 
-PRI tskEnqueueRxStr(pStr)
+PRI tskEnqueueCtrlStr(pStr)
 ' report string arrival to listener (place string pointer in queue)
     checkGoodStringPtr(pStr)
     if nQStrCount < RX_STR_Q_MAX_LONGS
@@ -582,6 +605,246 @@ PRI copyWrappedStr(pUserDest, pSrcStr, lenDest) | nIdx, pSrc, pDest, destLen
     BYTE[pDest] := 0  ' place final terminator
     if bDbgShoMem
         debug("-- copyWrappedStr: str=[", zstr_(pUserDest), "]")
+
+PRI getResultString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWrappedStr
+' Return {pStr} or 0 if none
+' if {bShouldWait} is TRUE wait until string arrives before returning
+    'debug("getCtrlString: ENTRY")
+    pStr := 0
+    if bShouldWait == TRUE
+        bStringArrived := TRUE
+        repeat until haveStatusUpdate() == TRUE
+    else
+        bStringArrived := haveStatusUpdate()
+
+    if bStringArrived == TRUE
+        pStr := pUserDest
+        pWrappedStr := dequeueResultRxStr()
+        copyWrappedStr(pUserDest, pWrappedStr, lenDest)
+        freeWrappedString(pWrappedStr)
+        'debug("getRsltString: str=[", zstr_(pUserDest), "]")
+    else
+        debug("getRsltString: str=[] - NOT PRESENT")
+
+PRI controlParse(pRxBffr, pUserKey, nLenUserKey, pUserValue, nLenUserValue) : nStatus | lenRemaining, sep, nIdx, pSrchBffr, pKey, pVal, nChr
+    ' Examples: "ctrl:enableColor=true\n"
+    ' Examples: "ctrl:ledColor=0x445501\n"
+    ' Examples: "ctrl:tempSensorStr=48 degr F\n"
+    '
+    bytefill(pUserKey, 0, nLenUserKey)                        ' reset buffers
+    bytefill(pUserValue, 0, nLenUserValue)
+    'debug("cp: ", uhex_long(pUserKey), udec(nLenUserKey), uhex_long(pUserValue), udec(nLenUserValue))
+    nStatus := OP_FAILURE ' preset to failure
+
+  pSrchBffr := pRxBffr
+  lenRemaining := strsize(pRxBffr)                                         ' get length of input
+  sep := -1                                                     ' separator not found
+
+' copy our subsys ID from rx buffer
+  repeat nIdx from 0 to RX_SYSTEM_ID_LEN
+    nChr := byte[pSrchBffr][nIdx]
+    if (nChr == ":")
+      sep := nIdx                                                  ' mark separator
+    elseif (nChr == $00)
+      byte[pSrchBffr][nIdx] := 0
+      quit
+    if nIdx > lenRemaining
+      quit
+
+  if (lenRemaining > 0)
+    if (sep >= 0)
+      ' capture subsystem ID for this status
+      bytemove(@subsysId, pSrchBffr, sep)
+
+    ' point past subsystem ID
+    pSrchBffr := pSrchBffr + sep + 1  ' +1 = point past sep
+
+    ' there should be a single {name}={value} pair
+    pKey, pVal, nIdx := locateNextKeyValue(pSrchBffr)
+    debug("cp: ", zstr(pKey), ", ", zstr(pVal), sdec(nIdx))
+
+    nStatus := OP_SUCCESS
+
+    ' copy KeyName to user space (limited to size of user space)
+    lenRemaining := strsize(pKey)
+    if (lenRemaining > nLenUserKey)
+        lenRemaining := nLenUserKey
+    bytemove(pUserKey, pKey, lenRemaining)
+
+    ' copy Value to user space (limited to size of user space)
+    lenRemaining := strsize(pVal)
+    if (lenRemaining > nLenUserValue)
+        lenRemaining := nLenUserValue
+    bytemove(pUserValue, pVal, lenRemaining)
+
+PRI statusParse(pRxBffr) : nStatus, pStatusMsg | lenRemaining, sep, nIdx, fullIdx, nChr, pSrchBffr, pName, pValue, ignore, matchStatus, nLongIdx
+    ' Examples: "faccess:status=True,fileid=9999,exists=False\n"
+    ' Examples: "faccess:status=True,fileid=9999,exists=True\n"
+    ' Examples: "faccess:status=False,msg=error dir=999\n"
+    ' Examples: "faccess:status=False,msg=error failed-to-create\n"
+    ' Examples: "folist:status=True^|^ct=2^|^names=P2-P2-Edge-GWDemo3,rpiHostInfo\n"
+    ' Examples: "kylist:status=True^|^ct=2^|^names=FQDN,Hostname\n"
+  bytefill(@statusMsg, 0, RX_BFFR_LEN+1)                        ' reset buffers
+  bytefill(@subsysId, 0, RX_SYSTEM_ID_LEN+1)
+
+  nStatus := OP_FAILURE ' preset to failure
+  pStatusMsg := @statusMsg
+
+  pSrchBffr := pRxBffr
+  lenRemaining := strsize(pRxBffr)                                         ' get length of input
+  sep := -1                                                     ' separator not found
+
+' copy our subsys ID from rx buffer
+  repeat nIdx from 0 to RX_SYSTEM_ID_LEN
+    nChr := byte[pSrchBffr][nIdx]
+    if (nChr == ":")
+      sep := nIdx                                                  ' mark separator
+    elseif (nChr == $00)
+      byte[pSrchBffr][nIdx] := 0
+      quit
+    if nIdx > lenRemaining
+      quit
+
+  if (lenRemaining > 0)
+    if (sep >= 0)
+      ' record subsystem ID for this status
+      bytemove(@subsysId, pSrchBffr, sep)
+
+    ' point past subsystem ID
+    pSrchBffr := pSrchBffr + sep + 1  ' +1 = point past sep
+
+    ' this should be status=
+    pName, pValue, nIdx := locateNextKeyValue(pSrchBffr)
+    debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
+    fullIdx := nIdx
+
+    matchStatus, ignore := indexOfStr(string("status"), pName)
+    if (matchStatus == 0)
+        matchStatus, ignore := indexOfStr(string("True"), pValue)
+        nStatus := (matchStatus == 0) ? OP_SUCCESS : OP_FAILURE
+
+        ' locate next key/value pair
+        pName, pValue, nIdx := locateNextKeyValue(pSrchBffr + nIdx)
+        debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
+        fullIdx += nIdx
+
+        if (nStatus == OP_SUCCESS)
+            ' in this case there's more to decode
+            ' this should be nCollId= -or- varVal=
+            matchStatus, ignore := indexOfStr(string("collId"), pName)
+            if (matchStatus == 0)
+                parsedFileId := decimalForString(pValue)
+            else
+                matchStatus, ignore := indexOfStr(string("varVal"), pName)
+                if (matchStatus == 0)
+                    parsedLongVal := decimalForString(pValue)
+                    ' also copy string form into status msg buffer to hold it
+                    lenRemaining := strsize(pValue)
+                    if lenRemaining > RX_BFFR_LEN
+                    lenRemaining := RX_BFFR_LEN   ' ensure fits in buffer
+                    bytemove(@statusMsg, pValue, lenRemaining)
+                else
+                    matchStatus, ignore := indexOfStr(string("ct"), pName)
+                    if (matchStatus == 0)
+                        ' located out count of names
+                        parsedLongVal := decimalForString(pValue)
+                        LONG[@parsedNameSet][0] := parsedLongVal
+                        ' locate next key/value pair
+                        pName, pValue, nIdx := locateNextKeyValue(pSrchBffr + fullIdx)
+                        debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
+                        matchStatus, ignore := indexOfStr(string("names"), pName)
+                        if (matchStatus == 0)
+                            ' located our list of names
+                            lenRemaining := strsize(pValue)
+                            if lenRemaining > RX_BFFR_LEN
+                                lenRemaining := RX_BFFR_LEN
+                            bytefill(@parsedNamesValue, 0, RX_BFFR_LEN+1)            ' reset buffer
+                            bytemove(@parsedNamesValue, pValue, lenRemaining)
+                            debug("- ptr[0]=0x", uhex_long_(LONG[@parsedNameSet][0]))
+                            nLongIdx := 1
+                            LONG[@parsedNameSet][nLongIdx++] := @parsedNamesValue  ' ptr to first name
+                            debug("- ptr[", udec_(nLongIdx-1), "]=0x", uhex_long_(LONG[@parsedNameSet][nLongIdx-1]))
+                            repeat nIdx from 1 to lenRemaining - 1
+                                if BYTE[@parsedNamesValue][nIdx] == $2c ' comma char
+                                    BYTE[@parsedNamesValue][nIdx] := $00  ' terminate prior name string
+                                    LONG[@parsedNameSet][nLongIdx++] := @BYTE[@parsedNamesValue][nIdx + 1] ' ptr to next name
+                                    debug("- ptr[", udec_(nLongIdx-1), "]=0x", uhex_long_(LONG[@parsedNameSet][nLongIdx-1]))
+                                elseif BYTE[@parsedNamesValue][nIdx] == $0a or BYTE[@parsedNamesValue][nIdx] == $00
+                                    quit
+                    else
+                        ' nothing more to do here, no idea what this is....
+
+        else
+            ' this should be msg=
+            matchStatus, ignore := indexOfStr(string("msg"), pName)
+            if (matchStatus == 0)
+                lenRemaining := strsize(pValue)
+                if lenRemaining > RX_BFFR_LEN
+                  lenRemaining := RX_BFFR_LEN   ' ensure fits in buffer
+                bytemove(@statusMsg, pValue, lenRemaining)
+
+PRI decimalForString(pDecimalStr) : decimalValue | nCharCt, nIdx
+    ' convert decimal string to long value
+    decimalValue := 0
+    nCharCt := strsize(pDecimalStr)
+    if (nCharCt > 0)
+        repeat nIdx from 0 to nCharCt - 1
+            decimalValue := (decimalValue * 10) + (byte[pDecimalStr][nIdx] - $30)
+
+PRI locateNextKeyValue(pRxBffr) : pUserKey, pUserValue, nLength | lenRemaining, endOfPair, endOfKey, valueStartIdx, lenValue, idxNextKey, idxOfValue, multiPairStatus, ignore
+' parse for key-value pair in given string (value ends with $00 or Sep)
+  lenRemaining := strsize(pRxBffr)                  ' get length of input
+  bytefill(@keyName, 0, RX_SYSTEM_ID_LEN+1)         ' reset buffers
+  bytefill(@statusMsg, 0, RX_BFFR_LEN+1)            ' reset buffers
+
+  multiPairStatus, ignore := indexOfStr(@parmSep, pRxBffr)
+
+  endOfKey, idxOfValue := indexOfStr(string("="), pRxBffr)
+
+  if (endOfKey <> -1 )
+    bytemove(@keyName, pRxBffr, endOfKey)
+
+  if (multiPairStatus <> -1)
+    endOfPair, idxNextKey := indexOfStr(@parmSep, pRxBffr)
+    if (endOfPair <> -1 and endOfKey <> -1 and endOfKey < endOfPair)
+        valueStartIdx := endOfKey + 1
+        lenValue := endOfPair - valueStartIdx
+        bytemove(@statusMsg, @byte[pRxBffr][valueStartIdx], lenValue)
+        nLength := idxNextKey
+        pUserKey := @keyName
+        pUserValue := @statusMsg
+        'debug("lnxKV: ", zstr(@keyName), ", ", zstr(@statusMsg), sdec(nLength))
+    else
+      debug("lnxKV: failed to locate KV in [", zstr(pRxBffr),"]")
+  else
+    endOfPair := strsize(pRxBffr)
+    if (endOfKey <> -1 and endOfKey < endOfPair)
+        valueStartIdx := endOfKey + 1
+        lenValue := endOfPair - valueStartIdx
+        bytemove(@statusMsg, @byte[pRxBffr][valueStartIdx], lenValue)
+        nLength := idxNextKey
+        pUserKey := @keyName
+        pUserValue := @statusMsg
+        'debug("lnxKV: ", zstr(@keyName), ", ", zstr(@statusMsg), sdec(nLength))
+    else
+        debug("lnxKV: failed to locate KV in [", zstr(pRxBffr),"]")
+
+PRI indexOfStr(pSrchStr, pRxBffr) : nIdx, idxAfter | lenRemaining, srchLen, srchIdx, srcIdx, bSrchMatch
+  nIdx := -1   ' preset NOT found
+  lenRemaining := strsize(pRxBffr)                  ' get length of input
+  srchLen := strsize(pSrchStr)
+  if (srchLen <= lenRemaining)
+    repeat srcIdx from 0 to lenRemaining - srchLen
+        bSrchMatch := True
+        repeat srchIdx from 0 to srchLen - 1
+          if (byte[pSrchStr][srchIdx] <> byte[pRxBffr][srcIdx + srchIdx])
+            bSrchMatch := False
+            quit    ' abort srchStr compare
+        if bSrchMatch == True
+            nIdx := srcIdx
+            idxAfter := srcIdx + srchLen
+            quit   ' abort rxBuffer compare
+  'debug("idxOf: ", zstr(pSrchStr), ", ", zstr(pRxBffr), ", nIdx=", sdec_(nIdx))
 
 CON { ----- TEST Support ----- }
 
@@ -702,26 +965,29 @@ PRI dbgMemDumpRow(pBytes, lenBytes) '| rowCount, rowLen, pCurrByte, bytIndex
 
 
 CON { license }
-
 {{
 
-  Terms of Use: MIT License
+ -------------------------------------------------------------------------------------------------
+  MIT License
 
-  Permission is hereby granted, free of charge, to any person obtaining a copy of this
-  software and associated documentation files (the "Software"), to deal in the Software
-  without restriction, including without limitation the rights to use, copy, modify,
-  merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
-  permit persons to whom the Software is furnished to do so, subject to the following
-  conditions:
+  Copyright (c) 2022 Iron Sheep Productions, LLC
 
-  The above copyright notice and this permission notice shall be included in all copies
-  or substantial portions of the Software.
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
 
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-  PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-  HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-  CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
-  OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
 
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
 }}

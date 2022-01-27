@@ -78,7 +78,7 @@ VAR { demo buffers }
 
 PUB main() | eOpStatus, nIdx, nCollId, eRxQStatus, eCmdId
 
-    '' DEMO run our web-control demo
+    '' DEMO send status values to a web page and act on control values sent by the web page
     IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)    ' tell singleton our pins and rate
 
     ' (one time) tell the RPi about how to identify this hardware
@@ -95,18 +95,23 @@ PUB main() | eOpStatus, nIdx, nCollId, eRxQStatus, eCmdId
         if eOpStatus <> IoT_GW.OP_SUCCESS
             debug("* main: ERROR Failed to OPEN [", zstr_(@controlFName), "] for listen!")
         else
-
+            debug("* main: looping to handle control changes")
             repeat
                 ' read our device status values and send
                 ' check for and handle any control value changes
                 if rxQue.haveControlUpdate()
-                    eRxQStatus := rxQue.getControlAndValue(@nameBuffer, @valueBuffer)
-                    if eRxQStatus == rxQue.PSE_SUCCESS
+                    eRxQStatus := rxQue.getControlAndValue(@nameBuffer, MAX_NAME_IN_BYTES, @valueBuffer, MAX_VALUE_IN_BYTES)
+                    if eRxQStatus == rxQue.OP_SUCCESS
+                        debug("* main: nameBuffer=[", zstr_(@nameBuffer), "], valueBuffer=[", zstr_(@valueBuffer), "]")
                         ' handle indirect return values
-                          eCmdId := idCommand(@cmdstr) ' convert command to enum
-                          if eCmdId <> CMD_UNKNOWN
+                        eCmdId := idCommand(@nameBuffer) ' convert command to enum
+                        if eCmdId <> CMD_UNKNOWN
                             if eCmdId == CMD_1
+                                debug("Temperature: ", zstr_(@valueBuffer))
                             elseif eCmdId == CMD_2
+                                debug("Enable: ", zstr_(@valueBuffer))
+                            elseif eCmdId == CMD_3
+                                debug("Color: ", zstr_(@valueBuffer))
                             else
                                 debug("EEE - cmd" , udec(eCmdId), " NOT YET Supported!")
 
@@ -118,31 +123,43 @@ CON { ----- Command Defs and Recognizer ----- }
 
 CON { command Enum values }
 
-#0, CMD_UNKNOWN, CMD_1, CMD_2
+' ------------------------------------------------------------
+#0, CMD_UNKNOWN, CMD_1, CMD_2, CMD_3
 
 DAT { command string }
 
-cmd1        byte    CMD_1, "CMD",0
-cmd2        byte    CMD_2, "cmd2",0
-
-cmdTbl1st   long    @cmd1
+cmdTable    ' 1st table-entry must follow immediately
+            WORD    @cmd1
 ' NOTE insert more commands here
-cmdTblLast  long    @cmd2
-cmdCt       byte    ((@cmdTblLast-@cmdTbl1st) / 4) + 1
+            WORD    @cmd2
+            WORD    @cmd3
+cmdTableEnd ' last entry must be immediately above this line
+' ------------------------------------------------------------
+cmdCt       BYTE    (@cmdTableEnd-@cmdTable) >> 1   ' div by 2
+' ------------------------------------------------------------
 
+cmd1        BYTE    CMD_1, "tempSensorStr",0
+cmd2        BYTE    CMD_3, "enableColor",0
+cmd3        BYTE    CMD_2, "ledColor",0
+' ------------------------------------------------------------
 
 PRI idCommand(pCmdStr) : eCmdIdValue | nIdx, pCmdEntry, pPossCmdStr
 ' identify command requested
     eCmdIdValue := CMD_UNKNOWN
+    'debug("-? pCmdStr(", udec_(strsize(pCmdStr)), ")=[", zstr_(pCmdStr), "] ?-")
+    debug("-? Our tables: ", uhex_long_array(@cmdTable, 16), "] ?-")
 
     repeat nIdx from 0 to cmdCt - 1
-        pCmdEntry := LONG[@cmdTbl1st][nIdx]
-        pPossCmdStr := @BYTE[pCmdEntry][1]
+        pCmdEntry := @@WORD[@cmdTable][nIdx] ' get byte ptr from table
+        pPossCmdStr := @BYTE[pCmdEntry][1]  ' skip enumVal get byte ptr to cmd zstring
+        'debug("-? Tbl[", udec_(nIdx), "] ", uhex_long(pCmdEntry), " [", zstr_(pPossCmdStr), "] ?-")
+        'debug("-? pPossCmdStr(", udec_(strsize(pPossCmdStr)), ")=[", zstr_(pPossCmdStr), "] ?-")
         if strcomp(pCmdStr, pPossCmdStr)
-            eCmdIdValue := BYTE[pCmdEntry][0]
+            eCmdIdValue := BYTE[pCmdEntry][0]   ' do match, we have our value
+            quit
 
     if eCmdIdValue == CMD_UNKNOWN
-        debug("EEE idCommand: Unknown command [", zstr_(pCmdStr), "]!")
+        debug("EEE idCommand: Unknown command cmd(", strsize(pCmdStr), ")=[", zstr_(pCmdStr), "]!")
 
 CON { license }
 {{

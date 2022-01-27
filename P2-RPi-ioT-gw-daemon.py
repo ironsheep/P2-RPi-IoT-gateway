@@ -22,11 +22,10 @@ from subprocess import Popen, PIPE
 import sendgrid
 from sendgrid.helpers.mail import Content, Email, Mail
 from enum import Enum, unique
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-
 from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE,SIG_DFL)
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 if False:
     # will be caught by python 2.7 to be illegal syntax
@@ -421,22 +420,23 @@ class FileHandleStore:
 #  methods for filesystem watching
 # -----------------------------------------------------------------------------
 
-class Watcher:
+class FileSystemWatcher:
     DIRECTORY_TO_WATCH = folder_control
 
     def __init__(self):
         self.observer = Observer()
 
     def run(self):
+        print_line('Thread: FileSystemWatcher() started', verbose=True)
         event_handler = Handler()
-        self.observer.schedule(event_handler, self.DIRECTORY_TO_WATCH, recursive=True)
+        self.observer.schedule(event_handler, self.DIRECTORY_TO_WATCH, recursive=False)
         self.observer.start()
         try:
             while True:
                 sleep(5)
-        except e:
+        except Exception as e:
             self.observer.stop()
-            print_line('ERROR Watcher: suffered an exception: {}'.format(e), error=True)
+            print_line('!!! FileSystemWatcher: Exception: {}'.format(e), error=True)
 
         self.observer.join()
 
@@ -444,6 +444,7 @@ class Handler(FileSystemEventHandler):
 
     @staticmethod
     def on_any_event(event):
+        print_line('- FileSystemEventHandler: event=[{}]'.format(event), debug=True)
         if event.is_directory:
             return None
 
@@ -506,9 +507,9 @@ def taskSerialListener(ser):
 
 newLine = '\n'
 
-def crateAndSendEmail(emailTo, emailFrom, emailSubj, emailTextLines):
+def createAndSendEmail(emailTo, emailFrom, emailSubj, emailTextLines):
     # send a email via the selected interface
-    print_line('crateAndSendEmail to=[{}], from=[{}], subj=[{}], body=[{}]'.format(emailTo, emailFrom, emailSubj, emailTextLines), debug=True)
+    print_line('createAndSendEmail to=[{}], from=[{}], subj=[{}], body=[{}]'.format(emailTo, emailFrom, emailSubj, emailTextLines), debug=True)
     #
     # build message footer
     # =================================
@@ -569,7 +570,7 @@ def sendEmailFromConfig():
     tmpBody = runtimeConfig.getValueForConfigVar(runtimeConfig.keyEmailBody)
     # TODO: wire up BCC, CC ensure that multiple, To, Cc, and Bcc work too!
     # print_line('sendEmailFromConfig to=[{}], from=[{}], subj=[{}], body=[{}]'.format(tmpTo, tmpFrom, tmpSubject, tmpBody), debug=True)
-    crateAndSendEmail(tmpTo, tmpFrom, tmpSubject, tmpBody)
+    createAndSendEmail(tmpTo, tmpFrom, tmpSubject, tmpBody)
 
 # -----------------------------------------------------------------------------
 #  Main loop
@@ -663,6 +664,7 @@ def processIncomingRequest(newLine, Ser):
                 p2Name = runtimeConfig.getValueForConfigVar(runtimeConfig.keyHwName).replace(' - ', '-').replace(' ', '-')
                 procFspec = os.path.join(folder_proc, 'P2-{}.json'.format(p2Name))
                 writeJsonFile(procFspec, p2ProcDict)
+                sendValidationSuccess(Ser, "fident", "", "")
             else:
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing hardware keys !'.format(len(newLine), newLine), warning=True)
 
@@ -968,6 +970,14 @@ def sendValidationSuccess(Ser, cmdPrefixStr, returnKeyStr, returnValueStr):
     print_line('sendValidationSuccess line({})=({})'.format(len(newOutLine), newOutLine), debug=True)
     Ser.write(newOutLine)
 
+def sendVariableChanged(Ser, varName, varValue):
+        # format and send an error message via outgoing serial
+    responseStr = 'ctrl:{}={}\n'.format(varName, varValue)
+    newOutLine = responseStr.encode('utf-8')
+    print_line('sendVariableChanged line({})=[{}]'.format(len(newOutLine), newOutLine), verbose=True)
+    Ser.write(newOutLine)
+    sleep(0.2)  # pause 2/10ths of second
+
 def processInput(Ser):
     while True:             # get Loop (if something, get another)
         # process an incoming line - creates our windows as needed
@@ -984,6 +994,7 @@ def genSomeOutput(Ser):
     Ser.write(newOutLine)
 
 def mainLoop(ser):
+    print_line('Thread: MainLoop() running', verbose=True)
     while True:             # Event Loop
         processInput(ser)
         # genSomeOutput(ser)
@@ -1043,26 +1054,23 @@ for dirSpec in folderSpecByFolderId.values():
 
 
 def reportFileChanged(fSpec):
-    if fileHandles.isWatchedFSpec(fSpec):
-        print_line('CHK File [{}] is watched'.format(fSpec), debug=True)
-    else:
+    # If file is of interest, Load json file and send vars to P2
+    if fileHandles.isWatchedFSpec(fSpec) == False:
          print_line('CHK File [{}] is NOT watched'.format(fSpec), debug=True)
+    else:
+        print_line('CHK File [{}] is watched'.format(fSpec), debug=True)
+        # load json file
+        filesize = os.path.getsize(fSpec)
+        fileDict = {}   # start empty
+        if filesize > 0:    # if we have existing content, preload it
+            with open(fSpec, "r") as read_file:
+                fileDict = json.load(read_file)
 
-    # FIXME: UNDONE load json file and send vars to P2
-
-    print_line('Fspec [{}] Changed'.format(fSpec), debug=True)
-    # load json file
-    filesize = os.path.getsize(fSpec)
-    fileDict = {}   # start empty
-    if filesize > 0:    # if we have existing content, preload it
-        with open(fSpec, "r") as read_file:
-            fileDict = json.load(read_file)
-
-        for varName in fileDict.keys():
-            varValue = fileDict[varName]
-            print_line('Control [{}] = [{}]'.format(varName, varValue), debug=True)
-            # send var to P2
-
+            for varName in fileDict.keys():
+                varValue = fileDict[varName]
+                print_line('Control [{}] = [{}]'.format(varName, varValue), debug=True)
+                # send var to P2
+                sendVariableChanged(ser, varName, varValue)
 
 # start our input task
 # 1,440,000 = 150x 9600 baud
@@ -1077,8 +1085,11 @@ ser = serial.Serial ("/dev/serial0", baudRate, timeout=1)    #Open port with bau
 _thread.start_new_thread(taskSerialListener, ( ser, ))
 
 # start our file-system watcher
-dirWatcher = Watcher()
-dirWatcher.run()
+dirWatcher = FileSystemWatcher()
+#dirWatcher.run()
+_thread.start_new_thread(dirWatcher.run, ( ))
+
+sleep(1)    # aloow threads to start...
 
 # run our loop
 try:
