@@ -14,16 +14,18 @@ A custom protocol using service specific messages is sent over the serial interf
 
 **NOTE:** this is an early draft.  We are still thinking through how unanticipated messages will be sent to the P2.  We are hoping to do some sort of notification mech where the P2 can be asynchronously notified that a value change, or tweet was recieved, etc. This table does NOT yet reflect this unanticipated message traffic.
 
-| Service Type | intent | Messages |
-| ------------------ | --------- | ---- |
-| File Operations |||
-| | P2 connect to, or create file on RPi |
-| | | file-open {pathType}/{filename} - returns {fileId}
-| | P2 reads values from file on RPi|
-| | | file:{fileId} read value {key} - returns {value}
-| | P2 writes values to file on RPi|
-| | | file:{fileId} write {key}={value}
-| | P2 remove file from RPi |
+| Service Type | Message | Returns | Interpretation |
+| ------------ | --------- | ---- | --- |
+| **P2 Setup** | |||
+| P2 -> RPi | ident:hwName={hardwareName}\<SEP>objVer={gwObjVersion}\n | | Identify P2 Device to RPi |
+| P2 <- RPi | fident:status={successBool}\n | success=T/F | Response can be True if SUCCESS or False if failed for some reason
+| **File Operations** ||||
+| | **File Access/Open** |||
+| P2 -> RPi | file-access:dir={folderEnum}\<SEP>mode={modeEnum}\<SEP>cname={fileBasename}\n | | P2 connect to, or create file on RPi |
+| P2 <- RPi | faccess:status=True\<SEP>collId=1\n | success=T/F, when T: collId={handle} | Returns Collection ID (handle) when requst is valid 
+| | | | P2 reads values from file on RPi |
+| | | | P2 writes values to file on RPi|
+| | | | P2 remove file from RPi |
 | | | file-remove:{fileId} - returns T/F where T means file was removed
 | SMS (texting) |||
 | | P2 asks RPi to send a text message to the phone number
@@ -47,6 +49,28 @@ A custom protocol using service specific messages is sent over the serial interf
 | | | see file operations - write
 | | P2 Gets values sent from web page to the P2 (controls touched, text entered)|
 | | | see file operations - read
+
+### Folder Enum Values
+
+| Name | Value | Location | Meaning
+| --- | --- | --- | --- |
+| EFI_VAR | 100 | /var/{p2gwdir}/ folder | General purpose file store - not erased
+| EFI_TMP | 101 | /tmp/{p2gwdir}/ folder | Temporary file store - may be erased by RPi
+| EFI_CONTROL | 102 | /var/{p2gwdir}/control folder | values written by web server
+| EFI_STATUS | 103 | /var/{p2gwdir}/status folder | values to be sent to web server
+| EFI_LOG | 104 | /var/{p2gwdir}/log folder | logs (written by gateway daemon)
+| EFI_MAIL | 105 | /var/{p2gwdir}/mail | record of mail sent by gateway daemon
+| EFI_PROC | 106 | /var/{p2gwdir}/proc | read-only files maintained by gateway daemon
+
+### File Access Enum Values
+
+
+| Name | Value | Meaning
+| --- | --- | --- |
+| FM_READONLY | 200 | Open for read access
+| FM_WRITE | 201 | Open for write (must already exist)
+| FM_WRITE_CREATE | 202 | Open for write
+| FM_LISTEN | 203 | Inform that P2 want to be notified if content changes
 
 ---
 
