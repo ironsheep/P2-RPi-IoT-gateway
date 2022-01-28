@@ -53,6 +53,29 @@ This demo should provide a good reference for how to create similar services.
 
 Enjoy!
 
+##  Collections Used by this Demo
+
+**remember:** *collections in gateway parlance are files which contain one or more key-value pairs.*
+
+This demo uses a couple of collections (files) on the RPi. The status file is created when the P2 reads the Temperature 1-wire device and sends the value to the RPi. The Proc file is generated automatically whenever the Daemon is run.
+
+Collections used:
+
+| Collection Name | Created By | Description |
+| --- | --- | --- |
+| STATUS/**p2-1wireValues** | P2 write action | Value to send to web page
+| PROC/**rpiHostInfo** | RPi Daemon | RPi details to be shown on web page
+
+Within the status file the P2 places one key-value pair:
+
+| Status Variable | Description |
+| --- | --- |
+| tempSensorStr | Temperature value (string) to be shown on web page
+
+Whenever the web page is loaded (or reloaded - every N seconds) this file is read, the value for `tempSensorStr` is pulled from the file and shown on the web page
+
+Additionally the web page shows content from one of our generated files **PROC/rpiHostInfo** which is maintained by our RPi Daemon and contains details of the RPi upon which the Daemon is running.
+
 ##  Tool I used to create the web page
 
 I run on a Mac desktop.  My favorite tool for creating web pages is [Bootstrap Studio](https://bootstrapstudio.io/)  This tool provides easy WYSIWYG editing, easy CSS styling, good responsive layout code, and exports tiney files for you to place on your server.

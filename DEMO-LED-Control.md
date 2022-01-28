@@ -54,6 +54,42 @@ This demo should provide a good reference for how to create similar services.
 
 Enjoy!
 
+##  Collections Used by this Demo
+
+**remember:** *collections in gateway parlance are files which contain one or more key-value pairs.*
+
+This demo uses a couple of collections (files) on the RPi. The status file is created when the P2 starts up and sends its initial color values to the RPi. The control file is written whenever the user makes and submits changes on the web page. And lastly, the Proc file is generated automatically whenever the Daemon is run.
+
+Collections used:
+
+| Collection Name | Created By | Description |
+| --- | --- | --- |
+| STATUS/**p2-ledStatus** | P2 write action | Values to send to web page
+| CONTROL/**p2-ledControl** | Web form Submit | Values written by web page, sent to P2 when written
+| PROC/**rpiHostInfo** | RPi Daemon | RPi details to be shown on web page
+
+Within the status file the P2 places two key-value pairs:
+
+| Status Variable | Description |
+| --- | --- |
+|  color1 | The current value for color1
+|  color2 | The current value for color2
+
+Whenever the web page is loaded (or reloaded - every N seconds) this file is read, the values for `color1 ` and `color2`are pulled from the file and the color pickers are preset to these values.
+
+When the web page values are changed and submitted it writes the following four key-value pairs:
+
+| Control Variable | Description |
+| --- | --- |
+|  color1 | The new value for color1
+|  color2 | The new value for color2
+|  displayMode | The new value idenitfying which pattern the lights should display
+|  rateDelay | The new value identifying the delay between patterns
+
+Automatically, our Daemon detects this file write and since the P2 has requested to be notified when this file is written, the Daemon then loads this file and sends all four named values to the P2.
+
+Additionally the web page shows content from one of our generated files **PROC/rpiHostInfo** which is maintained by our RPi Daemon and contains details of the RPi upon which the Daemon is running.
+
 ##  Tool I used to create the web page
 
 I run on a Mac desktop.  My favorite tool for creating web pages is [Bootstrap Studio](https://bootstrapstudio.io/)  This tool provides easy WYSIWYG editing, easy CSS styling, good responsive layout code, and exports tiney files for you to place on your server.
