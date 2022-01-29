@@ -1,4 +1,4 @@
-# P2 RPi ioT Gateway - Web: LED Lights Control Demo
+# P2 RPi ioT Gateway - Web: LED-String Control Demo
 
 Enable an RPi to serve as an ioT gateway for our P2 Hardware - while dedicating only 2 pins for serial communication
 
@@ -12,16 +12,16 @@ This demo consists of a web page to be placed where the RPi web server can find 
 | Spin2/webPage File Name(s) | Demonstration | Form 
 | --- | --- | --- |
 | [demo\_p2gw\_web_control.spin2](P2-Source/demo_p2gw_web_control.spin2) | Control the String of LED lights from a served web-page | App
-| [Archive of Demo Wab Page] | String of LED lights - web page shows controls for LED Lights along with details of the RPi host which is running the web server | Web Page Folder 
+| [Archive of Demo Web Page](demoWebPageSets/demoFiles-webCtrl.tar.gz) | String of LED lights - web page shows controls for LED Lights along with details of the RPi host which is running the web server | Web Page Folder 
 
 Once this web page is put into place and the demo is run on the P2 you browse to the web page being presented from the RPi to see the new web control page: 
 
-(image TBD)
+![Demo Goal](./Docs/images/demoWebControl.png)
                                                                                             
 
 ## Wiring the LED String
 
-The **demo\_p2gw_1wireStatus.spin2** program is configured to use P2 pin 16 for the 1-wire device.
+The **demo\_p2gw\_web_control.spin2** program is configured to use P2 pin 16 for the LED string.
 
 
 **P2 Connections expected by Demo:**
@@ -41,16 +41,18 @@ Installing is pretty easy. The web-page demo files are also present. They live i
 
 ```bash
 cd /var/www/html
---TBD--
+tar -xzvf /opt/P2-RPi-ioT-gateway/demoWebPageSets/demoFiles-webCtrl.tar.gz
 ```
 
-This should create a folder `/var/www/html/-TBD-/' which now has a top-level `index.php` page therein.
+This should create a folder `/var/www/html/webCtrl/' which now has a top-level `index.php` page therein.
 
-After these files are unpacked you should be able to point your browser to: `http://{mypihostname|orIpAddress/-TBD-`
+After these files are unpacked you should be able to point your browser to: `http://{mypihostname|orIpAddress/webCtrl`
 
 All that's left then is run the demo .spin2 on your P2 after making sure your P2 and your RPi are connected via serial and that your Gateway Daemon is already running.
 
 This demo should provide a good reference for how to create similar services. 
+
+You are now controlling your LED String from a web page!
 
 Enjoy!
 
