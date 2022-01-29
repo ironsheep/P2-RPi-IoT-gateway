@@ -35,7 +35,7 @@ if False:
 # v0.0.1 - awaken email send
 # v0.0.2 - add file handling
 
-script_version  = "0.0.2"
+script_version  = "0.0.3"
 script_name     = 'P2-RPi-ioT-gw-daemon.py'
 script_info     = '{} v{}'.format(script_name, script_version)
 project_name    = 'P2-RPi-IoT-gw'
@@ -149,7 +149,7 @@ fallback_domain = config['Daemon'].get('fallback_domain', default_domain).lower(
 # default daemon use folder locations
 default_folder_tmp = '/tmp/P2-RPi-ioT-gateway'
 default_folder_var = '/var/P2-RPi-ioT-gateway'
-default_folder_control = '/var/P2-RPi-ioT-gateway/control'
+default_folder_control = '/var/www/html/P2-RPi-ioT-gateway/control'
 default_folder_status = '/var/P2-RPi-ioT-gateway/status'
 default_folder_log = '/var/log/P2-RPi-ioT-gateway'
 default_folder_mail = '/var/P2-RPi-ioT-gateway/mail'
@@ -1064,13 +1064,13 @@ def reportFileChanged(fSpec):
         fileDict = {}   # start empty
         if filesize > 0:    # if we have existing content, preload it
             with open(fSpec, "r") as read_file:
-                fileDict = json.load(read_file)
-
-            for varName in fileDict.keys():
-                varValue = fileDict[varName]
-                print_line('Control [{}] = [{}]'.format(varName, varValue), debug=True)
-                # send var to P2
-                sendVariableChanged(ser, varName, varValue)
+                fileAr = json.load(read_file)
+                fileDict = fileAr[0]    # PHP puts dict in array!?
+                for varName in fileDict.keys():
+                    varValue = fileDict[varName]
+                    print_line('Control [{}] = [{}]'.format(varName, varValue), debug=True)
+                    # send var to P2
+                    sendVariableChanged(ser, varName, varValue)
 
 # start our input task
 # 1,440,000 = 150x 9600 baud

@@ -365,7 +365,7 @@ PUB haveControlUpdate() : bControlStatus
 PUB getControlAndValue(pName, nLenName, pValue, nLenValue) : opStatus | pStr
 '' Interpret control change request and return KV parts
     pstr := getCtrlString(@userRxBuffer, MAX_SINGLE_STRING_LEN, WAIT_FOR_STRING)
-    debug("gcav: ctl=[", zstr_(pStr), "]") ', uhex_long(pName), udec(nLenName), uhex_long(pValue), udec(nLenValue))
+    'debug("gcav: ctl=[", zstr_(pStr), "]") ', uhex_long(pName), udec(nLenName), uhex_long(pValue), udec(nLenValue))
     ' now split string into our two parts
     ' Ex: 'ctrl:tempSensorStr=48 degr F',0
     opStatus := controlParse(pStr, pName, nLenName, pValue, nLenValue)
@@ -422,6 +422,33 @@ PUB resetRxStatus()
     bQueOverrun := FALSE
     bStrQueOverrun := FALSE
 
+PUB decimalForString(pDecimalStr) : decimalValue | nCharCt, nIdx
+'' Return long value for given decimal string
+    decimalValue := 0
+    nCharCt := strsize(pDecimalStr)
+    if (nCharCt > 0)
+        repeat nIdx from 0 to nCharCt - 1
+            decimalValue := (decimalValue * 10) + (byte[pDecimalStr][nIdx] - $30)
+
+PUB hexadecimalForString(pHexStr) : valueOfHex | nChar, nIdx, nOffset, nDigitValue
+    nOffset := 0
+    'debug("CONV: [", zstr_(pHexStr), "]")
+    if(strHasPrefix(pHexStr, string("0x"))) ' handle both 0xFEA94 and FEA94
+        ' skip over prefix
+        nOffset := 2
+    valueOfHex := 0
+    repeat nIdx from nOffset to strsize(pHexStr) - 1
+        valueOfHex *= 16
+        nChar := BYTE[pHexStr][nIdx] & $DF    ' convert upper case to lower
+        if nchar >= $30 && nchar <= $46
+            if nChar > $39
+                nDigitValue := nChar - $41 + 10  ' remove 'A' but leave as 10-15
+            else
+                nDigitValue := nChar - $30  ' remove '0' leave as 0-9
+            valueOfHex += nDigitValue
+            'debug("CONV: ", uhex(nIdx), ", ",uhex(nChar), ", ", uhex(nDigitValue), ", ", uhex(valueOfHex))
+
+    'debug("CONV: [", zstr_(pHexStr), "]= ", uhex_long(valueOfHex))
 
 CON { ----- TASK ----- }
 ' ====================================================
@@ -501,13 +528,6 @@ PRI tskEnqueueChar(nChr) : bFailedStatus
         debug("TASK[Rx] !! ERROR  char-queue full!! ", sdec(nRxByteCount), sdec(nRxByteMax))
         bFailedStatus := TRUE
 
-PRI strHasPrefix(pTargetStr, pPrefix) : bHasStatus | nIdx
-    bHasStatus := TRUE
-    repeat nIdx from 0 to strsize(pPrefix) - 1
-        if BYTE[pTargetStr][nIdx] <> BYTE[pPrefix][nIdx]
-            bHasStatus := False
-            quit    ' outta here, we have our answer!
-
 PRI tskEnqueueStatusStr(pStr)
 ' report string arrival to listener (place string pointer in queue)
     if pRsltStrStart <> 0
@@ -554,7 +574,7 @@ PRI dequeueRxStr() : pRmStr
             nQStrTailIdx := 0
         nQStrCount--
         'if bDbgShoMem
-        debug("-- dequeueRxStr:", uhex_long(pRmStr), udec(nQStrCount))
+        'debug("-- dequeueRxStr:", uhex_long(pRmStr), udec(nQStrCount))
     else
         debug("-- dequeueRxStr() !! ERROR string-queue empty!!")
     'dumpStrQ(string("FTER String Ptr Que"))
@@ -661,7 +681,7 @@ PRI controlParse(pRxBffr, pUserKey, nLenUserKey, pUserValue, nLenUserValue) : nS
 
     ' there should be a single {name}={value} pair
     pKey, pVal, nIdx := locateNextKeyValue(pSrchBffr)
-    debug("cp: ", zstr(pKey), ", ", zstr(pVal), sdec(nIdx))
+    'debug("cp: ", zstr(pKey), ", ", zstr(pVal), sdec(nIdx))
 
     nStatus := OP_SUCCESS
 
@@ -715,7 +735,7 @@ PRI statusParse(pRxBffr) : nStatus, pStatusMsg | lenRemaining, sep, nIdx, fullId
 
     ' this should be status=
     pName, pValue, nIdx := locateNextKeyValue(pSrchBffr)
-    debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
+    'debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
     fullIdx := nIdx
 
     matchStatus, ignore := indexOfStr(string("status"), pName)
@@ -725,7 +745,7 @@ PRI statusParse(pRxBffr) : nStatus, pStatusMsg | lenRemaining, sep, nIdx, fullId
 
         ' locate next key/value pair
         pName, pValue, nIdx := locateNextKeyValue(pSrchBffr + nIdx)
-        debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
+        'debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
         fullIdx += nIdx
 
         if (nStatus == OP_SUCCESS)
@@ -751,7 +771,7 @@ PRI statusParse(pRxBffr) : nStatus, pStatusMsg | lenRemaining, sep, nIdx, fullId
                         LONG[@parsedNameSet][0] := parsedLongVal
                         ' locate next key/value pair
                         pName, pValue, nIdx := locateNextKeyValue(pSrchBffr + fullIdx)
-                        debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
+                        'debug("sp: ", zstr(pName), ", ", zstr(pValue), sdec(nIdx))
                         matchStatus, ignore := indexOfStr(string("names"), pName)
                         if (matchStatus == 0)
                             ' located our list of names
@@ -783,13 +803,13 @@ PRI statusParse(pRxBffr) : nStatus, pStatusMsg | lenRemaining, sep, nIdx, fullId
                   lenRemaining := RX_BFFR_LEN   ' ensure fits in buffer
                 bytemove(@statusMsg, pValue, lenRemaining)
 
-PRI decimalForString(pDecimalStr) : decimalValue | nCharCt, nIdx
-    ' convert decimal string to long value
-    decimalValue := 0
-    nCharCt := strsize(pDecimalStr)
-    if (nCharCt > 0)
-        repeat nIdx from 0 to nCharCt - 1
-            decimalValue := (decimalValue * 10) + (byte[pDecimalStr][nIdx] - $30)
+PRI strHasPrefix(pTargetStr, pPrefix) : bHasStatus | nIdx
+    bHasStatus := TRUE
+    repeat nIdx from 0 to strsize(pPrefix) - 1
+        if BYTE[pTargetStr][nIdx] <> BYTE[pPrefix][nIdx]
+            bHasStatus := False
+            quit    ' outta here, we have our answer!
+
 
 PRI locateNextKeyValue(pRxBffr) : pUserKey, pUserValue, nLength | lenRemaining, endOfPair, endOfKey, valueStartIdx, lenValue, idxNextKey, idxOfValue, multiPairStatus, ignore
 ' parse for key-value pair in given string (value ends with $00 or Sep)

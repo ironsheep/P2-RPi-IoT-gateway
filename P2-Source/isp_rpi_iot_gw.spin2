@@ -118,13 +118,13 @@ PUB fileReadLong(nCollId, pVarName) : opStatus, nVarValue
     if (opStatus == OP_SUCCESS)
         nVarValue := RPiRxQ.getParsedValue()
 
-PUB fileWriteStr(nCollId, pVarName, pVarString) : opStatus
+PUB fileWriteString(nCollId, pVarName, pVarString) : opStatus
 '' Tell the RPi to write a named string to collection {nCollId}
     RPi.fstr5(string("file-write:cid=%d%skey=%s%sval=%s\n"), nCollId, @parmSep, pVarName, @parmSep, pVarString)
     ' parse expected result display error (via debug) if occurred
     opStatus, _ := handleResponseFor(string("file-write"))
 
-PUB fileReadStr(nCollId, pVarName, pTargetBffr, nTargetLen) : opStatus, pVarStr | nLen, pStatusMsg
+PUB fileReadString(nCollId, pVarName, pTargetBffr, nTargetLen) : opStatus, pVarStr | nLen, pStatusMsg
 '' Tell the RPi to read a named string from collection {nCollId}
     opStatus := OP_FAILURE
     RPi.fstr3(string("file-read:cid=%d%skey=%s\n"), nCollId, @parmSep, pVarName)

@@ -121,7 +121,7 @@ PUB main() | opStatus, nIdx, nCollId, pRetString, owStatus, nTics, tempC, tempF,
                     debug("* main: 1-wire says [", zstr_(pBffr), "]")
 
                     ' write string value to collection
-                    opStatus := IoT_GW.fileWriteStr(nCollId, string("tempSensorStr"), pBffr)
+                    opStatus := IoT_GW.fileWriteString(nCollId, string("tempSensorStr"), pBffr)
                     if opStatus <> IoT_GW.OP_SUCCESS
                         debug("* main: Error Failed to write string value!")
                     else

@@ -93,10 +93,10 @@ PUB main() | opStatus, fileId, tmpValue, pRetString, bCompStatus, lenResult, nId
     opStatus, fileId := IoT_GW.fileAccess(IoT_GW.EFI_TMP, IoT_GW.FM_WRITE_CREATE, @filename2)
     if opStatus == IoT_GW.OP_SUCCESS
         ' now write a named STRING value to it
-        opStatus := IoT_GW.fileWriteStr(fileId, string("ourStringVar"), @ourStringVar)
+        opStatus := IoT_GW.fileWriteString(fileId, string("ourStringVar"), @ourStringVar)
         if opStatus == IoT_GW.OP_SUCCESS
             ' and then read the STRING back
-            opStatus, pRetString := IoT_GW.fileReadStr(fileId, string("ourStringVar"), @rdBuffer, RX_BFFR_LEN)
+            opStatus, pRetString := IoT_GW.fileReadString(fileId, string("ourStringVar"), @rdBuffer, RX_BFFR_LEN)
             if opStatus == IoT_GW.OP_SUCCESS
                 ' good read, compare results
                 lenResult := strsize(pRetString)

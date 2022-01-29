@@ -10,6 +10,34 @@
 ''   Updated.... 22 Jan 2022
 ''
 '' =================================================================================================
+CON { forwarded constants }
+
+  BLACK      = LEDs.BLACK
+  RED        = LEDs.RED
+  GREEN      = LEDs.GREEN
+  BLUE       = LEDs.BLUE
+  WHITE      = LEDs.WHITE
+  WHITE2     = LEDs.WHITE2
+  CYAN       = LEDs.CYAN
+  MAGENTA    = LEDs.MAGENTA
+  YELLOW     = LEDs.YELLOW
+  CHARTREUSE = LEDs.CHARTREUSE
+  ORANGE     = LEDs.ORANGE
+  AQUAMARINE = LEDs.AQUAMARINE
+  PINK       = LEDs.PINK
+  TURQUOISE  = LEDs.TURQUOISE
+  REALWHITE  = LEDs.REALWHITE
+  INDIGO     = LEDs.INDIGO
+  VIOLET     = LEDs.VIOLET
+  MAROON     = LEDs.MAROON
+  BROWN      = LEDs.BROWN
+  CRIMSON    = LEDs.CRIMSON
+  PURPLE     = LEDs.PURPLE
+
+CON { driver state enums }
+
+#0, ST_UNKNOWN, ST_COLOR1, ST_COLOR2, ST_FLASH, ST_FADE, ST_CHASE, ST_TWINKLE, ST_OFF
+
 
 OBJ { objects used by this object }
 
@@ -21,41 +49,111 @@ PUB null()
 
 '' This is not a top level object
 
-PUB start(nPixels)
-'' Configure this object
+PUB start(nPin, nPixels)
+'' Configure hardware resources allowing access to LED String
     actualPixelCt := nPixels
+    txPin := npin
 
-PUB set_delay(tset)
-'' Convert delay slider from 0..100 (tset) to delay for each state
+    ' set default colors
+    color1rgbw := RED
+    color2rgbw := BLUE
+    ' set inital state
+    state := ST_COLOR1
+    setDelay(25)   ' 1/4 of [0-100]
+
+    LEDs.start_2811(@pixbuf, nPixels, txPin, 5)                ' start pixel driver for WS2811 *
+    ' start our state-machine task in own cog
+    smCogId := cogspin(newcog, taskRunStateMachine(), @taskStack)
+    if smCogId == -1    ' did fail?
+        debug("!! ERROR filed to start RX-QUE task")
+
+PUB stop()
+'' Release hardware resources used by string
+    if (smCogId)
+        cogstop(smCogId - 1)
+        smCogId := 0
+    LEDs.stop()
+
+PUB color1() : nColorRGBW
+'' Return the current value for color1rgbw
+    nColorRGBW := color1rgbw
+
+PUB setColor1(nColorRGBW)
+'' Set new value for color1rgbw
+    color1rgbw := nColorRGBW
+
+PUB color2() : nColorRGBW
+'' Return the current value for color2rgbw
+    nColorRGBW := color2rgbw
+
+PUB setColor2(nColorRGBW)
+'' Set new value for color2rgbw
+    color2rgbw := nColorRGBW
+
+PUB convRGBtoRGBW(nColorRGB) : nColorRGBW
+'' Move from 24 to 32 bit colorspace
+    nColorRGBW := nColorRGB << 8
+
+PUB displayState() : nDesiredState
+'' Return the last selected display state
+    nDesiredState := state
+
+PUB delay() : nDesiredDelay
+'' Return the last set delay value
+    nDesiredDelay := requestedDelay
+
+PUB setDelay(tset)
+'' Convert delay slider from 0..100 (tset) to delay for current state
+  requestedDelay := tset
 
   case state
-    3 : delay := map(tset, 0, 100, 5000,  500)
-    4 : delay := map(tset, 0, 100,   64,    8)
-    5 : delay := map(tset, 0, 100, 1000,  100)
-    6 : delay := map(tset, 0, 100, 1000,   50)
+    ST_FLASH : delayInTics := map(tset, 0, 100, 5000,  500)
+    ST_FADE : delayInTics := map(tset, 0, 100,   64,    8)
+    ST_CHASE : delayInTics := map(tset, 0, 100, 1000,  100)
+    ST_TWINKLE : delayInTics := map(tset, 0, 100, 1000,   50)
+    other: delayInTics := map(tset, 0, 100, 1000,   50)
 
+PUB setAll(rgbw)
+'' Sets all channels to rgb
+    LEDs.set_all(rgbw)
 
-PUB map(value, inmin, inmax, outmin, outmax) : result
-'' Maps value in range inmin..inmax to new value in range outmin..outmax
-
-  if (value <= inmin)
-    return outmin
-  elseif (value >= inmax)
-    return outmax
-  else
-    return (value-inmin) * (outmax-outmin) / (inmax-inmin) + outmin
-
+PUB off()
+'' turn off string by showing black
+  state := ST_OFF
+  setAll(BLACK)
 
 PUB flash()
+'' Switch to flash mode
+  state := ST_FLASH
+  doFlash()
 
-  if ((timer.millis() < delay) && (dirty == false))             ' timer expired or update?
-    return
+PUB fade()
+'' Switch to fade mode
+  state := ST_FADE
+  doFade()
 
-  timer.start()
-  dirty := false
-  substate := (substate == 0) ? 1 : 0                           ' toggle substate
+PUB chase()
+'' Switch to chase mode
+  state := ST_CHASE
+  doChase()
 
-  LEDs.set_all(color1[substate])                               ' show Color1 or Color2
+PUB twinkle()
+'' Switch to twinkle mode
+  state := ST_TWINKLE
+  doTwinkle()
+
+CON { --- Private / Utility Methods --- }
+
+PRI taskRunStateMachine()
+' run our display statemachine
+  repeat
+    case state
+      ST_COLOR1 : LEDs.set_all(color1rgbw)
+      ST_COLOR2 : LEDs.set_all(color2rgbw)
+      ST_FLASH : doFlash()
+      ST_FADE : doFade()
+      ST_CHASE : doChase()
+      ST_TWINKLE : doTwinkle()
 
 
 CON { object internal constants }
@@ -63,26 +161,56 @@ CON { object internal constants }
   MAX_PIXELS = 50
   'CMD_SIZE = 16
 
+  STACK_SIZE_LONGS = 48   ' 48, 32 crashes!
+
 var { internal object variables }
 
-  long  phase
-  long  direction
+    long  phase
+    long  direction
+
+    long  state                                                   ' program state
+    long  color1rgbw
+    long  color2rgbw
+    long  delayInTics
+
+    long  dirty                                                   ' force update
+    long  substate                                                ' program sub-state
+
+    long  pixbuf[MAX_PIXELS]                                        ' pixel buffer
+    long  actualPixelCt   ' actual pixels in string
+    long  txPin   ' pin on which string is listening
+
+DAT
+
+    taskStack       long    0[STACK_SIZE_LONGS]
+    smCogId         long    0
+    requestedDelay  long    15  ' default display value
+
+PRI map(value, inmin, inmax, outmin, outmax) : result
+' Maps value in range inmin..inmax to new value in range outmin..outmax
+
+  if (value <= inmin)
+    result := outmin
+  elseif (value >= inmax)
+    result :=  outmax
+  else
+    result :=  (value-inmin) * (outmax-outmin) / (inmax-inmin) + outmin
+
+PRI doFlash()
+
+  if ((timer.millis() < delayInTics) && (dirty == false))             ' timer expired or update?
+    return
+
+  timer.start()
+  dirty := false
+  substate := (substate == 0) ? 1 : 0                           ' toggle substate
+
+  LEDs.set_all(color1rgbw[substate])                               ' show color1rgbw or color2rgbw
 
 
-  long  state                                                   ' program state
-  long  color1
-  long  color2
-  long  delay
+PRI doFade()
 
-  long  dirty                                                   ' force update
-  long  substate                                                ' program sub-state
-
-  long  pixbuf[MAX_PIXELS]                                        ' pixel buffer
-  long  actualPixelCt   ' actual pixels in string
-
-PUB fade()
-
-  if ((timer.millis() < delay) && (dirty == false))
+  if ((timer.millis() < delayInTics) && (dirty == false))
     return
 
   timer.start()
@@ -92,7 +220,7 @@ PUB fade()
     dirty := false
 
   phase += direction                                            ' update phase
-  LEDs.set_all(LEDs.morph(Color1, Color2, phase))             ' update color
+  LEDs.set_all(LEDs.morph(color1rgbw, color2rgbw, phase))             ' update color
 
   if (phase == 255)                                             ' check direction change
     direction := -1
@@ -100,16 +228,16 @@ PUB fade()
     direction := 1
 
 
-PUB chase() | buf[4], ch
+PRI doChase() | buf[4], ch
 
-  if ((timer.millis() < delay) && (dirty == false))
+  if ((timer.millis() < delayInTics) && (dirty == false))
     return
 
   timer.start()
   dirty := false
 
-  longfill(@buf, Color2, 4)                                     ' fill w/background
-  buf[substate] := Color1                                       ' set foreground
+  longfill(@buf, color2rgbw, 4)                                     ' fill w/background
+  buf[substate] := color1rgbw                                       ' set foreground
 
   ch := 0                                                       ' start at front
   repeat actualPixelCt/4                                             ' fill buffer w/chase seq
@@ -122,9 +250,9 @@ PUB chase() | buf[4], ch
     substate := 0
 
 
-PUB twinkle() | ch, level
+PRI doTwinkle() | ch, level
 
-  if ((timer.millis() < delay) && (dirty == false))
+  if ((timer.millis() < delayInTics) && (dirty == false))
     return
 
   timer.start()
@@ -132,7 +260,7 @@ PUB twinkle() | ch, level
 
   repeat ch from 0 to actualPixelCt-1                                ' fill string
     level := prng.xrandomize(1, 4)                              ' 25 to 100%
-    LEDs.set(ch, LEDs.scale_rgbw(Color1, 64*level))
+    LEDs.set(ch, LEDs.scale_rgbw(color1rgbw, 64*level))
 
 
 CON { license }

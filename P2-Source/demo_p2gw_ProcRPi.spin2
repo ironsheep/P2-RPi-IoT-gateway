@@ -99,7 +99,7 @@ PUB main() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt,
                     ' for each key read value and show it
                     repeat nIdx from 1 to nKeyCt
                         pName := LONG[pKeySet][nIdx]
-                        opStatus, pRetString := IoT_GW.fileReadStr(nCollId, pName, @rdBuffer, RX_BFFR_LEN)
+                        opStatus, pRetString := IoT_GW.fileReadString(nCollId, pName, @rdBuffer, RX_BFFR_LEN)
                         if opStatus == IoT_GW.OP_SUCCESS
                             ' good read, display KV pair
                             debug(" - ", zstr_(pName), ": [", zstr_(pRetString), "]")
