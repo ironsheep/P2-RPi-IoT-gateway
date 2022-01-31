@@ -9,8 +9,10 @@ Enable an RPi to serve as an ioT gateway for our P2 Hardware - while dedicating 
 
 To enable email send from your RPi chose then follow the instructions for one of these two forms:
 
-1. mail is sent from another machine on your network, not directly from this RPi
-1. mail is sent directly from this RPi
+1. [Mail is sent from another machine](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/SETUP-EMAIL.md#1-install-to-have-mail-delivered-by-another-machine-on-your-network) on your network, not directly from this RPi
+1. [Mail is sent directly from this RPi](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/SETUP-EMAIL.md#2-install-to-have-mail-sent-directly-from-this-rpi)
+
+Lastly, after having configured one or the other, you will want to [send a test email using your new configuration](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/SETUP-EMAIL.md#test-email-your-new-send-configuration) to make sure everything works!
 
 ## (1) Install to have mail delivered by another machine on your network
 
@@ -122,7 +124,24 @@ sendgrid_from_addr = {sendgridFromAddress}
 
 - replace **{sendgridFromAddress}** with your sendgrid-registered from address.
 
-**TBA, UNDONE** (*add script to test email send and specify it's use here.*)
+## Test email your new send configuration
+
+A python script has been provided with which you can test your new configuration.  Run the script providing the correct to: address and an email will be delivered via SendGrid or sendmail which ever you have set up in your **config.ini**.
+
+To test your email setup run:
+
+```shell
+./gw-send-test-email.py --to {emailRecipient} # replace {emailRecipient} with your desired email recipient address
+```
+
+Run this script at shown providing your own addressee. If the email is delivered then your configuration works!
+If it is not delievered the check your to: address, double check your values in config.ini, and/or run the email test script enabling `debug` and `verbose` message output from the script by:
+
+```shell
+./gw-send-test-email.py -d -v --to {emailRecipient} # replace {emailRecipient} with your desired email recipient address
+```
+
+Hopefully, one of these ideas will help you find the problem and get you to sending email correctly!
 
 This completes your setup of email delivery via SendGrid.
 
