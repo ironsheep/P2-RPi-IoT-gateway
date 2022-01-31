@@ -131,10 +131,17 @@ A python script has been provided with which you can test your new configuration
 To test your email setup run:
 
 ```shell
-./gw-send-test-email.py --to {emailRecipient} # replace {emailRecipient} with your To: address
+./gw-send-test-email.py --to {emailRecipient} # replace {emailRecipient} with your desired email recipient address
 ```
 
-Run this script at shown but provide 
+Run this script at shown providing your own addressee. If the email is delivered then your configuration works!
+If it is not delievered the check your to: address, double check your values in config.ini, and/or run the email test script enabling `debug` and `verbose` message output from the script by:
+
+```shell
+./gw-send-test-email.py -d -v --to {emailRecipient} # replace {emailRecipient} with your desired email recipient address
+```
+
+Hopefully, one of these ideas will help you find the problem and get you to sending email correctly!
 
 This completes your setup of email delivery via SendGrid.
 
