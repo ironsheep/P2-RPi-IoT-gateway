@@ -9,10 +9,10 @@ Enable an RPi to serve as an ioT gateway for our P2 Hardware - while dedicating 
 
 To enable email send from your RPi chose then follow the instructions for one of these two forms:
 
-1. Mail is sent from another machine on your network, not directly from this RPi
-1. Mail is sent directly from this RPi
+1. [Mail is sent from another machine](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/SETUP-EMAIL.md#1-install-to-have-mail-delivered-by-another-machine-on-your-network) on your network, not directly from this RPi
+1. [Mail is sent directly from this RPi](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/SETUP-EMAIL.md#2-install-to-have-mail-sent-directly-from-this-rpi)
 
-Lastly, after having configured one or the other, you will want to send a test email using your new configuration to make sure everything works!
+Lastly, after having configured one or the other, you will want to [send a test email using your new configuration](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/SETUP-EMAIL.md#test-email-your-new-send-configuration) to make sure everything works!
 
 ## (1) Install to have mail delivered by another machine on your network
 
