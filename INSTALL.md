@@ -55,7 +55,7 @@ First install extra packages the script needs (select one of the two following c
 sudo apt-get install git python3 python3-pip python3-tzlocal python3-sdnotify python3-colorama python3-unidecode python3-paho-mqtt python3-watchdog
 ```
 
-### Now finish with the script install
+### Finish the script install
 
 Now that the extra packages are installed let's install our script and any remaining supporting python modules.
 
@@ -73,7 +73,28 @@ sudo pip3 install -r requirements.txt
 
 ... need to have any mention of `/opt/P2-RPi-ioT-gateway` changed to your install location **before you can run this script as a service.**
 
-## Configuration
+
+### Make our gateway directories
+
+Our Gateway knows of seven directories we'll be using. These directories do not yet exist when you are first installing this script.
+
+There are two helper shell scripts that installed along side our Daemon python script. These are `lsGwDirs` and `mkGwDirs`.
+
+Let's create the needed directories by running:
+
+```shell
+sudo mkGwDirs    # create the needed Daemon directories
+```
+
+Now let's list ths directories we just created:
+
+```shell
+lsGwDirs     # list all gateway directories and the files in them
+```
+
+This was practice!  As you are creating projects that use our gateway you will want to locate files that your P2 project or a new web-backend page created. You will use `lsGwDirs` to list the files that have been created.
+
+## Configuration of gateway services
 
 To match personal needs, all Deamon operational details can be configured by creating and then modifying entries within the **config.ini** file. A template is provided [`config.ini.dist`](config.ini.dist).
 To create the file: (*in the following: if you don't have vim installed you might try nano*)
@@ -115,17 +136,17 @@ Now that your config.ini is setup let's test!
 A first test run is as easy as:
 
 ```shell
-python3 /opt/P2-RPi-ioT-gateway/P2-RPi-ioT-gw-daemon.py
+sudo python3 /opt/P2-RPi-ioT-gateway/P2-RPi-ioT-gw-daemon.py -d -v
 ```
 
 **NOTE:** *it is a good idea to execute this script by hand this way each time you modify the config.ini.  By running after each modification the script can tell you through error messages if it had any problems with any values in the config.ini file, or any missing values. etc.*
 
-**NOTE2:** command line options `-d` and `-v` enable `debug` and `verbose` runtime options that can possibly provide more detail if you are experiencing problems!
+**NOTE2:** the optional command line options `-d` and `-v` enable `debug` and `verbose` runtime options that can possibly provide more detail if you are experiencing problems!
 
-Using the command line argument `--config`, a directory where to read the config.ini file from can be specified, e.g.
+Using the optional command line argument `--config`, a directory where to read the config.ini file from can be specified, e.g.
 
 ```shell
-python3 /opt/P2-RPi-ioT-gateway/P2-RPi-ioT-gw-daemon.py --config /opt/P2-RPi-ioT-gateway
+sudo python3 /opt/P2-RPi-ioT-gateway/P2-RPi-ioT-gw-daemon.py --config /opt/P2-RPi-ioT-gateway
 ```
 
 ### Preparing to run full time
@@ -159,16 +180,14 @@ $ daemon : daemon dialout
 We need to enable the serial0 device which are daemon script is expecting. Which serial device are present at boot time has been changin over time. Check for presense of /dev/serial0 with:
 
 ```shell
-# ls /dev/serial0
-ls: /dev/serial0: No such file or directory
+ls /dev/serial0  # list serial port to see if it is present
 ```
 
-If you get the message above (No such file or directory) you need to enable **/dev/serial0**.
+If you see `ls: /dev/serial0: No such file or directory` then it is NOT present. In which case you need to enable **/dev/serial0**.
 
 In order to enable **/dev/serial0** we need to:
 
-1. add lines to **/boot/config.txt**
-1. change RPi settings using **raspi-config**
+- Add lines to **/boot/config.txt**
 
 So, edit the **/boot/config.txt** using:
 
@@ -186,13 +205,18 @@ init_uart_clock=32000000
 
 # and condition which uart is present
 enable_uart=1
+
+# and stabilize our turbo effects (don't let turbo on/off affect uart clock)
+force_turbo=1
 ```
 
 (*Exit vi by entering ':', 'x', \<return\>*)
 
 After the file is saved then reboot your RPi.  **/dev/serial0** should now appear.
 
-***TBD** add instructions to run sudo raspi-config to disable console but enable serial port!
+```shell
+sudo shutdown -r now # reboot our RPi
+```
 
 ### Choose Run Style
 
