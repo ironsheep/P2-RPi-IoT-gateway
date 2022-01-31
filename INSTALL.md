@@ -86,11 +86,13 @@ Let's create the needed directories by running:
 sudo mkGwDirs    # create the needed Daemon directories
 ```
 
-Now let's practice running the script we'll be using more often as we create projects that use our gateway:
+Now let's list ths directories we just created:
 
 ```shell
-lsGwDirs     # list all gateway dirtories and the files in them
+lsGwDirs     # list all gateway directories and the files in them
 ```
+
+This was practice!  As you are creating projects that use our gateway you will want to locate files that your P2 project or a new web-backend page created. You will use `lsGwDirs` to list the files that have been created.
 
 ## Configuration of gateway services
 
