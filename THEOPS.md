@@ -17,38 +17,19 @@ A custom protocol using service specific messages is sent over the serial interf
 | Service Type | Message | Returns | Interpretation |
 | ------------ | --------- | ---- | --- |
 | **P2 Setup** | |||
-| P2 -> RPi | ident:hwName={hardwareName}\<SEP>objVer={gwObjVersion}\n | | Identify P2 Device to RPi |
-| P2 <- RPi | fident:status={successBool}\n | success=T/F | Response can be True if SUCCESS or False if failed for some reason
-| **File Operations** ||||
-| | **File Access/Open** |||
+| P2 -> RPi | ident:hwName={hardwareName}\<SEP>objVer={gwObjVersion}\n | | Identify P2 Device to RPi for use in logging, email send, etc. |
+| P2 <- RPi | fident:status=True\n<br/>fident:status=False\<SEP>msg={errorMsg}\n | success=T/F<br/>msg when F | 
+| **Collection Operations** ||||
+| | **Collection Access/Open** |||
 | P2 -> RPi | file-access:dir={folderEnum}\<SEP>mode={modeEnum}\<SEP>cname={fileBasename}\n | | P2 connect to, or create file on RPi |
-| P2 <- RPi | faccess:status=True\<SEP>collId=1\n | success=T/F, when T: collId={handle} | Returns Collection ID (handle) when requst is valid 
-| | | | P2 reads values from file on RPi |
-| | | | P2 writes values to file on RPi|
-| | | | P2 remove file from RPi |
-| | | file-remove:{fileId} - returns T/F where T means file was removed
-| SMS (texting) |||
-| | P2 asks RPi to send a text message to the phone number
-| | | sms:{phoneNbr} text={messageText}
-| | (Maybe? have to see if possible) P2 gets text message contents relayed from RPi
-| | | - unknown at this time -
-| Twitter |||
-| | P2 asks RPi to send a message to a Twitter account
-| | | tweet:{accountID} text={messageText}
-| | P2 gets Twitter message contents relayed from RPi
-| | | tweet-get:{accountID} - returns text={messageText}
-| | RPi collects Twitter feed content into file allowing it to be accessed later by P2 or RPI web page
-| | | (we are NOT yet sure if the P2 will be in control of this or this is an RPi side configuration...)
-| Email  |||
-| | P2 asks RPi to send an email message to one or more recipients, providing full/partial content for email
-| | | email:[to={emailAddr}[,to={emailAddr}][,[to:cc:bcc]={emailAddr}]] text={emailText}
-| | RPi logs outgoing email from P2 (allowing display on web backend, etc.)
-| | | (we are NOT yet sure if the P2 will be in control of this or this is an RPi side configuration...)
-| Web Server | The web pages display values found in files and post values to files when controls are interacted with. File operations provides the transfer of the file contents to/from the P2 ||
-| | P2 sends values that are shown on a web page served from RPi (using file services)|
-| | | see file operations - write
-| | P2 Gets values sent from web page to the P2 (controls touched, text entered)|
-| | | see file operations - read
+| P2 <- RPi | faccess:status=True\<SEP>collId={collId}\n<br/> faccess:status=False\<SEP>msg={errorMsg}\n | success=T/F<br/>msg when F  | Returns Collection ID (handle) if success 
+| | **Read value for Key** |||
+| P2 -> RPi | file-read:cid={collId}\<SEP>key={keyName}\n | | P2 reads named value from collection on RPi |
+| P2 <- RPi | fread:status=True\n\<SEP>varVal={desiredValue}<br/> fread:status=False\<SEP>msg={errorMsg}\n | success=T/F<br/>msg when F  | Returns {desiredValue} for key if success 
+| | **Write/Replace Key/Value pair** |||
+| P2 -> RPi | file-write:cid=1\<SEP>key={keyName}\<SEP>val={varValue}\n | | P2 writes value to collection on RPi|
+| P2 <- RPi | fwrite:status=True\n<br/>fwrite:status=False\<SEP>msg={errorMsg}\n | success=T/F<br/>msg when F  | 
+
 
 ### Folder Enum Values
 
@@ -69,7 +50,7 @@ A custom protocol using service specific messages is sent over the serial interf
 | --- | --- | --- |
 | FM_READONLY | 200 | Open for read access
 | FM_WRITE | 201 | Open for write (must already exist)
-| FM_WRITE_CREATE | 202 | Open for write
+| FM\_WRITE_CREATE | 202 | Open for write
 | FM_LISTEN | 203 | Inform that P2 want to be notified if content changes
 
 ---
