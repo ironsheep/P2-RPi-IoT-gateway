@@ -159,11 +159,12 @@ $ daemon : daemon dialout
 We need to enable the serial0 device which are daemon script is expecting. Which serial device are present at boot time has been changin over time. Check for presense of /dev/serial0 with:
 
 ```shell
-# ls /dev/serial0
-ls: /dev/serial0: No such file or directory
+
+ls /dev/serial0. # list serial port to see if it is present
 ```
 
-If you get the message above (No such file or directory) you need to enable **/dev/serial0**.
+If you see `ls: /dev/serial0: No such file or directory
+` then it is NOT present. In which case you need to enable **/dev/serial0**.
 
 In order to enable **/dev/serial0** we need to:
 
@@ -186,6 +187,9 @@ init_uart_clock=32000000
 
 # and condition which uart is present
 enable_uart=1
+
+# and stabilize our turbo effects (don't let turbo on/off affect uart clock)
+force_turbo=1
 ```
 
 (*Exit vi by entering ':', 'x', \<return\>*)
