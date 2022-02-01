@@ -1,7 +1,7 @@
 [Unit]
 Description=P2 RPi IoT Gateway Client/Daemon
 Documentation=https://github.com/ironsheep/P2-RPi-ioT-gateway
-After=network.target mosquitto.service network-online.target
+After=network.target network-online.target
 Wants=network-online.target
 Requires=network.target
 
