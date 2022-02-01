@@ -6,7 +6,7 @@ Wants=network-online.target
 Requires=network.target
 
 [Service]
-Type=notify
+Type=simple
 User=daemon
 Group=daemon
 WorkingDirectory=/opt/P2-RPi-ioT-gateway/
