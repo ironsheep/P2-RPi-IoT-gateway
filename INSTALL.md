@@ -13,8 +13,8 @@ On this Page:
 - [Installation](https://github.com/ironsheep/P2-RPi-ioT-gateway/blob/main/INSTALL.md#installation) - Install this project and supporting libraries on an RPi
 - [Configuration](https://github.com/ironsheep/P2-RPi-ioT-gateway/blob/main/INSTALL.md#configuration) - Initial configuration of gateway
 - [Execution](https://github.com/ironsheep/P2-RPi-ioT-gateway/blob/main/INSTALL.md#execution) - Test the deamon configuration. Does it all run?
-- [Configure Daemon run Style]() - Configure this project to start at every boot
-- [Update install to latest]() - Project updated? Update this RPis installation to get latest features
+- [Configure Daemon run Style](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/INSTALL.md#choose-run-style) - Configure this project to start at every boot
+- [Update install to latest](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/INSTALL.md#update-to-latest) - Project updated? Update this RPis installation to get latest features
 
 Additional pages:
 
