@@ -77,23 +77,29 @@ FileMode = Enum('FileMode', [
 # -----------------------------------------------------------------------------
 # the ABOVE are identical to that found in our gateway .spin2 object
 # -----------------------------------------------------------------------------
-
+#   Colorama constants:
+#  Fore: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
+#  Back: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
+#  Style: DIM, NORMAL, BRIGHT, RESET_ALL
+#
 # Logging function
 def print_line(text, error=False, warning=False, info=False, verbose=False, debug=False, console=True):
     timestamp = strftime('%Y-%m-%d %H:%M:%S', localtime())
     if console:
         if error:
-            print(Fore.RED + Style.BRIGHT + '[{}] '.format(timestamp) + Style.RESET_ALL + '{}'.format(text) + Style.RESET_ALL, file=sys.stderr)
+            print(Fore.RED + Style.BRIGHT + '[{}] '.format(timestamp) + Style.NORMAL + '{}'.format(text) + Style.RESET_ALL, file=sys.stderr)
         elif warning:
-            print(Fore.YELLOW + '[{}] '.format(timestamp) + Style.RESET_ALL + '{}'.format(text) + Style.RESET_ALL)
+            print(Fore.YELLOW + Style.BRIGHT + '[{}] '.format(timestamp) + Style.NORMAL + '{}'.format(text) + Style.RESET_ALL)
         elif info or verbose:
-            if opt_verbose:
-                # verbose...
-                print(Fore.GREEN + '[{}] '.format(timestamp) + Fore.YELLOW  + '- ' + '{}'.format(text) + Style.RESET_ALL)
+            if verbose:
+                # conditional verbose output...
+                if opt_verbose:
+                    print(Fore.GREEN + '[{}] '.format(timestamp) + Fore.YELLOW  + '- ' + '{}'.format(text) + Style.RESET_ALL)
             else:
                 # info...
-                print(Fore.MAGENTA + '[{}] '.format(timestamp) + Fore.YELLOW  + '- ' + '{}'.format(text) + Style.RESET_ALL)
+                print(Fore.MAGENTA + '[{}] '.format(timestamp) + Fore.WHITE  + '- ' + '{}'.format(text) + Style.RESET_ALL)
         elif debug:
+            # conditional debug output...
             if opt_debug:
                 print(Fore.CYAN + '[{}] '.format(timestamp) + '- (DBG): ' + '{}'.format(text) + Style.RESET_ALL)
         else:
@@ -123,7 +129,7 @@ config_dir = parse_args.config_dir
 
 print_line(script_info, info=True)
 if opt_verbose:
-    print_line('Verbose enabled', info=True)
+    print_line('Verbose enabled', verbose=True)
 if opt_debug:
     print_line('Debug enabled', debug=True)
 if opt_useTestFile:
@@ -186,12 +192,11 @@ print_line('CONFIG: sendgrid_api_key=[{}]'.format(sendgrid_api_key), debug=True)
 print_line('CONFIG: sendgrid_from_addr=[{}]'.format(sendgrid_from_addr), debug=True)
 
 
-
 # -----------------------------------------------------------------------------
 #  methods indentifying RPi host hardware/software
 # -----------------------------------------------------------------------------
 
-
+#  object that provides access to information about the RPi on which we are running
 class RPiHostInfo:
 
     def getDeviceModel(self):
@@ -260,6 +265,7 @@ class RPiHostInfo:
 #  Maintain Runtime Configuration values
 # -----------------------------------------------------------------------------
 
+#  object that provides access to gateway runtime confiration data
 class RuntimeConfig:
     # Host RPi keys
     keyRPiModel = "Model"
@@ -345,18 +351,21 @@ class RuntimeConfig:
 #  Maintain our list of file handles requested by the P2
 # -----------------------------------------------------------------------------
 
+#  Object used to track gateway files
 class FileDetails:
     fileName = ''
     fileMode = ''
     fileSpec = ''
     dirSpec = ''
 
+    # create a new instance with all details given!
     def __init__(self, fileName, fileMode, dirSpec):
         self.fileName = fileName + '.json'
         self.fileMode = fileMode
         self.dirSpec = dirSpec
         self.fileSpec = os.path.join(self.dirSpec, self.fileName)
 
+# object tracking the gateway files providing access via handles
 class FileHandleStore:
 
     dctLiveFiles = {}  # runtime hash of known files (not persisted)
@@ -420,6 +429,7 @@ class FileHandleStore:
 #  methods for filesystem watching
 # -----------------------------------------------------------------------------
 
+# object that does the watching
 class FileSystemWatcher:
     DIRECTORY_TO_WATCH = folder_control
 
@@ -440,6 +450,7 @@ class FileSystemWatcher:
 
         self.observer.join()
 
+# object that takes action based on file/dir changed notifications
 class Handler(FileSystemEventHandler):
 
     @staticmethod
@@ -462,20 +473,24 @@ class Handler(FileSystemEventHandler):
 #  Circular queue for serial input lines & serial listener
 # -----------------------------------------------------------------------------
 
-lineBuffer = deque()
+# object which is a queue of text lines
+#  these arrive at a rate different from our handling them rate
+#  so we put them in a queue while they wait to be handled
+class RxLineQueue:
 
-def pushLine(newLine):
-    lineBuffer.append(newLine)
-    # show debug every 100 lines more added
-    if len(lineBuffer) % 100 == 0:
-        print_line('- lines({})'.format(len(lineBuffer)),debug=True)
+    lineBuffer = deque()
 
-def popLine():
-    global lineBuffer
-    oldestLine = ''
-    if len(lineBuffer) > 0:
-        oldestLine = lineBuffer.popleft()
-    return oldestLine
+    def pushLine(self, newLine):
+        self.lineBuffer.append(newLine)
+        # show debug every 100 lines more added
+        if len(self.lineBuffer) % 100 == 0:
+            print_line('- lines({})'.format(len(self.lineBuffer)),debug=True)
+
+    def popLine(self):
+        oldestLine = ''
+        if len(self.lineBuffer) > 0:
+            oldestLine = self.lineBuffer.popleft()
+        return oldestLine
 
 
 # -----------------------------------------------------------------------------
@@ -483,13 +498,14 @@ def popLine():
 # -----------------------------------------------------------------------------
 
 def taskSerialListener(ser):
+    global queueRxLines
     print_line('Thread: taskSerialListener() started', verbose=True)
     # process lies from serial or from test file
     if opt_useTestFile == True:
         test_file=open("charlie_rpi_debug.out", "r")
         lines = test_file.readlines()
         for currLine in lines:
-            pushLine(currLine)
+            queueRxLines.pushLine(currLine)
             #sleep(0.1)
     else:
         while True:
@@ -498,7 +514,7 @@ def taskSerialListener(ser):
                 print_line('TASK-RX rxD({})=({})'.format(len(received_data),received_data), debug=True)
                 currLine = received_data.decode('utf-8').rstrip()
                 #print_line('TASK-RX line({}=[{}]'.format(len(currLine), currLine), debug=True)
-                pushLine(currLine)
+                queueRxLines.pushLine(currLine)
 
 
 # -----------------------------------------------------------------------------
@@ -615,7 +631,7 @@ def processNameValuePairs(nameValuePairsAr):
     for nameValueStr in nameValuePairsAr:
         if '=' in nameValueStr:
             name,value = nameValueStr.split('=', 1)
-            print_line('  [{}]=[{}]'.format(name, value), verbose=True)
+            print_line('  [{}]=[{}]'.format(name, value), debug=True)
             findingsDict[name] = value
         else:
             print_line('processNameValuePairs nameValueStr({})=({}) ! missing "=" !'.format(len(nameValueStr), nameValueStr), warning=True)
@@ -633,7 +649,7 @@ def processIncomingRequest(newLine, Ser):
 
     if newLine.startswith(body_end):
         gatheringEmailBody = False
-        print_line('Incoming emailBodyTextAr({})=[{}]'.format(len(emailBodyTextAr), emailBodyTextAr), verbose=True)
+        print_line('Incoming emailBodyTextAr({})=[{}]'.format(len(emailBodyTextAr), emailBodyTextAr), debug=True)
         runtimeConfig.setConfigNamedVarValue(runtimeConfig.keyEmailBody, emailBodyTextAr)
         # Send the email if we know enough to do so...
         if runtimeConfig.haveNeededEmailKeys() == True:
@@ -642,7 +658,7 @@ def processIncomingRequest(newLine, Ser):
 
     elif gatheringEmailBody == True:
         bodyLinesAr = newLine.split('\\n')
-        print_line('bodyLinesAr({})=[{}]'.format(len(bodyLinesAr), bodyLinesAr), verbose=True)
+        print_line('bodyLinesAr({})=[{}]'.format(len(bodyLinesAr), bodyLinesAr), debug=True)
         emailBodyTextAr += bodyLinesAr
 
     elif newLine.startswith(body_start):
@@ -650,7 +666,7 @@ def processIncomingRequest(newLine, Ser):
         emailBodyTextAr = []
 
     elif newLine.startswith(cmdIdentifyHW):
-        print_line('* HANDLE id P2 Hardware', info=True)
+        print_line('* HANDLE id P2 Hardware', verbose=True)
         nameValuePairs = getNameValuePairs(newLine, cmdIdentifyHW)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -669,7 +685,7 @@ def processIncomingRequest(newLine, Ser):
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing hardware keys !'.format(len(newLine), newLine), warning=True)
 
     elif newLine.startswith(cmdListFolder):
-        print_line('* HANDLE list collections', info=True)
+        print_line('* HANDLE list collections', verbose=True)
         nameValuePairs = getNameValuePairs(newLine, cmdListFolder)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -716,7 +732,7 @@ def processIncomingRequest(newLine, Ser):
             print_line('processIncomingRequest nameValueStr({})=({}) ! missing list files params !'.format(len(newLine), newLine), warning=True)
 
     elif newLine.startswith(cmdListKeys):
-        print_line('* HANDLE list keys in collection', info=True)
+        print_line('* HANDLE list keys in collection', verbose=True)
         nameValuePairs = getNameValuePairs(newLine, cmdListKeys)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -765,7 +781,7 @@ def processIncomingRequest(newLine, Ser):
             print_line('processIncomingRequest nameValueStr({})=({}) ! missing list files params !'.format(len(newLine), newLine), warning=True)
 
     elif newLine.startswith(cmdSendEmail):
-        print_line('* HANDLE send email', info=True)
+        print_line('* HANDLE send email', verbose=True)
         nameValuePairs = getNameValuePairs(newLine, cmdSendEmail)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -776,7 +792,7 @@ def processIncomingRequest(newLine, Ser):
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing email params !'.format(len(newLine), newLine), warning=True)
 
     elif newLine.startswith(cmdSendSMS):
-        print_line('* HANDLE send SMS', info=True)
+        print_line('* HANDLE send SMS', verbose=True)
         nameValuePairs = getNameValuePairs(newLine, cmdSendSMS)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -788,7 +804,7 @@ def processIncomingRequest(newLine, Ser):
             # TODO: now send the SMS
 
     elif newLine.startswith(cmdFileWrite):
-        print_line('* HANDLE File WRITE', info=True)
+        print_line('* HANDLE File WRITE', verbose=True)
         nameValuePairs = getNameValuePairs(newLine, cmdFileWrite)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -830,7 +846,7 @@ def processIncomingRequest(newLine, Ser):
             # TODO: now write the file
 
     elif newLine.startswith(cmdFileRead):
-        print_line('* HANDLE File READ', info=True)
+        print_line('* HANDLE File READ', verbose=True)
         nameValuePairs = getNameValuePairs(newLine, cmdFileRead)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -869,7 +885,7 @@ def processIncomingRequest(newLine, Ser):
             # TODO: now read from the file
 
     elif newLine.startswith(cmdFileAccess):
-        print_line('* HANDLE send File Open-equiv', info=True)
+        print_line('* HANDLE File Open-equiv', verbose=True)
         bNeedFileWatch = False
         nameValuePairs = getNameValuePairs(newLine, cmdFileAccess)
         if len(nameValuePairs) > 0:
@@ -967,7 +983,7 @@ def sendValidationSuccess(Ser, cmdPrefixStr, returnKeyStr, returnValueStr):
         # no key so just send final status
         responseStr = '{}:status={}\n'.format(cmdPrefixStr, successStatus)
     newOutLine = responseStr.encode('utf-8')
-    print_line('sendValidationSuccess line({})=({})'.format(len(newOutLine), newOutLine), debug=True)
+    print_line('sendValidationSuccess line({})=({})'.format(len(newOutLine), newOutLine), verbose=True)
     Ser.write(newOutLine)
 
 def sendVariableChanged(Ser, varName, varValue):
@@ -979,9 +995,10 @@ def sendVariableChanged(Ser, varName, varValue):
     sleep(0.2)  # pause 2/10ths of second
 
 def processInput(Ser):
+    global queueRxLines
     while True:             # get Loop (if something, get another)
         # process an incoming line - creates our windows as needed
-        currLine = popLine()
+        currLine = queueRxLines.popLine()
 
         if len(currLine) > 0:
             processIncomingRequest(currLine, Ser)
@@ -1072,7 +1089,11 @@ def reportFileChanged(fSpec):
                     # send var to P2
                     sendVariableChanged(ser, varName, varValue)
 
-# start our input task
+
+colorama_init()  # Initialize our color console system
+
+# start our serial receive listener
+
 # 1,440,000 = 150x 9600 baud
 #   864,000 =  90x 9600 baud
 #   480,000 =  50x 9600 baud
@@ -1081,6 +1102,8 @@ baudRate = 500000
 print_line('Baud rate: {:,} bits/sec'.format(baudRate), verbose=True)
 
 ser = serial.Serial ("/dev/serial0", baudRate, timeout=1)    #Open port with baud rate & timeout
+
+queueRxLines = RxLineQueue()
 
 _thread.start_new_thread(taskSerialListener, ( ser, ))
 
