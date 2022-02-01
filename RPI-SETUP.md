@@ -162,7 +162,7 @@ Raspi-Config open and should look something like this:
 From this interface, do the following:
 
 - Within "System Options" you'll enter the new Hostname (in `S4 Hostname`) for your RPi
-- Within "Interface Options" you'll enable SSH (in `P2 SSH`) and VNC (in `P3 VNC`)
+- Within "Interface Options" you'll enable SSH (in `P2 SSH`), VNC (in `P3 VNC`), and turn off console over serial port (in `P6 Serial`) but keep the serial port enabled.
 - When done, you'll be asked to reboot the RPi.  Do so!
 
 ### Install the latest software updates (OS, security patches, etc.)
