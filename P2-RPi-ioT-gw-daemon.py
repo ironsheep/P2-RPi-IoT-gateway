@@ -1159,11 +1159,14 @@ colorama_init()  # Initialize our color console system
 # start our serial receive listener
 
 # 1,440,000 = 150x 9600 baud
-#   864,000 =  90x 9600 baud
+#   864,000 =  90x 9600 baud  FAILS P2 Tx
+#   720,000 =  75x 9600 baud  FAILS P2 Rx
+#   672,000 =  70x 9600 baud  FAILS P2 Rx
+#   624,000 =  65x 9600 baud
 #   499,200 =  52x 9600 baud
 #   480,000 =  50x 9600 baud
 ###  864000 -> 842105   RPi at
-baudRate = 499200
+baudRate = 624000
 print_line('Baud rate: {:,} bits/sec'.format(baudRate), verbose=True)
 
 serialPort = serial.Serial ("/dev/serial0", baudRate, timeout=1)    #Open port with baud rate & timeout

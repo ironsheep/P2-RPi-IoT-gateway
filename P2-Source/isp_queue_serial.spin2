@@ -66,7 +66,7 @@ CON { test values }
   RX_GW    = 25  '- I -                                          ' Raspberry Pi (RPi) Gateway
   TX_GW    = 24  '- O -
 
-  GW_BAUDRATE = 499_200   ' 500kb/s - allow P2 rx to keep up!
+  GW_BAUDRATE = 624_000   ' 624kb/s - allow P2 rx to keep up!
 }
   DO_NOT_WRITE_MARK = $addee5e5
   NOT_WRITTEN_MARK = $a5a50df0
@@ -381,7 +381,7 @@ PUB rxStringsCount() : nCount
 '' Return count of strings received
     nCount := nQStrCount
 
-PUB getCtrlString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWrappedStr
+PUB getCtrlString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWrappedStr, nLen
 '' Return {pStr} or 0 if none
 ''  if {bShouldWait} is TRUE wait until string arrives before returning
     'debug("getCtrlString: ENTRY")
@@ -396,8 +396,9 @@ PUB getCtrlString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWra
         pStr := pUserDest
         pWrappedStr := dequeueRxStr()
         copyWrappedStr(pUserDest, pWrappedStr, lenDest)
-        freeWrappedString(pWrappedStr)
-        'debug("getCtrlString: str=[", zstr_(pUserDest), "]")
+        nLen := strsize(pUserDest)
+        freeWrappedString(pWrappedStr, nLen)
+        debug("getCtrlString: str=[", zstr_(pUserDest), "]")
     else
         debug("getCtrlString: str=[] - NOT PRESENT")
 
@@ -532,6 +533,7 @@ PRI tskEnqueueStatusStr(pStr)
 ' report string arrival to listener (place string pointer in queue)
     if pRsltStrStart <> 0
         pRsltQueOverrun := TRUE
+        debug("TASK[Rx] !! ERROR status-Q full!!")
     else
         pRsltStrStart := pStr
         'debug("TASK[Rx] enqueueRsltStr(", udec_(strsize(pStr)), ")=[", zstr_(pStr), "] ", uhex_long(pStr))
@@ -549,7 +551,7 @@ PRI tskEnqueueCtrlStr(pStr)
         'debug("TASK[Rx] enqueueStr(", udec_(strsize(pStr)), ")=[", zstr_(pStr), "] ", uhex_long(pStr))
     else
         bStrQueOverrun := TRUE ' signal that we lost incoming data!!!
-        debug("TASK[Rx] !! ERROR string-queue full!!")
+        debug("TASK[Rx] !! ERROR ctrl-Q full!!")
     'debug("TASK[Rx] enqueueStr: ", udec(nQStrCount))
 
 PRI checkGoodStringPtr(pStr)
@@ -574,7 +576,7 @@ PRI dequeueRxStr() : pRmStr
             nQStrTailIdx := 0
         nQStrCount--
         'if bDbgShoMem
-        'debug("-- dequeueRxStr:", uhex_long(pRmStr), udec(nQStrCount))
+        debug("-- dqrs:", uhex_long(pRmStr), udec(nQStrCount))
     else
         debug("-- dequeueRxStr() !! ERROR string-queue empty!!")
     'dumpStrQ(string("FTER String Ptr Que"))
@@ -587,18 +589,17 @@ PRI dequeueResultRxStr() : pRsltStr
         pRsltStr := pRsltStrStart
         pRsltStrStart := 0  ' mark as empty
 
-PRI freeWrappedString(pRmStr)
+PRI freeWrappedString(pRmStr, nLen)
     ' zero our string memory
     if bDbgShoMem
-        debug("-- freeWrappedString:", uhex_long(pRmStr))
-    zeroWrappedStr(pRmStr)
+        debug("-- fws:", uhex_long(pRmStr))
+    zeroWrappedStr(pRmStr, nLen)
 
-PRI zeroWrappedStr(pRmStr) | nIdx, pSrc, nLen
+PRI zeroWrappedStr(pRmStr, nLen) | nIdx, pSrc
 ' fill space occuppied by string with zero's
 '  NOTE handle buffer wrap!
 '    string can start near and and wrap to front!
     pSrc := pRmStr
-    nLen := strsize(pRmStr)
     repeat nIdx from 0 to nLen - 1
         ' if pointing beyond end, wrap to front!
         if pSrc > @BYTE[@serialRxBffr][RX_CHR_Q_MAX_BYTES-1]
@@ -606,27 +607,26 @@ PRI zeroWrappedStr(pRmStr) | nIdx, pSrc, nLen
         BYTE[pSrc++] := 0
     nRxByteCount -= nLen + 1
     if bDbgShoMem
-        debug("-- zeroWrappedStr: ", uhex_long(pRmStr), udec(nLen), udec(nRxByteCount))
+        debug("-- zws: ", uhex_long(pRmStr), udec(nLen), udec(nRxByteCount))
 
-PRI copyWrappedStr(pUserDest, pSrcStr, lenDest) | nIdx, pSrc, pDest, destLen
+PRI copyWrappedStr(pUserDest, pSrcStr, lenDest) | nIdx, pSrc, pDest
 ' copy possible wrapped string {pSrcStr} to {pUserDest} (use min(strlen,lenDest) as bytes to move)
 '  NOTE handle buffer wrap!
 '    string can start near and and wrap to front!
     pDest := pUserDest
-    destLen := strsize(pSrcStr)
-    if (destLen > lenDest)
-      destLen := lenDest
     pSrc:= pSrcStr
-    repeat nIdx from 0 to destLen - 1
+    repeat nIdx from 0 to lenDest - 1
         ' if pointing beyond end, wrap to front!
         if pSrc > @BYTE[@serialRxBffr][RX_CHR_Q_MAX_BYTES-1]
           pSrc -= RX_CHR_Q_MAX_BYTES
+        if BYTE[pSrc] == 0
+            quit    ' at string end, quit loop
         BYTE[pDest++] := BYTE[pSrc++]
     BYTE[pDest] := 0  ' place final terminator
     if bDbgShoMem
-        debug("-- copyWrappedStr: str=[", zstr_(pUserDest), "]")
+        debug("-- cws: str(", udec_(strsize(pSrcStr)), ")=[", zstr_(pUserDest), "]")
 
-PRI getResultString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWrappedStr
+PRI getResultString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWrappedStr, nLen
 ' Return {pStr} or 0 if none
 ' if {bShouldWait} is TRUE wait until string arrives before returning
     'debug("getCtrlString: ENTRY")
@@ -641,10 +641,11 @@ PRI getResultString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pW
         pStr := pUserDest
         pWrappedStr := dequeueResultRxStr()
         copyWrappedStr(pUserDest, pWrappedStr, lenDest)
-        freeWrappedString(pWrappedStr)
-        'debug("getRsltString: str=[", zstr_(pUserDest), "]")
+        nLen := strsize(pUserDest)
+        freeWrappedString(pWrappedStr, nLen)
+        'debug("grs: str=[", zstr_(pUserDest), "]")
     else
-        debug("getRsltString: str=[] - NOT PRESENT")
+        debug("grs: str=[] - NOT PRESENT")
 
 PRI controlParse(pRxBffr, pUserKey, nLenUserKey, pUserValue, nLenUserValue) : nStatus | lenRemaining, sep, nIdx, pSrchBffr, pKey, pVal, nChr
     ' Examples: "ctrl:enableColor=true\n"

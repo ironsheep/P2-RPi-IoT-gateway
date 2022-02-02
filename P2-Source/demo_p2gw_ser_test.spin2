@@ -31,7 +31,7 @@ CON { RPi Gateway io pins }
   RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
   TX_GW    = 24  { O }
 
-  GW_BAUDRATE = 499_200   ' 500kb/s - allow P2 rx to keep up!
+  GW_BAUDRATE = 624_000   ' 624kb/s - allow P2 rx to keep up!
 
 OBJ { Objects Used by this Object }
 
@@ -46,7 +46,7 @@ CON { TEST VALUES }
     SEND_FIRST_COUNT = True
     NEXT_NEXT_COUNT = False
 
-    COUNT_MESSAGES_TO_SEND = 4
+    COUNT_MESSAGES_TO_SEND = 40
 
 PUB main() | eOpStatus, nRpiErrCt, pRpiMsg, nRPiCt, nP2Ct
     '' DEMO exchange messages with RPi to determine if serial link is OK
@@ -69,7 +69,7 @@ PUB main() | eOpStatus, nRpiErrCt, pRpiMsg, nRPiCt, nP2Ct
                 quit
             ' COMPARE 2-N RX'd message and report
         nRPiCt, nP2Ct := IoT_GW.getErrorCtrs()
-        debug("* main: End Test - Error Coutners  RPi-Tx(", udec(nRPiCt), "), P2-Rx(", udec(nP2Ct), ")")
+        debug("* main: End Test - Error Counters  RPi-Tx(", udec(nRPiCt), "), P2-Rx(", udec(nP2Ct), ")")
 
 
     debug("***  DONE  ***")

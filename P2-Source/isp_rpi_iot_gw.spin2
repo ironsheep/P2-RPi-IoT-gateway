@@ -243,7 +243,7 @@ PRI handleResponseFor(pCmdId) : opStatus, pStatusMsg
 ' get expected response from RPi, if error occurred report it via debug
     opStatus, pStatusMsg := RPiRxQ.getNParseStatusReponse()
     if (opStatus <> OP_SUCCESS)
-        debug(zstr_(pCmdId), ": str=[", zstr_(pStatusMsg), "]")
+        debug("hrf: ERROR: ", zstr_(pCmdId), ": str=[", zstr_(pStatusMsg), "]")
 
 
 CON { license }

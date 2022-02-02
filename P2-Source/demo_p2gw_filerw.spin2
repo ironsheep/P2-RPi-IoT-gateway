@@ -31,7 +31,7 @@ CON { RPi Gateway io pins }
   RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
   TX_GW    = 24  { O }
 
-  GW_BAUDRATE = 499_200   ' 500kb/s - allow P2 rx to keep up!
+  GW_BAUDRATE = 624_000   ' 624kb/s - allow P2 rx to keep up!
 
 OBJ { Objects Used by this Object }
 
