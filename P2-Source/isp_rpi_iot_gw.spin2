@@ -47,7 +47,7 @@ pinTx               long    0
 
 DAT { string constants }
 
-spin2ver    byte    "0.0.3",0
+spin2ver    byte    "0.0.4",0
 
 ' -------------------------------
 ' the following are identical to that found in our deamon python script
@@ -167,6 +167,75 @@ PUB getKeyNamesInCollection(nCollId) : opStatus, pKeySet
     opStatus, _ := handleResponseFor(string("key-list"))
     if (opStatus == OP_SUCCESS)
         pKeySet := RPiRxQ.getParsedNameSet()
+
+PUB sendTestMessage(bShouldReset) : eOpStatus, nRpiErrCt, pRpiMsg | pResetVal, pTestMsg, pRxTestMsg
+'' Tell the RPi to send a test message and compare responses, etc.
+''   invoke getErrorCtrs() after testing loop to get ending status
+    if bShouldReset
+        testTxCount := testRxCount := 0
+    pTestMsg := genTestMessage(testTxCount++)
+    pResetVal := (bShouldReset) ? @valTrueStr : @valFalseStr
+    RPi.fstr3(string("test:reset=%s%smsg=%s\n"), pResetVal, @parmSep, pTestMsg)
+    ' parse expected result display error (via debug) if occurred
+    eOpStatus, pRpiMsg  := handleResponseFor(string("test"))
+    if (eOpStatus == OP_SUCCESS)
+        nRpiErrCt := testTxErrCt := RPiRxQ.getParsedValue()
+        pRxTestMsg := genRxTestMessage(testRxCount++)
+        if strcomp(pRpiMsg, pRxTestMsg)
+            ' do match, we have our value
+            debug("stm: GOOD Rx Compare!")
+        else
+            ' don't match, bad
+            testRxErrCt++
+            debug("stm: BAD Rx Compare! [", zstr_(pRpiMsg), "] <> [", zstr_(pRxTestMsg), "]")
+    else
+        debug("stm: ERROR!")
+
+PUB getErrorCtrs() : nRPiCt, nP2Ct
+'' Return the test Tx and Rx error counters (cleared on sendTestMessage(reset=true))
+nRPiCt := testTxErrCt
+nP2Ct := testRxErrCt
+
+DAT { -----------  PRIVATE Serial Test support ----------- }
+
+  testTxCount   long    0
+  testRxCount   long    0
+
+  testTxErrCt   long    0
+  testRxErrCt   long    0
+
+  valTrueStr    byte    "True",0
+  valFalseStr   byte    "False",0
+
+  testTxMsg     byte    "P2TestMsg#"
+  testTxMsgCt   byte    "00000",0
+
+  testRxMsg     byte    "RPiTestMsg#"
+  testRxMsgCt   byte    "00000",0
+
+PRI genRxTestMessage(nCountValue) : pStr | nThous, nHun, nTens, nOnes, nRemainder
+' fill-in expected Rx Message with count
+    placeMessageCount(nCountValue, @testRxMsgCt)
+    pStr := @testRxMsg
+
+PRI genTestMessage(nCountValue) : pStr | nThous, nHun, nTens, nOnes, nRemainder
+' fill-in next Tx Message with count
+    placeMessageCount(nCountValue, @testTxMsgCt)
+    pStr := @testTxMsg
+
+PRI placeMessageCount(nCountValue, pCountOffset) | nThous, nHun, nTens, nOnes, nRemainder
+' place digits representing count into our message
+    bytefill(pCountOffset, $30, 5)  ' preload w/ASCII ZEROs
+    nThous := nCountValue / 1000
+    nRemainder := nCountValue - (nThous * 1000)
+    nHun := nRemainder / 100
+    nRemainder := nRemainder - (nHun * 100)
+    nTens := nRemainder / 10
+    nOnes := nRemainder - (nTens * 10)
+    byte[pCountOffset][1] := nThous + $30
+    byte[pCountOffset][2] := nHun + $30
+    byte[pCountOffset][3] := nTens + $30
+    byte[pCountOffset][4] := nOnes + $30
 
 CON { -----------  PRIVATE Methods  ----------- }
 

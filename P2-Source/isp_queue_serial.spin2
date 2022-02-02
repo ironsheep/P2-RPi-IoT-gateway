@@ -66,7 +66,7 @@ CON { test values }
   RX_GW    = 25  '- I -                                          ' Raspberry Pi (RPi) Gateway
   TX_GW    = 24  '- O -
 
-  GW_BAUDRATE = 500_000   ' 500kb/s - allow P2 rx to keep up!
+  GW_BAUDRATE = 499_200   ' 500kb/s - allow P2 rx to keep up!
 }
   DO_NOT_WRITE_MARK = $addee5e5
   NOT_WRITTEN_MARK = $a5a50df0
@@ -791,6 +791,10 @@ PRI statusParse(pRxBffr) : nStatus, pStatusMsg | lenRemaining, sep, nIdx, fullId
                                     debug("- ptr[", udec_(nLongIdx-1), "]=0x", uhex_long_(LONG[@parsedNameSet][nLongIdx-1]))
                                 elseif BYTE[@parsedNamesValue][nIdx] == $0a or BYTE[@parsedNamesValue][nIdx] == $00
                                     quit
+                                        matchStatus, ignore := indexOfStr(string("msg"), pName)
+                                        if (matchStatus == 0)
+                                            pStatusMsg := pValue
+                        else
                     else
                         ' nothing more to do here, no idea what this is....
 
