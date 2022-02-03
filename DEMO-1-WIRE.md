@@ -47,9 +47,37 @@ This should create a folder `/var/www/html/bs1wire/' which now has a top-level `
 
 After these files are unpacked you should be able to point your browser to: `http://{mypihostname|orIpAddress}/bs1wire`
 
-All that's left then is run the demo .spin2 on your P2 after making sure your P2 and your RPi are connected via serial and that your Gateway Daemon is already running.
+## Run the demo
 
-This demo should provide a good reference for how to create similar services. 
+For this demo you need:
+
+- P2 ready to load code
+- P2 wired to RPi (3-wire serial cable)
+- DS18S20 1-wire sensor wired to the P2
+- RPi running our daemon (by hand or as Daemon from boot)
+- Web page unpacked into proper place
+
+### Startup
+
+- Ensure that the Daemon script is running
+- Compile and download `demo_p2gw_web_control.spin2` to the P2
+  - The demo on startup sends driver status to the RPi 
+  - The demo on startup also reads the 1-wire device and send values to the RPi
+  - Open brower to your newly installed web page
+  - This page should looks similar to the image above
+
+
+### What's the page doing?
+
+The web page is comprised of HTML code styled using CSS (as included files) and has PHP code intermixed with the HTML.
+
+The PHP code loads and shows the values sent from the P2.  It also loads details about the host RPi on which it is running and shows these details.
+
+As the P2 loops around to reading the sensor again it sends the latest value to the RPi again.  The web page has a referesh directing which causes it to reload periodically.  Each time it reloads it also re-reads the status values coming from the P2 and presents them.  This is why we see the temperature updating every so often.
+
+This demo should provide a good reference for how you can create similar services. 
+
+You are now controlling reading temperature from a web page which was read by your P2 and sent to the web-server to be displayed!
 
 Enjoy!
 
@@ -79,6 +107,8 @@ Additionally the web page shows content from one of our generated files **PROC/r
 ##  Tool I used to create the web page
 
 I run on a Mac desktop.  My favorite tool for creating web pages is [Bootstrap Studio](https://bootstrapstudio.io/)  This tool provides easy WYSIWYG editing, easy CSS styling, good responsive layout code, and exports tiney files for you to place on your server.
+
+However, I edit the PHP and make final tweaks to the HTML/CSS by hand. Yes I'm doing all of the "by hand editing" in visual studio.
 
 ### ...
 
