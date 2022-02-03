@@ -63,7 +63,7 @@ The Daemon script can, if so configured, keep logs of activity, keep copies of a
 
 ## Features
 
-Initially, we envision that this IoT gateway will support the features/services shown in the table below. However, this project is meant to be a gathering place for all such interfacing to the outside connected world. If more serivices are identified as useful then they can and should be added here as the community decides what they want.
+Initially, this IoT gateway supports the features/services shown in the table below. However, this project is meant to be a gathering place for all such interfacing to the outside connected-world. If more serivices are identified as useful then they can and should be added here as our community decides what they want.
 
 | Service Type | Description | Imple. Status |
 | ------------ | ----------- | ------------- |
@@ -77,14 +77,14 @@ Initially, we envision that this IoT gateway will support the features/services 
 | Web Server| |
 | | P2 sends values that are shown on a web page served from RPi (using file services)| WORKING
 | | P2 Gets values sent from web page to the P2 (controls touched, text entered)| WORKING
-| SMS (texting) | |
-| | P2 asks RPi to send a text message to the phone number | waiting
-| | (Maybe? have to see if possible) P2 gets text message contents relayed from RPi | waiting
 
 ### Upcoming/Possible Feature Additions
 
 | Service Type  | Description |
 | ------------- | ----------- |
+| SMS (texting) | |
+| | P2 asks RPi to send a text message to the phone number | waiting
+| | (Maybe? have to see if possible) P2 gets text message contents relayed from RPi | waiting
 | Twitter | |
 | | P2 asks RPi to send a message to a Twitter account
 | | P2 gets Twitter message contents relayed from RPi
@@ -227,8 +227,8 @@ We keep a growing list of these DEMOs in this section:
 | [demo\_p2gw_email.spin2](P2-Source/demo_p2gw_email.spin2) | Sending email to one or more users from P2 | App | WORKING
 | [demo\_p2gw_filerw.spin2](P2-Source/demo_p2gw_filerw.spin2) | Store named values on our RPi and retrieve them from the RPi | App | WORKING
 | [demo\_p2gw_ProcRPi.spin2](P2-Source/demo_p2gw_ProcRPi.spin2) | Display RPi configuration data on our P2 Debug Terminal | App | WORKING
-| [DEMO 1-wire from Web Page](DEMO-1-WIRE.md) | Display live 1-wire temp sensor data on a web page | App, Web Page | WORKING
-| DEMO: [Control LED String from Web Page](DEMO-LED-Control.md)| Change values on a control web page causing LED string to change appearance | App, Web Page | in-progress
+| DEMO: [1-WIRE via web](DEMO-1-WIRE.md) | Display live 1-wire temp sensor data on a web page | App, Web Page | WORKING
+| DEMO: [Control LED String from Web Page](DEMO-LED-Control.md)| Change values on a control web page causing LED string to change appearance | App, Web Page | WORKING
 
 ### Future DEMOs
 
