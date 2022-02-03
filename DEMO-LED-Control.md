@@ -68,7 +68,7 @@ For this demo you need:
   - This page should looks similar to the image above
 - Interact with the web page and watch the LEDs do what you command!
 
-#### What's the page doing?
+### What's the page doing?
 
 The web page is comprised of HTML code styled using CSS (as included files) and has PHP code intermixed with the HTML.
 
@@ -103,14 +103,16 @@ Collections used:
 | CONTROL/**p2-ledControl** | Web form Submit | Values written by web page, sent to P2 when written
 | PROC/**rpiHostInfo** | RPi Daemon | RPi details to be shown on web page
 
-Within the status file the P2 places two key-value pairs:
+Within the status file the P2 places four key-value pairs:
 
 | Status Variable | Description |
 | --- | --- |
 |  color1 | The current value for color1
 |  color2 | The current value for color2
+|  displayMode | The current value identifying which pattern the LEDs are displaying
+|  delay | The new value identifying the delay between pattern changes
 
-Whenever the web page is loaded (or reloaded - every N seconds) this file is read, the values for `color1 ` and `color2`are pulled from the file and the color pickers are preset to these values.
+Whenever the web page is loaded (or reloaded - every N seconds) this file is read, the values for `color1 ` and `color2`are pulled from the file and the color pickers are preset to these values (if they haven't yet been overridden by changing the form pickers.)
 
 When the web page values are changed and submitted it writes the following four key-value pairs:
 
@@ -118,8 +120,8 @@ When the web page values are changed and submitted it writes the following four 
 | --- | --- |
 |  color1 | The new value for color1
 |  color2 | The new value for color2
-|  displayMode | The new value idenitfying which pattern the lights should display
-|  rateDelay | The new value identifying the delay between patterns
+|  displayMode | The new value identifying which pattern the LEDs should display
+|  delay | The new value identifying the delay between pattern changes
 
 Automatically, our Daemon detects this file write and since the P2 has requested to be notified when this file is written, the Daemon then loads this file and sends all four named values to the P2.
 
@@ -128,6 +130,8 @@ Additionally the web page shows content from one of our generated files **PROC/r
 ##  Tool I used to create the web page
 
 I run on a Mac desktop.  My favorite tool for creating web pages is [Bootstrap Studio](https://bootstrapstudio.io/)  This tool provides easy WYSIWYG editing, easy CSS styling, good responsive layout code, and exports tiney files for you to place on your server.
+
+However, I edit the PHP and make final tweaks to the HTML/CSS by hand. Yes I'm doing all of the "by hand editing" in visual studio.
 
 ### ...
 
