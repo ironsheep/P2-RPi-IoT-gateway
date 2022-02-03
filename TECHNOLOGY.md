@@ -31,6 +31,31 @@ OBJ { Objects Used by this Object }
     rxQue       :   "isp_queue_serial"          ' acces our received data
 ```
 
+Starting the gateway is also pretty simple:
+
+```script
+CON { RPi Gateway io pins }
+
+  RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
+  TX_GW    = 24  { O }
+
+  GW_BAUDRATE = 624_000   ' 624kb/s - allow P2 rx to keep up!
+
+DAT { our hardware ID strings and 1-wire buffers, collection names }
+
+  p2HardwareID    byte    "{your hardware descr here}",0
+
+PUB main() | eOpStatus, nIdx, nCollId, eRxQStatus, eCmdId, tmpVar
+
+    '' DEMO send status values to a web page and act on control values sent by the web page
+    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)    ' tell singleton our pins and rate
+
+    ' (one time) tell the RPi about how to identify this hardware
+    IoT_GW.identify(@p2HardwareID)
+
+  ... and do your app stuff from here on ...
+```
+
 ## Gateway Deamon on RPi
 
 On the RPi we have a single Python3 script which is run interactively or from power-on which listens to the serial traffic arriving from the P2. It validates the requests coming from the P2, and then acts on the request. Validation status and optionally requested data are returned to the P2 for each request.
