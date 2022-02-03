@@ -22,49 +22,68 @@ The following objects are compiled into your app.
 - jm_serial.spin2
 - jm_nstrings.spin2
 
-You simply include them with something like:
+### Tools I use when working on the .spin2 Gateway Objects
 
-```script
-OBJ { Objects Used by this Object }
-
-    IoT_GW      :   "isp_rpi_iot_gw"            ' serial I/O to/from RPi
-    rxQue       :   "isp_queue_serial"          ' acces our received data
-```
-
-Starting the gateway is also pretty simple:
-
-```script
-CON { RPi Gateway io pins }
-
-  RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
-  TX_GW    = 24  { O }
-
-  GW_BAUDRATE = 624_000   ' 624kb/s - allow P2 rx to keep up!
-
-DAT { our hardware ID strings and 1-wire buffers, collection names }
-
-  p2HardwareID    byte    "{your hardware descr here}",0
-
-PUB main() | eOpStatus, nIdx, nCollId, eRxQStatus, eCmdId, tmpVar
-
-    '' DEMO send status values to a web page and act on control values sent by the web page
-    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)    ' tell singleton our pins and rate
-
-    ' (one time) tell the RPi about how to identify this hardware
-    IoT_GW.identify(@p2HardwareID)
-
-  ... and do your app stuff from here on ...
-```
 
 ## Gateway Deamon on RPi
 
-On the RPi we have a single Python3 script which is run interactively or from power-on which listens to the serial traffic arriving from the P2. It validates the requests coming from the P2, and then acts on the request. Validation status and optionally requested data are returned to the P2 for each request.
+On the RPi we have a single Python3 script which is run interactively or from power-on which listens to the serial traffic arriving from the P2. It validates the requests coming from the P2, and then acts on the request. Validation status and, optionally, requested data are returned to the P2 for each request.
 
 The Daemon script also watches for directory changes (files to be modified or new files appearing) in the Control directory.  Web pages that want to send values to our P2 write to this Control directory. The P2 application tells the RPi if it wants to be told of changes to specific files on the RPi. If the RPi knows that the P2 is listening and the file is changes the RPi sends each KV pair found in the changed file to the waiting P2.
 
+### Tools I use when working on the python Daemon script
+
+### Python References
+
+
 ## Interactive web-pages on RPi
 
-... content TBA ...
+Now that you've set up your RPi per our instructions you have the [Apache2](https://en.wikipedia.org/wiki/Apache_HTTP_Server) web server running on the RPi and you have the [PHP](https://en.wikipedia.org/wiki/PHP) interpreter installed.
+
+In order to provide interaction with our P2 we write our RPi web pages in PHP. In most simple cases we have a single index.php file (web page interpreted source) placed in a directory under the web server.  But what is a php file?
+
+- PHP files can contain text, HTML, CSS, JavaScript, and PHP code
+- PHP code is executed on the server, and the result is returned to the browser as plain HTML
+- PHP files have extension ".php"
+
+In other words, the index.php file is comprised of HTML code styled using CSS (typically as included files) and has PHP code intermixed with the HTML.  This entire file when requested by a browser is first interpreted by the PHP Interpreter and the resulting HTML is returned to the browser.
+
+In our gateway web pages we use PHP to:
+
+- Load `status` files which contain 1 or more KV pairs
+- Load `proc` files which contain 1 or more KV pairs
+- Write `control` files which also contain 1 or more KV pairs
+- Retrieve values from HTML/PHP forms 
+
+As an example (taken from our web-control demo) here are the actions behind the web page controlling the LED string attached to the P2
+
+- The PHP code loads the values sent from the P2 and uses them as default values for the form it presents.  It also loads details about the host RPi on which it is running and shows these details.
+
+- When you adjust the controls on the form and then press [Submit] all values you have set are then written into a control file as key-value pairs. The values placed in the file are shown below the form so you can see what is written to the file.
+
+- The P2, when it started up, notified the RPi that it wanted to hear about any changes made to the control file (which the web-page writes to.)
+
+- The Daemon sees that the file changed (since the web page just wrote to it), loads the KV pairs from the file and then sends them to the P2.
+
+- Lastly the P2 evaluates the change as they arrive and tells the LED string what to change (Color, light pattern, delay, etc.)
+
+
+### Tools I use when working on the web pages
+
+### HTML, CSS and PHP References
+
+I use the following references when needing to do something I haven't before in each language:
+
+| Language | References |
+| --- | --- |
+| **HTML** |
+|| [HTML Tutorial/Ref. at W3 Schools](https://www.w3schools.com/html/)
+|| [JavaScript Tutorial/Ref. at W3 Schools](https://www.w3schools.com/js/)
+|| [Bootstrap Tutorial/Ref. at W3 Schools](https://www.w3schools.com/bootstrap/bootstrap_ver.asp) (Pick the version you use)
+| **CSS** |
+|| [CSS Tutorial/Ref. at W3 Schools](https://www.w3schools.com/css/)
+| **PHP** |
+|| [PHP Tutorial/Ref. at W3 Schools](https://www.w3schools.com/php/)
 
 ### ...
 
