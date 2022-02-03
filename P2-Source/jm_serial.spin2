@@ -104,7 +104,7 @@ PUB startx(rxpin, txpin, baudrate) | bitperiod, bitmode, databits
       byteExtraBits |= $100
 
   pinf(txp)
-  wrpin(txp, TX_MODE)
+  wrpin(txp, TX_MODE | P_HIGH_15K)
   wxpin(txp, bitmode)
   pinl(txp)
 

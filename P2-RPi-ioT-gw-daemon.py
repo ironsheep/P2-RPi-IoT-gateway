@@ -380,6 +380,18 @@ class FileHandleStore:
         self.dctLiveFiles[fileIdKey] = FileDetails(fileName, fileMode, dirSpec)
         return desiredFileId
 
+    def handleForFSpec(self, possibleFSpec):
+        # create and return a new fileIdKey for this new file and save file details with the key
+        #  TODO: detect open-assoc of same file details (only 1 path/filename on file, please)
+        desiredFileId = 0
+        if len(self.dctLiveFiles.keys()) > 0:
+            for fileIdKey in self.dctLiveFiles.keys():
+                possibleFileDetails = self.dctLiveFiles[fileIdKey]
+                if possibleFileDetails.fileSpec == possibleFSpec:
+                    desiredFileId = int(fileIdKey)
+                    break   # we have our answer, abort loop
+        return desiredFileId
+
     def addWatchForHandle(self, possibleFileId):
         # record that we are now watching this file!
         fileIdKey = self.keyForFileId(possibleFileId)
@@ -1039,9 +1051,9 @@ def sendValidationSuccess(serPort, cmdPrefixStr, returnKeyStr, returnValueStr):
     print_line('sendValidationSuccess line({})=({})'.format(len(newOutLine), newOutLine), verbose=True)
     serPort.write(newOutLine)
 
-def sendVariableChanged(serPort, varName, varValue):
+def sendVariableChanged(serPort, varName, varValue, collId):
         # format and send an error message via outgoing serial
-    responseStr = 'ctrl:{}={}\n'.format(varName, varValue)
+    responseStr = 'ctrl:{}={}{}collId={}\n'.format(varName, varValue, parm_sep, collId)
     newOutLine = responseStr.encode('utf-8')
     print_line('sendVariableChanged line({})=[{}]'.format(len(newOutLine), newOutLine), verbose=True)
     serPort.write(newOutLine)
@@ -1136,6 +1148,7 @@ for dirSpec in folderSpecByFolderId.values():
 
 def reportFileChanged(fSpec):
     # If file is of interest, Load json file and send vars to P2
+    collId = fileHandles.handleForFSpec(fSpec);
     if fileHandles.isWatchedFSpec(fSpec) == False:
          print_line('CHK File [{}] is NOT watched'.format(fSpec), debug=True)
     else:
@@ -1151,7 +1164,7 @@ def reportFileChanged(fSpec):
                     varValue = fileDict[varName]
                     print_line('Control [{}] = [{}]'.format(varName, varValue), debug=True)
                     # send var to P2
-                    sendVariableChanged(serialPort, varName, varValue)
+                    sendVariableChanged(serialPort, varName, varValue, collId)
 
 
 colorama_init()  # Initialize our color console system
