@@ -31,11 +31,11 @@ CON { RPi Gateway io pins }
   RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
   TX_GW    = 24  { O }
 
-  GW_BAUDRATE = 500_000   ' 500kb/s - allow P2 rx to keep up!
+  GW_BAUDRATE = 624_000   ' 624kb/s - allow P2 rx to keep up!
 
 OBJ { Objects Used by this Object }
 
-    IoT_GW      :   "RPi-IoT-gw"                                        ' serial I/O
+    IoT_GW      :   "isp_rpi_iot_gw"                            ' serial I/O
 
 DAT { our email and hardware ID strings }
 
@@ -52,7 +52,7 @@ VAR { demo buffers }
     byte    rdBuffer[RX_BFFR_LEN+1]
 
 PUB main() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt, pRetString
-    '' DEMO tell our RPi send an email for us
+    '' DEMO Tell our RPi send an email for us
     IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)
 
     ' (one time) tell the RPi about how to identify this hardware
@@ -99,7 +99,7 @@ PUB main() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt,
                     ' for each key read value and show it
                     repeat nIdx from 1 to nKeyCt
                         pName := LONG[pKeySet][nIdx]
-                        opStatus, pRetString := IoT_GW.fileReadStr(nCollId, pName, @rdBuffer, RX_BFFR_LEN)
+                        opStatus, pRetString := IoT_GW.fileReadString(nCollId, pName, @rdBuffer, RX_BFFR_LEN)
                         if opStatus == IoT_GW.OP_SUCCESS
                             ' good read, display KV pair
                             debug(" - ", zstr_(pName), ": [", zstr_(pRetString), "]")

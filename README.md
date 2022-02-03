@@ -228,7 +228,7 @@ We keep a growing list of these DEMOs in this section:
 | [demo\_p2gw_filerw.spin2](P2-Source/demo_p2gw_filerw.spin2) | Store named values on our RPi and retrieve them from the RPi | App | WORKING
 | [demo\_p2gw_ProcRPi.spin2](P2-Source/demo_p2gw_ProcRPi.spin2) | Display RPi configuration data on our P2 Debug Terminal | App | WORKING
 | [DEMO 1-wire from Web Page](DEMO-1-WIRE.md) | Display live 1-wire temp sensor data on a web page | App, Web Page | WORKING
-| | Change values on a control web page causing values to be shown in P2 Debug Terminal | App, Web Page |
+| DEMO: [Control LED String from Web Page](DEMO-LED-Control.md)| Change values on a control web page causing LED string to change appearance | App, Web Page | in-progress
 
 ### Future DEMOs
 

@@ -31,11 +31,11 @@ CON { RPi Gateway io pins }
   RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
   TX_GW    = 24  { O }
 
-  GW_BAUDRATE = 500_000   ' 500kb/s - allow P2 rx to keep up!
+  GW_BAUDRATE = 624_000   ' 624kb/s - allow P2 rx to keep up!
 
 OBJ { Objects Used by this Object }
 
-    IoT_GW      :   "RPi-IoT-gw"                                        ' serial I/O
+    IoT_GW      :   "isp_rpi_iot_gw"                            ' serial I/O
 
 DAT { our email and hardware ID strings }
 
@@ -93,10 +93,10 @@ PUB main() | opStatus, fileId, tmpValue, pRetString, bCompStatus, lenResult, nId
     opStatus, fileId := IoT_GW.fileAccess(IoT_GW.EFI_TMP, IoT_GW.FM_WRITE_CREATE, @filename2)
     if opStatus == IoT_GW.OP_SUCCESS
         ' now write a named STRING value to it
-        opStatus := IoT_GW.fileWriteStr(fileId, string("ourStringVar"), @ourStringVar)
+        opStatus := IoT_GW.fileWriteString(fileId, string("ourStringVar"), @ourStringVar)
         if opStatus == IoT_GW.OP_SUCCESS
             ' and then read the STRING back
-            opStatus, pRetString := IoT_GW.fileReadStr(fileId, string("ourStringVar"), @rdBuffer, RX_BFFR_LEN)
+            opStatus, pRetString := IoT_GW.fileReadString(fileId, string("ourStringVar"), @rdBuffer, RX_BFFR_LEN)
             if opStatus == IoT_GW.OP_SUCCESS
                 ' good read, compare results
                 lenResult := strsize(pRetString)

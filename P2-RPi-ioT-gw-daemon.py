@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import _thread
 from datetime import datetime
+from math import e
 from time import time, sleep, localtime, strftime
 import os
 import subprocess
@@ -21,9 +22,10 @@ from subprocess import Popen, PIPE
 import sendgrid
 from sendgrid.helpers.mail import Content, Email, Mail
 from enum import Enum, unique
-
 from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE,SIG_DFL)
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 if False:
     # will be caught by python 2.7 to be illegal syntax
@@ -33,7 +35,7 @@ if False:
 # v0.0.1 - awaken email send
 # v0.0.2 - add file handling
 
-script_version  = "0.0.2"
+script_version  = "0.0.3"
 script_name     = 'P2-RPi-ioT-gw-daemon.py'
 script_info     = '{} v{}'.format(script_name, script_version)
 project_name    = 'P2-RPi-IoT-gw'
@@ -66,7 +68,8 @@ FolderId = Enum('FolderId', [
 FileMode = Enum('FileMode', [
      'FM_READONLY',
      'FM_WRITE',
-     'FM_WRITE_CREATE'], start=200)
+     'FM_WRITE_CREATE',
+     'FM_LISTEN'], start=200)
 
 #for fileMode in FileMode:
 #    print(fileMode, fileMode.value)
@@ -74,23 +77,29 @@ FileMode = Enum('FileMode', [
 # -----------------------------------------------------------------------------
 # the ABOVE are identical to that found in our gateway .spin2 object
 # -----------------------------------------------------------------------------
-
+#   Colorama constants:
+#  Fore: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
+#  Back: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
+#  Style: DIM, NORMAL, BRIGHT, RESET_ALL
+#
 # Logging function
 def print_line(text, error=False, warning=False, info=False, verbose=False, debug=False, console=True):
     timestamp = strftime('%Y-%m-%d %H:%M:%S', localtime())
     if console:
         if error:
-            print(Fore.RED + Style.BRIGHT + '[{}] '.format(timestamp) + Style.RESET_ALL + '{}'.format(text) + Style.RESET_ALL, file=sys.stderr)
+            print(Fore.RED + Style.BRIGHT + '[{}] '.format(timestamp) + Style.NORMAL + '{}'.format(text) + Style.RESET_ALL, file=sys.stderr)
         elif warning:
-            print(Fore.YELLOW + '[{}] '.format(timestamp) + Style.RESET_ALL + '{}'.format(text) + Style.RESET_ALL)
+            print(Fore.YELLOW + Style.BRIGHT + '[{}] '.format(timestamp) + Style.NORMAL + '{}'.format(text) + Style.RESET_ALL)
         elif info or verbose:
-            if opt_verbose:
-                # verbose...
-                print(Fore.GREEN + '[{}] '.format(timestamp) + Fore.YELLOW  + '- ' + '{}'.format(text) + Style.RESET_ALL)
+            if verbose:
+                # conditional verbose output...
+                if opt_verbose:
+                    print(Fore.GREEN + '[{}] '.format(timestamp) + Fore.YELLOW  + '- ' + '{}'.format(text) + Style.RESET_ALL)
             else:
                 # info...
-                print(Fore.MAGENTA + '[{}] '.format(timestamp) + Fore.YELLOW  + '- ' + '{}'.format(text) + Style.RESET_ALL)
+                print(Fore.MAGENTA + '[{}] '.format(timestamp) + Fore.WHITE  + '- ' + '{}'.format(text) + Style.RESET_ALL)
         elif debug:
+            # conditional debug output...
             if opt_debug:
                 print(Fore.CYAN + '[{}] '.format(timestamp) + '- (DBG): ' + '{}'.format(text) + Style.RESET_ALL)
         else:
@@ -120,7 +129,7 @@ config_dir = parse_args.config_dir
 
 print_line(script_info, info=True)
 if opt_verbose:
-    print_line('Verbose enabled', info=True)
+    print_line('Verbose enabled', verbose=True)
 if opt_debug:
     print_line('Debug enabled', debug=True)
 if opt_useTestFile:
@@ -146,7 +155,7 @@ fallback_domain = config['Daemon'].get('fallback_domain', default_domain).lower(
 # default daemon use folder locations
 default_folder_tmp = '/tmp/P2-RPi-ioT-gateway'
 default_folder_var = '/var/P2-RPi-ioT-gateway'
-default_folder_control = '/var/P2-RPi-ioT-gateway/control'
+default_folder_control = '/var/www/html/P2-RPi-ioT-gateway/control'
 default_folder_status = '/var/P2-RPi-ioT-gateway/status'
 default_folder_log = '/var/log/P2-RPi-ioT-gateway'
 default_folder_mail = '/var/P2-RPi-ioT-gateway/mail'
@@ -183,12 +192,11 @@ print_line('CONFIG: sendgrid_api_key=[{}]'.format(sendgrid_api_key), debug=True)
 print_line('CONFIG: sendgrid_from_addr=[{}]'.format(sendgrid_from_addr), debug=True)
 
 
-
 # -----------------------------------------------------------------------------
 #  methods indentifying RPi host hardware/software
 # -----------------------------------------------------------------------------
 
-
+#  object that provides access to information about the RPi on which we are running
 class RPiHostInfo:
 
     def getDeviceModel(self):
@@ -257,6 +265,7 @@ class RPiHostInfo:
 #  Maintain Runtime Configuration values
 # -----------------------------------------------------------------------------
 
+#  object that provides access to gateway runtime confiration data
 class RuntimeConfig:
     # Host RPi keys
     keyRPiModel = "Model"
@@ -342,21 +351,25 @@ class RuntimeConfig:
 #  Maintain our list of file handles requested by the P2
 # -----------------------------------------------------------------------------
 
+#  Object used to track gateway files
 class FileDetails:
     fileName = ''
     fileMode = ''
     fileSpec = ''
     dirSpec = ''
 
+    # create a new instance with all details given!
     def __init__(self, fileName, fileMode, dirSpec):
         self.fileName = fileName + '.json'
         self.fileMode = fileMode
         self.dirSpec = dirSpec
         self.fileSpec = os.path.join(self.dirSpec, self.fileName)
 
+# object tracking the gateway files providing access via handles
 class FileHandleStore:
 
     dctLiveFiles = {}  # runtime hash of known files (not persisted)
+    dctWatchedFiles = {}  # runtime hash of files being watched (not persisted)
     nNextFileId = 1  # initial collId value (1 - 99,999)
 
     def handleStringForFile(self, fileName, fileMode, dirSpec):
@@ -366,6 +379,23 @@ class FileHandleStore:
         desiredFileId = int(fileIdKey)
         self.dctLiveFiles[fileIdKey] = FileDetails(fileName, fileMode, dirSpec)
         return desiredFileId
+
+    def addWatchForHandle(self, possibleFileId):
+        # record that we are now watching this file!
+        fileIdKey = self.keyForFileId(possibleFileId)
+        desiredFileDetails = self.dctLiveFiles[fileIdKey]
+        self.dctWatchedFiles[fileIdKey] = desiredFileDetails
+
+    def isWatchedFSpec(self, possibleFSpec):
+        # return T/F where T means a watch of {possibleFSpec} is requested
+        bChangeStatus = False
+        if len(self.dctWatchedFiles.keys()) > 0:
+            for fileIdKey in self.dctWatchedFiles.keys():
+                possibleFileDetails = self.dctWatchedFiles[fileIdKey]
+                if possibleFileDetails.fileSpec == possibleFSpec:
+                    bChangeStatus = True
+                    break   # we have our answer, abort loop
+        return bChangeStatus
 
     def fpsecForHandle(self, possibleFileId):
         # return the fileSpec associated with the given collId
@@ -395,48 +425,96 @@ class FileHandleStore:
         desiredFileIdStr = '{:05d}'.format(int(possibleFileId))
         return desiredFileIdStr
 
+# -----------------------------------------------------------------------------
+#  methods for filesystem watching
+# -----------------------------------------------------------------------------
+
+# object that does the watching
+class FileSystemWatcher:
+    DIRECTORY_TO_WATCH = folder_control
+
+    def __init__(self):
+        self.observer = Observer()
+
+    def run(self):
+        print_line('Thread: FileSystemWatcher() started', verbose=True)
+        event_handler = Handler()
+        self.observer.schedule(event_handler, self.DIRECTORY_TO_WATCH, recursive=False)
+        self.observer.start()
+        try:
+            while True:
+                sleep(5)
+        except Exception as e:
+            self.observer.stop()
+            print_line('!!! FileSystemWatcher: Exception: {}'.format(e), error=True)
+
+        self.observer.join()
+
+# object that takes action based on file/dir changed notifications
+class Handler(FileSystemEventHandler):
+
+    @staticmethod
+    def on_any_event(event):
+        print_line('- FileSystemEventHandler: event=[{}]'.format(event), debug=True)
+        if event.is_directory:
+            return None
+
+        elif event.event_type == 'created':
+            # Take any action here when a file is first created.
+            print_line("Received FileCreate event - [{}]".format(event.src_path), debug=True)
+
+        elif event.event_type == 'modified':
+            # Taken any action here when a file is modified.
+            print_line("Received FileModified event - [{}]".format(event.src_path), debug=True)
+            reportFileChanged(event.src_path)
+
 
 # -----------------------------------------------------------------------------
 #  Circular queue for serial input lines & serial listener
 # -----------------------------------------------------------------------------
 
-lineBuffer = deque()
+# object which is a queue of text lines
+#  these arrive at a rate different from our handling them rate
+#  so we put them in a queue while they wait to be handled
+class RxLineQueue:
 
-def pushLine(newLine):
-    lineBuffer.append(newLine)
-    # show debug every 100 lines more added
-    if len(lineBuffer) % 100 == 0:
-        print_line('- lines({})'.format(len(lineBuffer)),debug=True)
+    lineBuffer = deque()
 
-def popLine():
-    global lineBuffer
-    oldestLine = ''
-    if len(lineBuffer) > 0:
-        oldestLine = lineBuffer.popleft()
-    return oldestLine
+    def pushLine(self, newLine):
+        self.lineBuffer.append(newLine)
+        # show debug every 100 lines more added
+        if len(self.lineBuffer) % 100 == 0:
+            print_line('- lines({})'.format(len(self.lineBuffer)),debug=True)
+
+    def popLine(self):
+        oldestLine = ''
+        if len(self.lineBuffer) > 0:
+            oldestLine = self.lineBuffer.popleft()
+        return oldestLine
 
 
 # -----------------------------------------------------------------------------
 #  TASK: dedicated serial listener
 # -----------------------------------------------------------------------------
 
-def taskSerialListener(ser):
+def taskSerialListener(serPort):
+    global queueRxLines
     print_line('Thread: taskSerialListener() started', verbose=True)
     # process lies from serial or from test file
     if opt_useTestFile == True:
         test_file=open("charlie_rpi_debug.out", "r")
         lines = test_file.readlines()
         for currLine in lines:
-            pushLine(currLine)
+            queueRxLines.pushLine(currLine)
             #sleep(0.1)
     else:
         while True:
-            received_data = ser.readline()              #read serial port
+            received_data = serPort.readline()              #read serial port
             if len(received_data) > 0:
                 print_line('TASK-RX rxD({})=({})'.format(len(received_data),received_data), debug=True)
-                currLine = received_data.decode('utf-8').rstrip()
+                currLine = received_data.decode('utf-8', 'replace').rstrip()
                 #print_line('TASK-RX line({}=[{}]'.format(len(currLine), currLine), debug=True)
-                pushLine(currLine)
+                queueRxLines.pushLine(currLine)
 
 
 # -----------------------------------------------------------------------------
@@ -445,9 +523,9 @@ def taskSerialListener(ser):
 
 newLine = '\n'
 
-def crateAndSendEmail(emailTo, emailFrom, emailSubj, emailTextLines):
+def createAndSendEmail(emailTo, emailFrom, emailSubj, emailTextLines):
     # send a email via the selected interface
-    print_line('crateAndSendEmail to=[{}], from=[{}], subj=[{}], body=[{}]'.format(emailTo, emailFrom, emailSubj, emailTextLines), debug=True)
+    print_line('createAndSendEmail to=[{}], from=[{}], subj=[{}], body=[{}]'.format(emailTo, emailFrom, emailSubj, emailTextLines), debug=True)
     #
     # build message footer
     # =================================
@@ -508,11 +586,12 @@ def sendEmailFromConfig():
     tmpBody = runtimeConfig.getValueForConfigVar(runtimeConfig.keyEmailBody)
     # TODO: wire up BCC, CC ensure that multiple, To, Cc, and Bcc work too!
     # print_line('sendEmailFromConfig to=[{}], from=[{}], subj=[{}], body=[{}]'.format(tmpTo, tmpFrom, tmpSubject, tmpBody), debug=True)
-    crateAndSendEmail(tmpTo, tmpFrom, tmpSubject, tmpBody)
+    createAndSendEmail(tmpTo, tmpFrom, tmpSubject, tmpBody)
 
 # -----------------------------------------------------------------------------
 #  Main loop
 # -----------------------------------------------------------------------------
+# commands from P2
 cmdIdentifyHW  = "ident:"
 cmdSendEmail = "email-send:"
 cmdSendSMS = "sms-send:"
@@ -521,18 +600,25 @@ cmdFileWrite = "file-write:"
 cmdFileRead = "file-read:"
 cmdListFolder = "folder-list:"
 cmdListKeys = "key-list:"
+cmdTestSerial = "test:"
+
+# serial test named parameters
+keyTestReset = "reset"  # T/F where T means start count at zero
+keyTestMsg = "msg"  # T/F where T means start count at zero
+
+testSerialParmKeys = [ keyTestReset, keyTestMsg ]
 
 # file-access named parameters
 keyFileAccDir = "dir"
 keyFileAccMode = "mode"
 keyFileAccFName = "cname"
-fileAccessParmKeys = [ keyFileAccDir, keyFileAccMode, keyFileAccFName]
+fileAccessParmKeys = [ keyFileAccDir, keyFileAccMode, keyFileAccFName ]
 
 # file-write, read named parameters
 keyFileFileID = "cid"
 keyFileVarNm = "key"
 keyFileVarVal = "val"
-fileWriteParmKeys = [ keyFileFileID, keyFileVarNm, keyFileVarVal]
+fileWriteParmKeys = [ keyFileFileID, keyFileVarNm, keyFileVarVal ]
 fileReadParmKeys = [ keyFileFileID, keyFileVarNm ]
 
 # folder list named parameters
@@ -553,7 +639,7 @@ def processNameValuePairs(nameValuePairsAr):
     for nameValueStr in nameValuePairsAr:
         if '=' in nameValueStr:
             name,value = nameValueStr.split('=', 1)
-            print_line('  [{}]=[{}]'.format(name, value), verbose=True)
+            print_line('  [{}]=[{}]'.format(name, value), debug=True)
             findingsDict[name] = value
         else:
             print_line('processNameValuePairs nameValueStr({})=({}) ! missing "=" !'.format(len(nameValueStr), nameValueStr), warning=True)
@@ -562,24 +648,31 @@ def processNameValuePairs(nameValuePairsAr):
 # global state parameter for building email
 gatheringEmailBody = False
 emailBodyTextAr = []
+serTestTxCount = 0
+serTestRxCount = 0
+serTestErrCount = 0
 
-def processIncomingRequest(newLine, Ser):
+def processIncomingRequest(newLine, serPort):
     global gatheringEmailBody
     global emailBodyTextAr
+    global serTestTxCount
+    global serTestRxCount
+    global serTestErrCount
 
     print_line('Incoming line({})=[{}]'.format(len(newLine), newLine), debug=True)
 
     if newLine.startswith(body_end):
         gatheringEmailBody = False
-        print_line('Incoming emailBodyTextAr({})=[{}]'.format(len(emailBodyTextAr), emailBodyTextAr), verbose=True)
+        print_line('Incoming emailBodyTextAr({})=[{}]'.format(len(emailBodyTextAr), emailBodyTextAr), debug=True)
         runtimeConfig.setConfigNamedVarValue(runtimeConfig.keyEmailBody, emailBodyTextAr)
         # Send the email if we know enough to do so...
         if runtimeConfig.haveNeededEmailKeys() == True:
             sendEmailFromConfig()
+            sendValidationSuccess(serPort, "email", "", "")
 
     elif gatheringEmailBody == True:
         bodyLinesAr = newLine.split('\\n')
-        print_line('bodyLinesAr({})=[{}]'.format(len(bodyLinesAr), bodyLinesAr), verbose=True)
+        print_line('bodyLinesAr({})=[{}]'.format(len(bodyLinesAr), bodyLinesAr), debug=True)
         emailBodyTextAr += bodyLinesAr
 
     elif newLine.startswith(body_start):
@@ -587,7 +680,7 @@ def processIncomingRequest(newLine, Ser):
         emailBodyTextAr = []
 
     elif newLine.startswith(cmdIdentifyHW):
-        print_line('* HANDLE id P2 Hardware', info=True)
+        print_line('* HANDLE id P2 Hardware', verbose=True)
         nameValuePairs = getNameValuePairs(newLine, cmdIdentifyHW)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -601,11 +694,51 @@ def processIncomingRequest(newLine, Ser):
                 p2Name = runtimeConfig.getValueForConfigVar(runtimeConfig.keyHwName).replace(' - ', '-').replace(' ', '-')
                 procFspec = os.path.join(folder_proc, 'P2-{}.json'.format(p2Name))
                 writeJsonFile(procFspec, p2ProcDict)
+                sendValidationSuccess(serPort, "fident", "", "")
             else:
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing hardware keys !'.format(len(newLine), newLine), warning=True)
 
+    elif newLine.startswith(cmdTestSerial):
+        print_line('* HANDLE id P2 Hardware', verbose=True)
+        nameValuePairs = getNameValuePairs(newLine, cmdTestSerial)
+        if len(nameValuePairs) > 0:
+            findingsDict = processNameValuePairs(nameValuePairs)
+            if len(findingsDict) > 0:
+                # validate all keys exist
+                bHaveAllKeys = True
+                missingParmName = ''
+                for requiredKey in testSerialParmKeys:
+                    if requiredKey not in findingsDict.keys():
+                        HaveAllKeys = False
+                        missingParmName = requiredKey
+                        break
+                if not bHaveAllKeys:
+                    errorTxt = 'missing folder-list named parameter [{}]'.format(missingParmName)
+                    sendValidationError(serPort, "stest", errorTxt)
+                else:
+                    # validate reset and take action
+                    shouldReset = findingsDict[keyTestReset]
+                    if shouldReset.lower() != 'true' and shouldReset.lower() != 'false':
+                        errorTxt = 'Invalid [{}] value [{}]'.format(missingParmName, shouldReset)
+                        sendValidationError(serPort, "stest", errorTxt)
+                    else:
+                        if shouldReset.lower() == 'true':
+                            serTestRxCount = 0
+                            serTestTxCount = 0
+                            serTestErrCount = 0
+                        rxStr = findingsDict[keyTestMsg]
+                        compRxStr = genNextRxString(serTestRxCount)
+                        serTestRxCount += 1
+                        print_line('TEST: rx=[{}] == [{}] ??'.format(rxStr, compRxStr), debug=True)
+                        if rxStr != compRxStr:
+                            serTestErrCount += 1
+                        compTxStr = genNextTxString(serTestTxCount)
+                        serTestTxCount += 1
+                        checkMsg = '{}{}msg={}'.format(serTestErrCount, parm_sep, compTxStr)
+                        sendValidationSuccess(serPort, "stest", "ct", checkMsg)
+
     elif newLine.startswith(cmdListFolder):
-        print_line('* HANDLE list collections', info=True)
+        print_line('* HANDLE list collections', verbose=True)
         nameValuePairs = getNameValuePairs(newLine, cmdListFolder)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -620,13 +753,13 @@ def processIncomingRequest(newLine, Ser):
                         break
                 if not bHaveAllKeys:
                     errorTxt = 'missing folder-list named parameter [{}]'.format(missingParmName)
-                    sendValidationError(Ser, "folist", errorTxt)
+                    sendValidationError(serPort, "folist", errorTxt)
                 else:
                     # validate dirID is valid Enum number
                     dirID = int(findingsDict[keyFileAccDir])
                     if dirID not in FolderId._value2member_map_:    # in list of valid Enum numbers?
                         errorTxt = 'bad parm dir={} - unknown folder ID'.format(dirID)
-                        sendValidationError(Ser, "folist", errorTxt)
+                        sendValidationError(serPort, "folist", errorTxt)
                     else:
                         # good request now list all files in dir
                         dirSpec = folderSpecByFolderId[FolderId(dirID)]
@@ -647,12 +780,12 @@ def processIncomingRequest(newLine, Ser):
                         else:
                             # have NO files in dir
                             resultStr = '{}'.format(fnameCt)
-                        sendValidationSuccess(Ser, "folist", "ct", resultStr)
+                        sendValidationSuccess(serPort, "folist", "ct", resultStr)
         else:
             print_line('processIncomingRequest nameValueStr({})=({}) ! missing list files params !'.format(len(newLine), newLine), warning=True)
 
     elif newLine.startswith(cmdListKeys):
-        print_line('* HANDLE list keys in collection', info=True)
+        print_line('* HANDLE list keys in collection', verbose=True)
         nameValuePairs = getNameValuePairs(newLine, cmdListKeys)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -667,13 +800,13 @@ def processIncomingRequest(newLine, Ser):
                         break
                 if not bHaveAllKeys:
                     errorTxt = 'missing keys-list named parameter [{}]'.format(missingParmName)
-                    sendValidationError(Ser, "kylist", errorTxt)
+                    sendValidationError(serPort, "kylist", errorTxt)
                 else:
                     # validate dirID is valid Enum number
                     fileIdStr = findingsDict[keyFileFileID]
                     if not fileHandles.isValidHandle(fileIdStr):
                         errorTxt = 'BAD file handle [{}]'.format(fileIdStr)
-                        sendValidationError(Ser, "kylist", errorTxt)
+                        sendValidationError(serPort, "kylist", errorTxt)
                     else:
                         fspec = fileHandles.fpsecForHandle(fileIdStr)
                         # good request now list all keys in collection
@@ -696,12 +829,12 @@ def processIncomingRequest(newLine, Ser):
                         else:
                             # have NO files in dir
                             resultStr = '{}'.format(keyCt)
-                        sendValidationSuccess(Ser, "kylist", "ct", resultStr)
+                        sendValidationSuccess(serPort, "kylist", "ct", resultStr)
         else:
             print_line('processIncomingRequest nameValueStr({})=({}) ! missing list files params !'.format(len(newLine), newLine), warning=True)
 
     elif newLine.startswith(cmdSendEmail):
-        print_line('* HANDLE send email', info=True)
+        print_line('* HANDLE send email', verbose=True)
         nameValuePairs = getNameValuePairs(newLine, cmdSendEmail)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -712,7 +845,7 @@ def processIncomingRequest(newLine, Ser):
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing email params !'.format(len(newLine), newLine), warning=True)
 
     elif newLine.startswith(cmdSendSMS):
-        print_line('* HANDLE send SMS', info=True)
+        print_line('* HANDLE send SMS', verbose=True)
         nameValuePairs = getNameValuePairs(newLine, cmdSendSMS)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -724,7 +857,7 @@ def processIncomingRequest(newLine, Ser):
             # TODO: now send the SMS
 
     elif newLine.startswith(cmdFileWrite):
-        print_line('* HANDLE File WRITE', info=True)
+        print_line('* HANDLE File WRITE', verbose=True)
         nameValuePairs = getNameValuePairs(newLine, cmdFileWrite)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -739,12 +872,12 @@ def processIncomingRequest(newLine, Ser):
                         break
                 if not bHaveAllKeys:
                     errorTxt = 'missing file-write named parameter [{}]'.format(missingParmName)
-                    sendValidationError(Ser, "fwrite", errorTxt)
+                    sendValidationError(serPort, "fwrite", errorTxt)
                 else:
                     fileIdStr = findingsDict[keyFileFileID]
                     if not fileHandles.isValidHandle(fileIdStr):
                         errorTxt = 'BAD write file handle [{}]'.format(fileIdStr)
-                        sendValidationError(Ser, "fwrite", errorTxt)
+                        sendValidationError(serPort, "fwrite", errorTxt)
                     else:
                         fspec = fileHandles.fpsecForHandle(fileIdStr)
                         varKey = findingsDict[keyFileVarNm]
@@ -760,13 +893,13 @@ def processIncomingRequest(newLine, Ser):
                         # write the file
                         writeJsonFile(fspec, fileDict)
                         # report our operation success to P2 (status only)
-                        sendValidationSuccess(Ser, "fwrite", "", "")
+                        sendValidationSuccess(serPort, "fwrite", "", "")
             else:
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing file-write params !'.format(len(newLine), newLine), warning=True)
             # TODO: now write the file
 
     elif newLine.startswith(cmdFileRead):
-        print_line('* HANDLE File READ', info=True)
+        print_line('* HANDLE File READ', verbose=True)
         nameValuePairs = getNameValuePairs(newLine, cmdFileRead)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -781,12 +914,12 @@ def processIncomingRequest(newLine, Ser):
                         break
                 if not bHaveAllKeys:
                     errorTxt = 'missing file-read named parameter [{}]'.format(missingParmName)
-                    sendValidationError(Ser, "fread", errorTxt)
+                    sendValidationError(serPort, "fread", errorTxt)
                 else:
                     fileIdStr = findingsDict[keyFileFileID]
                     if not fileHandles.isValidHandle(fileIdStr):
                         errorTxt = 'BAD file handle [{}]'.format(fileIdStr)
-                        sendValidationError(Ser, "fread", errorTxt)
+                        sendValidationError(serPort, "fread", errorTxt)
                     else:
                         fspec = fileHandles.fpsecForHandle(fileIdStr)
                         varKey = findingsDict[keyFileVarNm]
@@ -795,17 +928,18 @@ def processIncomingRequest(newLine, Ser):
                             fileDict = json.load(read_file)
                         if not varKey in fileDict.keys():
                             errorTxt = 'BAD Key - Key not found [{}]'.format(varKey)
-                            sendValidationError(Ser, "fread", errorTxt)
+                            sendValidationError(serPort, "fread", errorTxt)
                         else:
                             desiredValue = fileDict[varKey]
                             # report our operation success to P2 (and send value read from file)
-                            sendValidationSuccess(Ser, "fread", "varVal", desiredValue)
+                            sendValidationSuccess(serPort, "fread", "varVal", desiredValue)
             else:
                 print_line('processIncomingRequest nameValueStr({})=({}) ! missing file-read params !'.format(len(newLine), newLine), warning=True)
             # TODO: now read from the file
 
     elif newLine.startswith(cmdFileAccess):
-        print_line('* HANDLE send File Open-equiv', info=True)
+        print_line('* HANDLE File Open-equiv', verbose=True)
+        bNeedFileWatch = False
         nameValuePairs = getNameValuePairs(newLine, cmdFileAccess)
         if len(nameValuePairs) > 0:
             findingsDict = processNameValuePairs(nameValuePairs)
@@ -820,19 +954,19 @@ def processIncomingRequest(newLine, Ser):
                         break
                 if not bHaveAllKeys:
                     errorTxt = 'missing named parameter [{}]'.format(missingParmName)
-                    sendValidationError(Ser, "faccess", errorTxt)
+                    sendValidationError(serPort, "faccess", errorTxt)
                 else:
                     # validate dirID is valid Enum number
                     dirID = int(findingsDict[keyFileAccDir])
                     if dirID not in FolderId._value2member_map_:    # in list of valid Enum numbers?
                         errorTxt = 'bad parm dir={} - unknown folder ID'.format(dirID)
-                        sendValidationError(Ser, "faccess", errorTxt)
+                        sendValidationError(serPort, "faccess", errorTxt)
                     else:
                         # validate modeId is valid Enum number
                         modeId = int(findingsDict[keyFileAccMode])
                         if modeId not in FileMode._value2member_map_:    # in list of valid Enum numbers?
                             errorTxt = 'bad parm mode={} - unknown file-mode ID'.format(modeId)
-                            sendValidationError(Ser, "faccess", errorTxt)
+                            sendValidationError(serPort, "faccess", errorTxt)
                         else:
                             dirSpec = folderSpecByFolderId[FolderId(dirID)]
                             filename = findingsDict[keyFileAccFName]
@@ -840,21 +974,38 @@ def processIncomingRequest(newLine, Ser):
                             bCanAccessStatus = True
                             # if file should exist ensure it does, report if not
                             if FileMode(modeId) == FileMode.FM_READONLY or FileMode(modeId) == FileMode.FM_WRITE:
+                                # P2 wants to access read/write an existing file
                                 # determine if filename exists in dir
                                 if not os.path.exists(filespec):
+                                    # if it doesn't exist report the error!
                                     print_line('ERROR file named=[{}] not found fspec=[{}]'.format(filename, filespec), debug=True)
                                     errorTxt = 'bad fname={} - file NOT found'.format(filename)
-                                    sendValidationError(Ser, "faccess", errorTxt)
+                                    sendValidationError(serPort, "faccess", errorTxt)
                                     bCanAccessStatus = False
-                            if FileMode(modeId) == FileMode.FM_WRITE_CREATE:
+                            elif FileMode(modeId) == FileMode.FM_WRITE_CREATE:
+                                # P2 will write to file, so create empty if doesn't exist
                                 if not os.path.exists(filespec):
                                     # let's create the file
                                     print_line('* create empty file [{}]'.format(filespec), verbose=True)
                                     open(filespec, 'a').close() # equiv to touch(1)
+                            elif FileMode(modeId) == FileMode.FM_LISTEN:
+                                # P2 wants to be notified of content changes to this file!
+                                # first, warn if this is not in control DIR!
+                                if FolderId(dirID) != FolderId.EFI_CONTROL:
+                                    print_line('ERROR attempt to watch file named=[{}] not in /control/ folder. Folder=[{}]'.format(filename, FolderId(dirID)), error=True)
+                                    errorTxt = 'bad fname={} not in /control/! folder={}'.format(filename, FolderId(dirID))
+                                    sendValidationError(serPort, "faccess", errorTxt)
+                                    bCanAccessStatus = False
+                                else:
+                                    # Register need to report changes!
+                                    bNeedFileWatch = True
                             if bCanAccessStatus == True:
                                 # return findings as response
                                 newFileIdStr = fileHandles.handleStringForFile(filename, FileMode(modeId), dirSpec)
-                                sendValidationSuccess(Ser, "faccess", "collId", newFileIdStr)
+                                if bNeedFileWatch:
+                                    # activate our file watching!
+                                    fileHandles.addWatchForHandle(newFileIdStr)
+                                sendValidationSuccess(serPort, "faccess", "collId", newFileIdStr)
             else:
                 print_line('processIncomingRequest nameValueStr({})=[{}] ! missing FileAccess params !'.format(len(newLine), newLine), warning=True)
     else:
@@ -867,15 +1018,15 @@ def writeJsonFile(outFSpec, dataDict):
         # append a final newline
         write_file.write("\n")
 
-def sendValidationError(Ser, cmdPrefixStr, errorMessage):
+def sendValidationError(serPort, cmdPrefixStr, errorMessage):
     # format and send an error message via outgoing serial
     successStatus = False
     responseStr = '{}:status={}{}msg={}\n'.format(cmdPrefixStr, successStatus, parm_sep, errorMessage)
     newOutLine = responseStr.encode('utf-8')
     print_line('sendValidationError line({})=[{}]'.format(len(newOutLine), newOutLine), error=True)
-    Ser.write(newOutLine)
+    serPort.write(newOutLine)
 
-def sendValidationSuccess(Ser, cmdPrefixStr, returnKeyStr, returnValueStr):
+def sendValidationSuccess(serPort, cmdPrefixStr, returnKeyStr, returnValueStr):
     # format and send an error message via outgoing serial
     successStatus = True
     if(len(returnKeyStr) > 0):
@@ -885,28 +1036,49 @@ def sendValidationSuccess(Ser, cmdPrefixStr, returnKeyStr, returnValueStr):
         # no key so just send final status
         responseStr = '{}:status={}\n'.format(cmdPrefixStr, successStatus)
     newOutLine = responseStr.encode('utf-8')
-    print_line('sendValidationSuccess line({})=({})'.format(len(newOutLine), newOutLine), debug=True)
-    Ser.write(newOutLine)
+    print_line('sendValidationSuccess line({})=({})'.format(len(newOutLine), newOutLine), verbose=True)
+    serPort.write(newOutLine)
 
-def processInput(Ser):
+def sendVariableChanged(serPort, varName, varValue):
+        # format and send an error message via outgoing serial
+    responseStr = 'ctrl:{}={}\n'.format(varName, varValue)
+    newOutLine = responseStr.encode('utf-8')
+    print_line('sendVariableChanged line({})=[{}]'.format(len(newOutLine), newOutLine), verbose=True)
+    serPort.write(newOutLine)
+    sleep(0.2)  # pause 2/10ths of second
+
+def genNextRxString(countValue):
+    # format expected RX message for comparison use
+    desiredFileIdStr = 'P2TestMsg#{:05d}'.format(int(countValue))
+    return desiredFileIdStr
+
+def genNextTxString(countValue):
+    # generate expected TX message to send
+    desiredFileIdStr = 'RPiTestMsg#{:05d}'.format(int(countValue))
+    return desiredFileIdStr
+
+
+def processInput(serPort):
+    global queueRxLines
     while True:             # get Loop (if something, get another)
         # process an incoming line - creates our windows as needed
-        currLine = popLine()
+        currLine = queueRxLines.popLine()
 
         if len(currLine) > 0:
-            processIncomingRequest(currLine, Ser)
+            processIncomingRequest(currLine, serPort)
         else:
             break
 
-def genSomeOutput(Ser):
+def genSomeOutput(serPort):
     newOutLine = b'Hello p2\n'
     print_line('genSomeOutput line({})=({})'.format(len(newOutLine), newOutLine), debug=True)
-    ser.write(newOutLine)
+    serPort.write(newOutLine)
 
-def mainLoop(ser):
+def mainLoop(serPort):
+    print_line('Thread: MainLoop() running', verbose=True)
     while True:             # Event Loop
-        processInput(ser)
-        # genSomeOutput(ser)
+        processInput(serPort)
+        # genSomeOutput(serPort)
         sleep(0.2)  # pause 2/10ths of second
 
 
@@ -961,21 +1133,58 @@ for dirSpec in folderSpecByFolderId.values():
     else:
         print_line('Dir [{}] - OK'.format(dirSpec), debug=True)
 
-# start our input task
-# 1,440,000 = 150x 9600 baud
-#   864,000 =  90x 9600 baud
+
+def reportFileChanged(fSpec):
+    # If file is of interest, Load json file and send vars to P2
+    if fileHandles.isWatchedFSpec(fSpec) == False:
+         print_line('CHK File [{}] is NOT watched'.format(fSpec), debug=True)
+    else:
+        print_line('CHK File [{}] is watched'.format(fSpec), debug=True)
+        # load json file
+        filesize = os.path.getsize(fSpec)
+        fileDict = {}   # start empty
+        if filesize > 0:    # if we have existing content, preload it
+            with open(fSpec, "r") as read_file:
+                fileAr = json.load(read_file)
+                fileDict = fileAr[0]    # PHP puts dict in array!?
+                for varName in fileDict.keys():
+                    varValue = fileDict[varName]
+                    print_line('Control [{}] = [{}]'.format(varName, varValue), debug=True)
+                    # send var to P2
+                    sendVariableChanged(serialPort, varName, varValue)
+
+
+colorama_init()  # Initialize our color console system
+
+# start our serial receive listener
+
+# 1,440,000 = 150x 9600 baud  FAILS P2 Tx
+#   864,000 =  90x 9600 baud  FAILS P2 Tx
+#   720,000 =  75x 9600 baud  FAILS P2 Rx
+#   672,000 =  70x 9600 baud  FAILS P2 Rx
+#   624,000 =  65x 9600 baud  GOOD (Serial test proven)
+#   499,200 =  52x 9600 baud
 #   480,000 =  50x 9600 baud
-###  864000 -> 842105   RPi at
-baudRate = 500000
+#
+baudRate = 624000
 print_line('Baud rate: {:,} bits/sec'.format(baudRate), verbose=True)
 
-ser = serial.Serial ("/dev/serial0", baudRate, timeout=1)    #Open port with baud rate & timeout
+serialPort = serial.Serial ("/dev/serial0", baudRate, timeout=1)    #Open port with baud rate & timeout
 
-_thread.start_new_thread(taskSerialListener, ( ser, ))
+queueRxLines = RxLineQueue()
+
+_thread.start_new_thread(taskSerialListener, ( serialPort, ))
+
+# start our file-system watcher
+dirWatcher = FileSystemWatcher()
+#dirWatcher.run()
+_thread.start_new_thread(dirWatcher.run, ( ))
+
+sleep(1)    # aloow threads to start...
 
 # run our loop
 try:
-    mainLoop(ser)
+    mainLoop(serialPort)
 
 finally:
     # normal shutdown

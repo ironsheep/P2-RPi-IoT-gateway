@@ -31,11 +31,11 @@ CON { RPi Gateway io pins }
   RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
   TX_GW    = 24  { O }
 
-  GW_BAUDRATE = 500_000   ' 500kb/s - allow P2 rx to keep up!
+  GW_BAUDRATE = 624_000   ' 624kb/s - allow P2 rx to keep up!
 
 OBJ { Objects Used by this Object }
 
-    IoT_GW      :   "RPi-IoT-gw"                                        ' serial I/O
+    IoT_GW      :   "isp_rpi_iot_gw"                            ' serial I/O
 
 DAT { our email and hardware ID strings }
 
@@ -56,6 +56,7 @@ PUB main()
     ' (each time we need to send) tell the RPi to send an email message
     IoT_GW.sendEmail(@emailTo, @emailFrom, @emailSubj, @emailBody)
 
+    debug("***  DONE  ***")
      ' terminate communication with our gateway RPi
     IoT_GW.stop()
 

@@ -31,7 +31,7 @@ CON { RPi Gateway io pins }
   RX_GW    = 25  { I }                                          ' Raspberry Pi (RPi) Gateway
   TX_GW    = 24  { O }
 
-  GW_BAUDRATE = 500_000   ' 500kb/s - allow P2 rx to keep up!
+  GW_BAUDRATE = 624_000   ' 624kb/s - allow P2 rx to keep up!
 
 CON { 1-wire devices io pins }
 
@@ -43,7 +43,7 @@ CON { 1-wire devices io pins }
 
 OBJ { Objects Used by this Object }
 
-    IoT_GW      :   "RPi-IoT-gw"            ' serial I/O to/from RPi
+    IoT_GW      :   "isp_rpi_iot_gw"        ' serial I/O to/from RPi
     ds18s20_OW  :   "isp_ds18s20"           ' DS18S20 one-wire temp sensor
     strFmt      :   "isp_serial_singleton"  ' format to memory routines
     srchOW      :   "isp_ow_search"         '   search routines for 1-Wire
@@ -121,7 +121,7 @@ PUB main() | opStatus, nIdx, nCollId, pRetString, owStatus, nTics, tempC, tempF,
                     debug("* main: 1-wire says [", zstr_(pBffr), "]")
 
                     ' write string value to collection
-                    opStatus := IoT_GW.fileWriteStr(nCollId, string("tempSensorStr"), pBffr)
+                    opStatus := IoT_GW.fileWriteString(nCollId, string("tempSensorStr"), pBffr)
                     if opStatus <> IoT_GW.OP_SUCCESS
                         debug("* main: Error Failed to write string value!")
                     else

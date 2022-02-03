@@ -1,13 +1,13 @@
 '' =================================================================================================
 ''
-''   File....... demo_p2gw_texts.spin2
-''   Purpose.... Demonstrate sending a text message to a phone
+''   File....... demo_p2gw_ser_test.spin2
+''   Purpose.... Test our seial link - report errors
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
-''   Started.... Jan 2022
-''   Updated.... 06 Jan 2022
+''   Started.... Feb 2022
+''   Updated.... 1 Feb 2022
 ''
 '' =================================================================================================
 
@@ -39,30 +39,46 @@ OBJ { Objects Used by this Object }
 
 DAT { our email and hardware ID strings }
 
-p2HardwareID    byte    "P2 Edge - GWDemo",0
+    p2HardwareID    byte    "P2 Edge - GWSerTst",0
 
-smsPhoneNbr     byte    "7199303881",0
-smsTextMessage  byte    "hi,\n  This is being sent from the P2 via the RPi gateway\n\nRegards,\nYour friendly P2!\n",0
+CON { TEST VALUES }
 
-PUB main()
-    '' DEMO Tell our RPi send a text message
+    SEND_FIRST_COUNT = True
+    NEXT_NEXT_COUNT = False
 
-    ' start the serial connection to our gateway RPi
-    IoT_GW.startx(RX_GW, RX_GW, GW_BAUDRATE)
+    COUNT_MESSAGES_TO_SEND = 100
 
-    ' tell the RPi about how to identify this hardware
+PUB main() | eOpStatus, nRpiErrCt, pRpiMsg, nRPiCt, nP2Ct
+    '' DEMO exchange messages with RPi to determine if serial link is OK
+    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)
+
+    ' (one time) tell the RPi about how to identify this hardware
     IoT_GW.identify(@p2HardwareID)
 
-    ' tell the RPi to send a text message
-    IoT_GW.sendSMS(@smsPhoneNbr, @smsTextMessage)
+    eOpStatus, nRpiErrCt, pRpiMsg := IoT_GW.sendTestMessage(SEND_FIRST_COUNT)
+    if eOpStatus <> IoT_GW.OP_SUCCESS
+        ' NOTE error message is returned in {pRpiMsg}
+        debug("* main: ERROR Failed to Send Test Message [", zstr_(@pRpiMsg), "]!")
+    else
+        ' COMPARE 1st RX'd message and report
 
-    ' terminate communication with our gateway RPi
+        repeat COUNT_MESSAGES_TO_SEND - 1  ' we aready did one
+            eOpStatus, nRpiErrCt, pRpiMsg := IoT_GW.sendTestMessage(NEXT_NEXT_COUNT)
+            if eOpStatus <> IoT_GW.OP_SUCCESS
+                debug("* main: Failed to Send Test Message [", zstr_(@pRpiMsg), "]!")
+                quit
+            ' COMPARE 2-N RX'd message and report
+        nRPiCt, nP2Ct := IoT_GW.getErrorCtrs()
+        debug("* main: End Test - Error Counters  RPi-Tx(", udec(nRPiCt), "), P2-Rx(", udec(nP2Ct), ")")
+
+
+    debug("***  DONE  ***")
+     ' terminate communication with our gateway RPi
     IoT_GW.stop()
 
-
 CON { license }
-
 {{
+
  -------------------------------------------------------------------------------------------------
   MIT License
 

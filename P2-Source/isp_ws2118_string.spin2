@@ -1,0 +1,300 @@
+'' =================================================================================================
+''
+''   File....... isp_ws2118_string.spin2
+''   Purpose.... Our light string object (collected from jm_ class files)
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Jan 2022
+''   Updated.... 22 Jan 2022
+''
+'' =================================================================================================
+CON { forwarded constants }
+
+  BLACK      = LEDs.BLACK
+  RED        = LEDs.RED
+  GREEN      = LEDs.GREEN
+  BLUE       = LEDs.BLUE
+  WHITE      = LEDs.WHITE
+  WHITE2     = LEDs.WHITE2
+  CYAN       = LEDs.CYAN
+  MAGENTA    = LEDs.MAGENTA
+  YELLOW     = LEDs.YELLOW
+  CHARTREUSE = LEDs.CHARTREUSE
+  ORANGE     = LEDs.ORANGE
+  AQUAMARINE = LEDs.AQUAMARINE
+  PINK       = LEDs.PINK
+  TURQUOISE  = LEDs.TURQUOISE
+  REALWHITE  = LEDs.REALWHITE
+  INDIGO     = LEDs.INDIGO
+  VIOLET     = LEDs.VIOLET
+  MAROON     = LEDs.MAROON
+  BROWN      = LEDs.BROWN
+  CRIMSON    = LEDs.CRIMSON
+  PURPLE     = LEDs.PURPLE
+
+CON { driver state enums }
+
+#0, ST_UNKNOWN, ST_COLOR1, ST_COLOR2, ST_FLASH, ST_FADE, ST_CHASE, ST_TWINKLE, ST_OFF
+
+
+OBJ { objects used by this object }
+
+  timer : "jm_ez_timer"                                         '   simple delta timer
+  LEDs  : "jm_rgbx_pixel"                                       ' * smart pixel driver
+  prng  : "jm_prng"                                             '   random numbers
+
+PUB null()
+
+'' This is not a top level object
+
+PUB start(nPin, nPixels)
+'' Configure hardware resources allowing access to LED String
+    actualPixelCt := nPixels
+    txPin := npin
+
+    ' set default colors
+    nRGBwColor1 := RED
+    nRGBwColor2 := BLUE
+    ' set inital state
+    eState := ST_COLOR1
+    setDelay(25)   ' 1/4 of [0-100]
+
+    LEDs.start_2811(@pixbuf, nPixels, txPin, 5)                ' start pixel driver for WS2811 *
+    ' start our state-machine task in own cog
+    smCogId := cogspin(newcog, taskRunStateMachine(), @taskStack)
+    if smCogId == -1    ' did fail?
+        debug("!! ERROR filed to start RX-QUE task")
+
+PUB stop()
+'' Release hardware resources used by string
+    if (smCogId)
+        cogstop(smCogId - 1)
+        smCogId := 0
+    LEDs.stop()
+
+PUB color1RBGw() : nColorRGBw
+'' Return the current value for Color1
+    nColorRGBw := nRGBwColor1
+
+PUB setColor1(nColorRGBw)
+'' Set new value for nRGBwColor1
+    nRGBwColor1 := nColorRGBw
+
+PUB color2RBGw() : nColorRGBw
+'' Return the current value for Color2
+    nColorRGBw := nRGBwColor2
+
+PUB setColor2(nColorRGBw)
+'' Set new value for nRGBwColor2
+    nRGBwColor2 := nColorRGBw
+
+PUB convRGBtoRGBw(nColorRGB) : nColorRGBw
+'' Move from 24 (RGB) to 32 bit (RGBw) colorspace
+    nColorRGBw := nColorRGB << 8
+
+PUB displayState() : nDesiredState
+'' Return the last selected display state
+    nDesiredState := eState
+
+PUB delay() : nDesiredDelay
+'' Return the last set delay value
+    nDesiredDelay := requestedDelay
+
+PUB setDelay(tset)
+'' Convert delay slider from 0..100 (tset) to delay for current state
+  requestedDelay := tset
+
+  case eState
+    ST_FLASH : nDelayInTics := map(requestedDelay, 0, 100, 5000,  500)
+    ST_FADE : nDelayInTics := map(requestedDelay, 0, 100,   64,    8)
+    ST_CHASE : nDelayInTics := map(requestedDelay, 0, 100, 1000,  100)
+    ST_TWINKLE : nDelayInTics := map(requestedDelay, 0, 100, 1000,   50)
+    other: nDelayInTics := map(requestedDelay, 0, 100, 1000,   50)
+
+PUB setAllColor1()
+'' Sets all LEDs to color1RBGw
+' just change state, cog will do the right thing
+  eState := ST_COLOR1
+
+PUB setAllColor2()
+'' Sets all LEDs to color2
+' just change state, cog will do the right thing
+  eState := ST_COLOR2
+
+PUB off()
+'' turn off string by showing black
+  eState := ST_OFF
+  LEDs.set_all(BLACK)
+
+PUB flash()
+'' Switch to flash mode
+  eState := ST_FLASH
+  substate := 0 ' init to 0 of [0,1]
+  doFlash()
+
+PUB fade()
+'' Switch to fade mode
+  eState := ST_FADE
+  doFade()
+
+PUB chase()
+'' Switch to chase mode
+  eState := ST_CHASE
+  substate := 0 ' init to 0 of [0-3]
+  doChase()
+
+PUB twinkle()
+'' Switch to twinkle mode
+  eState := ST_TWINKLE
+  doTwinkle()
+
+CON { --- Private / Utility Methods --- }
+
+PRI taskRunStateMachine()
+' run our display statemachine
+  repeat
+    case eState
+      ST_COLOR1 : LEDs.set_all(nRGBwColor1)
+      ST_COLOR2 : LEDs.set_all(nRGBwColor2)
+      ST_FLASH : doFlash()
+      ST_FADE : doFade()
+      ST_CHASE : doChase()
+      ST_TWINKLE : doTwinkle()
+
+
+CON { object internal constants }
+
+  MAX_PIXELS = 50
+  'CMD_SIZE = 16
+
+  STACK_SIZE_LONGS = 48   ' 48, 32 crashes!
+
+var { internal object variables }
+
+    long  phase
+    long  direction
+
+    long  eState                                                   ' program state
+    long  nRGBwColor1
+    long  nRGBwColor2
+    long  nDelayInTics
+
+    long  dirty                                                   ' force update
+    long  substate                                                ' program sub-state flash:[0,1], chase[0-3]
+
+    long  pixbuf[MAX_PIXELS]                                        ' pixel buffer
+    long  actualPixelCt   ' actual pixels in string
+    long  txPin   ' pin on which string is listening
+
+DAT
+
+    taskStack       long    0[STACK_SIZE_LONGS]
+    smCogId         long    0
+    requestedDelay  long    15  ' default display value
+
+PRI map(value, inmin, inmax, outmin, outmax) : result
+' Maps value in range inmin..inmax to new value in range outmin..outmax
+
+  if (value <= inmin)
+    result := outmin
+  elseif (value >= inmax)
+    result :=  outmax
+  else
+    result :=  (value-inmin) * (outmax-outmin) / (inmax-inmin) + outmin
+
+PRI doFlash()
+
+  if ((timer.millis() < nDelayInTics) && (dirty == false))             ' timer expired or update?
+    return
+
+  timer.start()
+  dirty := false
+  substate := (substate == 0) ? 1 : 0                           ' toggle substate [0,1]
+
+  LEDs.set_all(nRGBwColor1[substate])                               ' show nRGBwColor1 or nRGBwColor2
+
+
+PRI doFade()
+
+  if ((timer.millis() < nDelayInTics) && (dirty == false))
+    return
+
+  timer.start()
+
+  if (dirty)                                                    ' first run?
+    phase, direction := 0, 1                                    '  set phase & direction
+    dirty := false
+
+  phase += direction                                            ' update phase
+  LEDs.set_all(LEDs.morph(nRGBwColor1, nRGBwColor2, phase))             ' update color
+
+  if (phase == 255)                                             ' check direction change
+    direction := -1
+  elseif (phase == 0)
+    direction := 1
+
+
+PRI doChase() | buf[4], ch
+
+  if ((timer.millis() < nDelayInTics) && (dirty == false))
+    return
+
+  timer.start()
+  dirty := false
+
+  longfill(@buf, nRGBwColor2, 4)                                     ' fill w/background
+  buf[substate] := nRGBwColor1                                       ' set foreground
+
+  ch := 0                                                       ' start at front
+  repeat actualPixelCt/4                                             ' fill buffer w/chase seq
+    longmove(@pixbuf[ch], @buf, 4)
+    ch += 4
+
+  longmove(@pixbuf[ch], @buf, actualPixelCt-ch)                      ' finish partial sequence
+
+  if (++substate == 4)                                          ' update substate [0-3]
+    substate := 0
+
+
+PRI doTwinkle() | ch, level
+
+  if ((timer.millis() < nDelayInTics) && (dirty == false))
+    return
+
+  timer.start()
+  dirty := false
+
+  repeat ch from 0 to actualPixelCt-1                                ' fill string
+    level := prng.xrandomize(1, 4)                              ' 25 to 100%
+    LEDs.set(ch, LEDs.scale_rgbw(nRGBwColor1, 64*level))
+
+
+CON { license }
+{{
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2022 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}

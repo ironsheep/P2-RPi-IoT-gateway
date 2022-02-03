@@ -140,22 +140,22 @@ PUB searchFamily(bytFamilyCode, p_sn, maxCount) : idsFoundCount | pIDBffr
     'pst.fstr2(string("-- searchFamily()  RET=%d, found=%d\r\n"), idsFoundCount, dvcIdCount)
 
 PUB totalDevicesFound() : devicesSeenCount
-    '' return number of devices seen on 1-wire line during search
+    '' Return number of devices seen on 1-wire line during search
     devicesSeenCount := dvcIdCount
 
 PUB totalFamilyIdsFound() : familyIdsSeenCount
-    '' return the number of unique family IDs seen on 1-wire line
+    '' Return the number of unique family IDs seen on 1-wire line
     familyIdsSeenCount := familyIdCt
 
 PUB deviceCountForFamilyID(bytFamilyID) : devicesSeenCount | matchIndex, bHaveFamilyId
-    '' return the number of devices seen for family ID -or- zero if no devices found
+    '' Return the number of devices seen for family ID -or- zero if no devices found
     devicesSeenCount := 0
     bHaveFamilyId, matchIndex := locateFamilyId(bytFamilyID)
     if bHaveFamilyId
         devicesSeenCount := BYTE [@countByFamilyId][matchIndex]
 
 PUB uniqueFamilyIDforIndex(familyIdIndex) : familyId
-    '' return the family id for given index (limited by count of family IDs seen)
+    '' Return the family id for given index (limited by count of family IDs seen)
     ''   -or- NO_SUCH_FAMILY_ID if bad index or none devices found
     familyId := NO_SUCH_FAMILY_ID
     if familyIdIndex >= 0 && familyIdIndex < MAX_FAMILY_IDS

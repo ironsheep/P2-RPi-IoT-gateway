@@ -5,14 +5,13 @@ SCRIPT_VERSION="1.0"
 DIRS=`cat << EOF
 /tmp/P2-RPi-ioT-gateway
 /var/P2-RPi-ioT-gateway
-/var/P2-RPi-ioT-gateway/control
 /var/P2-RPi-ioT-gateway/status
 /var/log/P2-RPi-ioT-gateway
 /var/P2-RPi-ioT-gateway/mail
 /var/P2-RPi-ioT-gateway/proc
 EOF
 `
-
+# create all dirs but our new .../control dir
 for DIR in $DIRS; do
     echo "  -- ${DIR} --  "
     mkdir ${DIR} 2>/dev/null
@@ -20,3 +19,18 @@ for DIR in $DIRS; do
     sudo chmod 775 ${DIR}
     ls -ld ${DIR}
 done
+
+# Special for web-server .../control dir
+DIR=/var/www/html/P2-RPi-ioT-gateway/control
+    echo "  -- ${DIR} --  "
+    sudo mkdir -p ${DIR} 2>/dev/null
+    sudo chown pi:www-data ${DIR}
+    sudo chmod g+w ${DIR}
+    ls -ld ${DIR}
+
+# and remove old dir if present
+OLDDIR=/var/P2-RPi-ioT-gateway/control
+if [ -d ${OLDDIR} ]; then
+   echo "${SCRIPT}: removing outdated directory:" >&2
+   (set -x;sudo rm -rf ${OLDDIR})
+fi

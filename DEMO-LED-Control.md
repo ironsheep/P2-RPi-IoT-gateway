@@ -1,4 +1,4 @@
-# P2 RPi ioT Gateway - Web: 1-wire Demo
+# P2 RPi ioT Gateway - Web: LED-String Control Demo
 
 Enable an RPi to serve as an ioT gateway for our P2 Hardware - while dedicating only 2 pins for serial communication
 
@@ -11,16 +11,17 @@ This demo consists of a web page to be placed where the RPi web server can find 
 
 | Spin2/webPage File Name(s) | Demonstration | Form 
 | --- | --- | --- |
-| [demo\_p2gw_1wireStatus.spin2](P2-Source/demo_p2gw_1wireStatus.spin2) | Display live 1-wire temp sensor data - read sensor send data to status folder on gateway | App
-| [Archive of Demo Web Page](demoWebPageSets/demoFiles-bs1wire.tar.gz) | Display live 1-wire temp sensor data - web page shows reported sensor data along with details of the RPi host which is running the web server | Web Page Folder 
+| [demo\_p2gw\_web_control.spin2](P2-Source/demo_p2gw_web_control.spin2) | Control the String of LED lights from a served web-page | App
+| [Archive of Demo Web Page](demoWebPageSets/demoFiles-webCtrl.tar.gz) | String of LED lights - web page shows controls for LED Lights along with details of the RPi host which is running the web server | Web Page Folder 
 
-Once this web page is put into place and the demo is run on the P2 you browse to the web page being presented from the RPi to see the new web sensor page: 
+Once this web page is put into place and the demo is run on the P2 you browse to the web page being presented from the RPi to see the new web control page: 
+
+![Demo Goal](./Docs/images/demoWebControl.png)
                                                                                             
-![Demo Goal](./Docs/images/demo-1-wire.png)
 
-## Wiring the 1-wire device
+## Wiring the LED String
 
-The **demo\_p2gw_1wireStatus.spin2** program is configured to use P2 pin 16 for the 1-wire device.
+The **demo\_p2gw\_web_control.spin2** program is configured to use P2 pin 16 for the LED string.
 
 
 **P2 Connections expected by Demo:**
@@ -28,11 +29,11 @@ The **demo\_p2gw_1wireStatus.spin2** program is configured to use P2 pin 16 for 
 | P2 Purpose | P2 Pin # |
 | --- | --- |
 | Signal ground | GND near Pin 16|
-| 1-wire data (DS18S20) | 16
+| LED Serial Data out | 16
 
-Pick a pin on your P2 dev board to be used for 1-wire communications. The demo file provided by this project defines this pin to be 16. Feel free to choose a different pin. Just remember to adjust the constant in your code to use your pin choice.
+Pick a pin on your P2 dev board to be used for LED serial  communications. The demo file provided by this project defines this pin to be 16. Feel free to choose a different pin. Just remember to adjust the constant in your code to use your pin choice.
 
-## Install the 1-wire demo
+## Install the Web Control Demo
 
 The .spin2 source for this demo is found in `/opt/P2-RPi-ioT-gateway/P2-Source` You will need to install the web page source under the web server.
 
@@ -40,16 +41,18 @@ Installing is pretty easy. The web-page demo files are also present. They live i
 
 ```bash
 cd /var/www/html
-tar -xzvf /opt/P2-RPi-ioT-gateway/demoWebPageSets/demoFiles-bs1wire.tar.gz
+tar -xzvf /opt/P2-RPi-ioT-gateway/demoWebPageSets/demoFiles-webCtrl.tar.gz
 ```
 
-This should create a folder `/var/www/html/bs1wire/' which now has a top-level `index.php` page therein.
+This should create a folder `/var/www/html/webCtrl/' which now has a top-level `index.php` page therein.
 
-After these files are unpacked you should be able to point your browser to: `http://{mypihostname|orIpAddress/bs1wire`
+After these files are unpacked you should be able to point your browser to: `http://{mypihostname|orIpAddress/webCtrl`
 
 All that's left then is run the demo .spin2 on your P2 after making sure your P2 and your RPi are connected via serial and that your Gateway Daemon is already running.
 
 This demo should provide a good reference for how to create similar services. 
+
+You are now controlling your LED String from a web page!
 
 Enjoy!
 
@@ -57,22 +60,35 @@ Enjoy!
 
 **remember:** *collections in gateway parlance are files which contain one or more key-value pairs.*
 
-This demo uses a couple of collections (files) on the RPi. The status file is created when the P2 reads the Temperature 1-wire device and sends the value to the RPi. The Proc file is generated automatically whenever the Daemon is run.
+This demo uses a couple of collections (files) on the RPi. The status file is created when the P2 starts up and sends its initial color values to the RPi. The control file is written whenever the user makes and submits changes on the web page. And lastly, the Proc file is generated automatically whenever the Daemon is run.
 
 Collections used:
 
 | Collection Name | Created By | Description |
 | --- | --- | --- |
-| STATUS/**p2-1wireValues** | P2 write action | Value to send to web page
+| STATUS/**p2-ledStatus** | P2 write action | Values to send to web page
+| CONTROL/**p2-ledControl** | Web form Submit | Values written by web page, sent to P2 when written
 | PROC/**rpiHostInfo** | RPi Daemon | RPi details to be shown on web page
 
-Within the status file the P2 places one key-value pair:
+Within the status file the P2 places two key-value pairs:
 
 | Status Variable | Description |
 | --- | --- |
-| tempSensorStr | Temperature value (string) to be shown on web page
+|  color1 | The current value for color1
+|  color2 | The current value for color2
 
-Whenever the web page is loaded (or reloaded - every N seconds) this file is read, the value for `tempSensorStr` is pulled from the file and shown on the web page
+Whenever the web page is loaded (or reloaded - every N seconds) this file is read, the values for `color1 ` and `color2`are pulled from the file and the color pickers are preset to these values.
+
+When the web page values are changed and submitted it writes the following four key-value pairs:
+
+| Control Variable | Description |
+| --- | --- |
+|  color1 | The new value for color1
+|  color2 | The new value for color2
+|  displayMode | The new value idenitfying which pattern the lights should display
+|  rateDelay | The new value identifying the delay between patterns
+
+Automatically, our Daemon detects this file write and since the P2 has requested to be notified when this file is written, the Daemon then loads this file and sends all four named values to the P2.
 
 Additionally the web page shows content from one of our generated files **PROC/rpiHostInfo** which is maintained by our RPi Daemon and contains details of the RPi upon which the Daemon is running.
 
