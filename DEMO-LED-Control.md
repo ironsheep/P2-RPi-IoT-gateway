@@ -46,11 +46,44 @@ tar -xzvf /opt/P2-RPi-ioT-gateway/demoWebPageSets/demoFiles-webCtrl.tar.gz
 
 This should create a folder `/var/www/html/webCtrl/' which now has a top-level `index.php` page therein.
 
-After these files are unpacked you should be able to point your browser to: `http://{mypihostname|orIpAddress/webCtrl`
+After these files are unpacked you should be able to point your browser to: `http://{mypihostname|orIpAddress}/webCtrl`
 
-All that's left then is run the demo .spin2 on your P2 after making sure your P2 and your RPi are connected via serial and that your Gateway Daemon is already running.
+## Run the demo
 
-This demo should provide a good reference for how to create similar services. 
+For this demo you need:
+
+- P2 ready to load code
+- P2 wired to RPi (3-wire serial cable)
+- LED string wired to the P2 and powered correctly
+- RPi running our daemon (by hand or as Daemon from boot)
+- Web page unpacked into proper place
+
+### Startup
+
+- Ensure that the Daemon script is running
+- Compile and download `demo_p2gw_web_control.spin2` to the P2
+  - The demo on startup sends driver status to the RPi 
+  - The demo on startup also powers up the LED string with all LEDs set to red
+- Open brower to your newly installed web page
+  - This page should looks similar to the image above
+- Interact with the web page and watch the LEDs do what you command!
+
+#### What's the page doing?
+
+The web page is comprised of HTML code styled using CSS (as included files) and has PHP code intermixed with the HTML.
+
+The PHP code loads the values sent from the P2 and uses them as default values for the form it presents.  It also loads details about the host RPi on which it is running and shows these details.
+
+When you adjust the controls on the form, shown on the web page, and then press [Submit] all values you have set are then written into a control file as key-value pairs. The values placed in the file are shown below the form so you can see what's sent.
+
+The P2, when it started up, notified the RPi that it wanted to hear about any changes made to the control file (which the web-page writes to.)
+
+The Daemon sees that the file changed (since the web page just wrote to it), loads the KV pairs from the file and then sends them to the P2.
+
+Lastly the P2 evaluates the change as they arrive and tells the LED string what to change (Color, light pattern, delay, etc.)
+
+
+This demo should provide a good reference for how you can create similar services. 
 
 You are now controlling your LED String from a web page!
 

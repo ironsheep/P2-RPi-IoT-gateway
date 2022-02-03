@@ -45,7 +45,7 @@ tar -xzvf /opt/P2-RPi-ioT-gateway/demoWebPageSets/demoFiles-bs1wire.tar.gz
 
 This should create a folder `/var/www/html/bs1wire/' which now has a top-level `index.php` page therein.
 
-After these files are unpacked you should be able to point your browser to: `http://{mypihostname|orIpAddress/bs1wire`
+After these files are unpacked you should be able to point your browser to: `http://{mypihostname|orIpAddress}/bs1wire`
 
 All that's left then is run the demo .spin2 on your P2 after making sure your P2 and your RPi are connected via serial and that your Gateway Daemon is already running.
 
