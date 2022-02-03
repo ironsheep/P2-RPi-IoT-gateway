@@ -398,9 +398,9 @@ PUB getCtrlString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pWra
         copyWrappedStr(pUserDest, pWrappedStr, lenDest)
         nLen := strsize(pUserDest)
         freeWrappedString(pWrappedStr, nLen)
-        debug("getCtrlString: str=[", zstr_(pUserDest), "]")
+        'debug("gcs: str=[", zstr_(pUserDest), "]")
     else
-        debug("getCtrlString: str=[] - NOT PRESENT")
+        debug("gcs: ERROR str=[] - NOT PRESENT")
 
 PUB flushRxQueue()
 '' Reset all Rx Queue control and data (emptying it!)
@@ -575,8 +575,8 @@ PRI dequeueRxStr() : pRmStr
         if nQStrTailIdx > RX_STR_Q_MAX_LONGS - 1
             nQStrTailIdx := 0
         nQStrCount--
-        'if bDbgShoMem
-        debug("-- dqrs:", uhex_long(pRmStr), udec(nQStrCount))
+        if bDbgShoMem
+            debug("-- dqrs:", uhex_long(pRmStr), udec(nQStrCount))
     else
         debug("-- dequeueRxStr() !! ERROR string-queue empty!!")
     'dumpStrQ(string("FTER String Ptr Que"))
@@ -645,7 +645,7 @@ PRI getResultString(pUserDest, lenDest, bShouldWait) : pStr | bStringArrived, pW
         freeWrappedString(pWrappedStr, nLen)
         'debug("grs: str=[", zstr_(pUserDest), "]")
     else
-        debug("grs: str=[] - NOT PRESENT")
+        debug("grs: ERROR str=[] - NOT PRESENT")
 
 PRI controlParse(pRxBffr, pUserKey, nLenUserKey, pUserValue, nLenUserValue) : nStatus | lenRemaining, sep, nIdx, pSrchBffr, pKey, pVal, nChr
     ' Examples: "ctrl:enableColor=true\n"

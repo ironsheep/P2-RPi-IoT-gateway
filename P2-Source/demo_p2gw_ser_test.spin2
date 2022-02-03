@@ -46,7 +46,7 @@ CON { TEST VALUES }
     SEND_FIRST_COUNT = True
     NEXT_NEXT_COUNT = False
 
-    COUNT_MESSAGES_TO_SEND = 40
+    COUNT_MESSAGES_TO_SEND = 100
 
 PUB main() | eOpStatus, nRpiErrCt, pRpiMsg, nRPiCt, nP2Ct
     '' DEMO exchange messages with RPi to determine if serial link is OK

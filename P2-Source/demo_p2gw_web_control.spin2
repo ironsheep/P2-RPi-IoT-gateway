@@ -56,9 +56,6 @@ p2HardwareID    byte    "P2 Edge - GWDemo4",0
 statusFName     byte    "p2-ledStatus",0
 controlFName    byte    "p2-ledControl",0
 
-tempStr         byte    "923.05 F",0
-noDvcStr        byte    "- No Dvc -",0
-
 stringWork      byte    0[MAX_STRING_WORK_BYTES+1]
 
 CON
@@ -80,12 +77,6 @@ PUB main() | eOpStatus, nIdx, nCollId, eRxQStatus, eCmdId, tmpVar
     IoT_GW.identify(@p2HardwareID)
 
     LEDstr.start(LED_TXD_PIN, MAX_LEDS)
-    'LEDstr.setAll(LEDstr.GREEN)
-    'LEDstr.twinkle()
-    LEDstr.fade()
-    'LEDstr.chase()
-    'LEDstr.flash()
-    LEDstr.setDelay(15)
 
     ' Establish write access to named collection in /status/ folder
     eOpStatus, nCollId := IoT_GW.fileAccess(IoT_GW.EFI_STATUS, IoT_GW.FM_WRITE_CREATE, @statusFName)
@@ -136,12 +127,10 @@ PUB main() | eOpStatus, nIdx, nCollId, eRxQStatus, eCmdId, tmpVar
                                 CASE_FAST tmpVar
                                     LEDstr.ST_COLOR1:
                                         debug(" setColor1")
-                                        tmpVar := LEDstr.color1()
-                                        LEDstr.setAll(tmpVar)
+                                        LEDstr.setAllColor1()
                                     LEDstr.ST_COLOR2:
                                         debug(" setColor2")
-                                        tmpVar := LEDstr.color2()
-                                        LEDstr.setAll(tmpVar)
+                                        LEDstr.setAllColor2()
                                     LEDstr.ST_FLASH:
                                         debug(" flash")
                                         LEDstr.flash()
@@ -170,11 +159,11 @@ PUB main() | eOpStatus, nIdx, nCollId, eRxQStatus, eCmdId, tmpVar
 PRI updateOurStringStatus(nCollId) : opStatus | tmpValue, pValStr
 ' write our status values to the specified collection
     ' now write a named LONG value to it
-    tmpValue := LEDstr.color1()
+    tmpValue := LEDstr.color1RBGw()
     pValStr := colorAsHexString(tmpValue, @stringWork, MAX_STRING_WORK_BYTES)
     opStatus := IoT_GW.fileWriteString(nCollId, string("color1"), pValStr)
     if opStatus == IoT_GW.OP_SUCCESS
-        tmpValue := LEDstr.color2()
+        tmpValue := LEDstr.color2RBGw()
         pValStr := colorAsHexString(tmpValue, @stringWork, MAX_STRING_WORK_BYTES)
         opStatus := IoT_GW.fileWriteString(nCollId, string("color2"), pValStr)
         if opStatus == IoT_GW.OP_SUCCESS

@@ -55,10 +55,10 @@ PUB start(nPin, nPixels)
     txPin := npin
 
     ' set default colors
-    color1rgbw := RED
-    color2rgbw := BLUE
+    nRGBwColor1 := RED
+    nRGBwColor2 := BLUE
     ' set inital state
-    state := ST_COLOR1
+    eState := ST_COLOR1
     setDelay(25)   ' 1/4 of [0-100]
 
     LEDs.start_2811(@pixbuf, nPixels, txPin, 5)                ' start pixel driver for WS2811 *
@@ -74,29 +74,29 @@ PUB stop()
         smCogId := 0
     LEDs.stop()
 
-PUB color1() : nColorRGBW
-'' Return the current value for color1rgbw
-    nColorRGBW := color1rgbw
+PUB color1RBGw() : nColorRGBw
+'' Return the current value for Color1
+    nColorRGBw := nRGBwColor1
 
-PUB setColor1(nColorRGBW)
-'' Set new value for color1rgbw
-    color1rgbw := nColorRGBW
+PUB setColor1(nColorRGBw)
+'' Set new value for nRGBwColor1
+    nRGBwColor1 := nColorRGBw
 
-PUB color2() : nColorRGBW
-'' Return the current value for color2rgbw
-    nColorRGBW := color2rgbw
+PUB color2RBGw() : nColorRGBw
+'' Return the current value for Color2
+    nColorRGBw := nRGBwColor2
 
-PUB setColor2(nColorRGBW)
-'' Set new value for color2rgbw
-    color2rgbw := nColorRGBW
+PUB setColor2(nColorRGBw)
+'' Set new value for nRGBwColor2
+    nRGBwColor2 := nColorRGBw
 
-PUB convRGBtoRGBW(nColorRGB) : nColorRGBW
-'' Move from 24 to 32 bit colorspace
-    nColorRGBW := nColorRGB << 8
+PUB convRGBtoRGBw(nColorRGB) : nColorRGBw
+'' Move from 24 (RGB) to 32 bit (RGBw) colorspace
+    nColorRGBw := nColorRGB << 8
 
 PUB displayState() : nDesiredState
 '' Return the last selected display state
-    nDesiredState := state
+    nDesiredState := eState
 
 PUB delay() : nDesiredDelay
 '' Return the last set delay value
@@ -106,40 +106,48 @@ PUB setDelay(tset)
 '' Convert delay slider from 0..100 (tset) to delay for current state
   requestedDelay := tset
 
-  case state
-    ST_FLASH : delayInTics := map(tset, 0, 100, 5000,  500)
-    ST_FADE : delayInTics := map(tset, 0, 100,   64,    8)
-    ST_CHASE : delayInTics := map(tset, 0, 100, 1000,  100)
-    ST_TWINKLE : delayInTics := map(tset, 0, 100, 1000,   50)
-    other: delayInTics := map(tset, 0, 100, 1000,   50)
+  case eState
+    ST_FLASH : nDelayInTics := map(requestedDelay, 0, 100, 5000,  500)
+    ST_FADE : nDelayInTics := map(requestedDelay, 0, 100,   64,    8)
+    ST_CHASE : nDelayInTics := map(requestedDelay, 0, 100, 1000,  100)
+    ST_TWINKLE : nDelayInTics := map(requestedDelay, 0, 100, 1000,   50)
+    other: nDelayInTics := map(requestedDelay, 0, 100, 1000,   50)
 
-PUB setAll(rgbw)
-'' Sets all channels to rgb
-    LEDs.set_all(rgbw)
+PUB setAllColor1()
+'' Sets all LEDs to color1RBGw
+' just change state, cog will do the right thing
+  eState := ST_COLOR1
+
+PUB setAllColor2()
+'' Sets all LEDs to color2
+' just change state, cog will do the right thing
+  eState := ST_COLOR2
 
 PUB off()
 '' turn off string by showing black
-  state := ST_OFF
-  setAll(BLACK)
+  eState := ST_OFF
+  LEDs.set_all(BLACK)
 
 PUB flash()
 '' Switch to flash mode
-  state := ST_FLASH
+  eState := ST_FLASH
+  substate := 0 ' init to 0 of [0,1]
   doFlash()
 
 PUB fade()
 '' Switch to fade mode
-  state := ST_FADE
+  eState := ST_FADE
   doFade()
 
 PUB chase()
 '' Switch to chase mode
-  state := ST_CHASE
+  eState := ST_CHASE
+  substate := 0 ' init to 0 of [0-3]
   doChase()
 
 PUB twinkle()
 '' Switch to twinkle mode
-  state := ST_TWINKLE
+  eState := ST_TWINKLE
   doTwinkle()
 
 CON { --- Private / Utility Methods --- }
@@ -147,9 +155,9 @@ CON { --- Private / Utility Methods --- }
 PRI taskRunStateMachine()
 ' run our display statemachine
   repeat
-    case state
-      ST_COLOR1 : LEDs.set_all(color1rgbw)
-      ST_COLOR2 : LEDs.set_all(color2rgbw)
+    case eState
+      ST_COLOR1 : LEDs.set_all(nRGBwColor1)
+      ST_COLOR2 : LEDs.set_all(nRGBwColor2)
       ST_FLASH : doFlash()
       ST_FADE : doFade()
       ST_CHASE : doChase()
@@ -168,13 +176,13 @@ var { internal object variables }
     long  phase
     long  direction
 
-    long  state                                                   ' program state
-    long  color1rgbw
-    long  color2rgbw
-    long  delayInTics
+    long  eState                                                   ' program state
+    long  nRGBwColor1
+    long  nRGBwColor2
+    long  nDelayInTics
 
     long  dirty                                                   ' force update
-    long  substate                                                ' program sub-state
+    long  substate                                                ' program sub-state flash:[0,1], chase[0-3]
 
     long  pixbuf[MAX_PIXELS]                                        ' pixel buffer
     long  actualPixelCt   ' actual pixels in string
@@ -198,19 +206,19 @@ PRI map(value, inmin, inmax, outmin, outmax) : result
 
 PRI doFlash()
 
-  if ((timer.millis() < delayInTics) && (dirty == false))             ' timer expired or update?
+  if ((timer.millis() < nDelayInTics) && (dirty == false))             ' timer expired or update?
     return
 
   timer.start()
   dirty := false
-  substate := (substate == 0) ? 1 : 0                           ' toggle substate
+  substate := (substate == 0) ? 1 : 0                           ' toggle substate [0,1]
 
-  LEDs.set_all(color1rgbw[substate])                               ' show color1rgbw or color2rgbw
+  LEDs.set_all(nRGBwColor1[substate])                               ' show nRGBwColor1 or nRGBwColor2
 
 
 PRI doFade()
 
-  if ((timer.millis() < delayInTics) && (dirty == false))
+  if ((timer.millis() < nDelayInTics) && (dirty == false))
     return
 
   timer.start()
@@ -220,7 +228,7 @@ PRI doFade()
     dirty := false
 
   phase += direction                                            ' update phase
-  LEDs.set_all(LEDs.morph(color1rgbw, color2rgbw, phase))             ' update color
+  LEDs.set_all(LEDs.morph(nRGBwColor1, nRGBwColor2, phase))             ' update color
 
   if (phase == 255)                                             ' check direction change
     direction := -1
@@ -230,14 +238,14 @@ PRI doFade()
 
 PRI doChase() | buf[4], ch
 
-  if ((timer.millis() < delayInTics) && (dirty == false))
+  if ((timer.millis() < nDelayInTics) && (dirty == false))
     return
 
   timer.start()
   dirty := false
 
-  longfill(@buf, color2rgbw, 4)                                     ' fill w/background
-  buf[substate] := color1rgbw                                       ' set foreground
+  longfill(@buf, nRGBwColor2, 4)                                     ' fill w/background
+  buf[substate] := nRGBwColor1                                       ' set foreground
 
   ch := 0                                                       ' start at front
   repeat actualPixelCt/4                                             ' fill buffer w/chase seq
@@ -246,13 +254,13 @@ PRI doChase() | buf[4], ch
 
   longmove(@pixbuf[ch], @buf, actualPixelCt-ch)                      ' finish partial sequence
 
-  if (++substate == 4)                                          ' update substate
+  if (++substate == 4)                                          ' update substate [0-3]
     substate := 0
 
 
 PRI doTwinkle() | ch, level
 
-  if ((timer.millis() < delayInTics) && (dirty == false))
+  if ((timer.millis() < nDelayInTics) && (dirty == false))
     return
 
   timer.start()
@@ -260,7 +268,7 @@ PRI doTwinkle() | ch, level
 
   repeat ch from 0 to actualPixelCt-1                                ' fill string
     level := prng.xrandomize(1, 4)                              ' 25 to 100%
-    LEDs.set(ch, LEDs.scale_rgbw(color1rgbw, 64*level))
+    LEDs.set(ch, LEDs.scale_rgbw(nRGBwColor1, 64*level))
 
 
 CON { license }
