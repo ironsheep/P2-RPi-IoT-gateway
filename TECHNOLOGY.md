@@ -5,6 +5,21 @@ Enable an RPi to serve as an ioT gateway for our P2 Hardware - while dedicating 
 ![Project Maintenance][maintenance-shield]
 [![License][license-shield]](LICENSE)
 
+## Table of Contents
+
+On this Page:
+
+- [P2 communication with RPi](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/TECHNOLOGY.md#p2-communication-with-rpi) 
+- [Gateway Deamon on RPi](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/TECHNOLOGY.md#gateway-deamon-on-rpi) 
+- [Interactive web-pages on RPi](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/TECHNOLOGY.md#interactive-web-pages-on-rpi) 
+
+Additional pages:
+
+- [Main Page](README.md)
+- [Technology Used](TECHNOLOGY.md) (this page)
+- [Developing your own P2 Application](DEVELOP.md) using IoT gateway services
+
+---
 
 
 ## P2 communication with RPi
@@ -33,8 +48,21 @@ The Daemon script also watches for directory changes (files to be modified or ne
 
 ### Tools I use when working on the python Daemon script
 
+I'm doing all of my Python editing in [Visual Studio Code](https://code.visualstudio.com/) (VSCode) which I run on my desktop and remote into my RPi containing the python scripts using SSH. In order to use SSH to get into my RPi's I have the following extensions installed into VSCode:
+
+- [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh)
+- [Remote - SSH: Editing Configuration Files](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh-edit)
+
 ### Python References
 
+I use the following references when needing to do something I haven't before in the Python language:
+
+| Language | References |
+| --- | --- |
+| **Python** |
+|| [Python Tutorial/Ref. at W3 Schools](https://www.w3schools.com/python/)
+|| [python.org docs](https://www.python.org/doc/)
+|| [Python Package Index](https://pypi.org/) for when I need new libraries/frameworks for use with python
 
 ## Interactive web-pages on RPi
 
@@ -69,6 +97,13 @@ As an example (taken from our web-control demo) here are the actions behind the 
 
 
 ### Tools I use when working on the web pages
+
+I run on a Mac desktop.  My favorite tool for creating web pages is [Bootstrap Studio](https://bootstrapstudio.io/)  This tool provides easy WYSIWYG editing, easy CSS styling, good responsive layout code (pages you create can display well on mobile devices), and exports tiny files for you to place on your server.
+
+However, I edit the PHP and make final tweaks to the HTML/CSS by hand. Yes I'm doing all of the "by hand editing" in [Visual Studio Code](https://code.visualstudio.com/) (VSCode) which I run on my desktop and remote into my RPi containing the pages using SSH. In order to use SSH to get into my RPi's I have the following extensions installed into VSCode:
+
+- [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh)
+- [Remote - SSH: Editing Configuration Files](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh-edit)
 
 ### HTML, CSS and PHP References
 
