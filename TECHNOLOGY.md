@@ -9,15 +9,33 @@ Enable an RPi to serve as an ioT gateway for our P2 Hardware - while dedicating 
 
 ## P2 communication with RPi
 
-We use a simple Full-duplex serial link between your P2 board and the Raspberry Pi. We've crafted a single .spin2 object which is compiled into your code.  To configure it you specify which two P2 pins are to be used when communicating with the RPi.
+We use a simple Full-duplex serial link between your P2 board and the Raspberry Pi. We've crafted two .spin2 objects which are compiled into your code (The gateway object and a serial line-receiving queue object.) To configure the gateway you specify which two P2 pins are to be used when communicating with the RPi and iidenitfy the application running the gateway.
 
-To use this in your own project you simply compile-in the gateway object, start it and then make calls to it.
+To use this in your own project you simply compile-in the gateway objects, start it and then make calls to it.
+
+### IoT Gateway Objects
+
+The following objects are compiled into your app.
+
+- isp\_rpi\_iot_gw.spin2
+- isp\_queue_serial.spin2
+- jm_serial.spin2
+- jm_nstrings.spin2
+
+You simply include them with something like:
+
+```script
+OBJ { Objects Used by this Object }
+
+    IoT_GW      :   "isp_rpi_iot_gw"            ' serial I/O to/from RPi
+    rxQue       :   "isp_queue_serial"          ' acces our received data
+```
 
 ## Gateway Deamon on RPi
 
 On the RPi we have a single Python3 script which is run interactively or from power-on which listens to the serial traffic arriving from the P2. It validates the requests coming from the P2, and then acts on the request. Validation status and optionally requested data are returned to the P2 for each request.
 
-The Daemon script also watches for directory changes (files to be modofied or new files appearing) in the Control directory.  Web pages that want to send values to our P2 write to this Control directory. The P2 application tells the RPi if it wants to be told of changes to specific files on the RPi. If the RPi knows that the P2 is listening and the file is changes the RPi sends each KV pair found in the changed file to the waiting P2.
+The Daemon script also watches for directory changes (files to be modified or new files appearing) in the Control directory.  Web pages that want to send values to our P2 write to this Control directory. The P2 application tells the RPi if it wants to be told of changes to specific files on the RPi. If the RPi knows that the P2 is listening and the file is changes the RPi sends each KV pair found in the changed file to the waiting P2.
 
 ## Interactive web-pages on RPi
 
