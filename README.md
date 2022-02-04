@@ -45,8 +45,8 @@ Additional pages:
 - [Configure Web Server & PHP](SETUP-WEBSERV.md)
 - Configure SMS Service - *content TBA*
 - Configure Twitter Service - *content TBA*
-- [Technology Used](TECHNOLOGY.md) in this IoT Gateway
-- [Developing your own P2 Application](DEVELOP.md) using IoT gateway services - *content TBA*
+- [Technology/Tools Used](TECHNOLOGY.md) in this IoT Gateway
+- [Developing your own P2 Application](DEVELOP.md) using IoT gateway services
 - and experience I draw from wihile creating this project: [My Prior RPi Efforts](AUTHORS-RPI-WORK.md)
 
 ---

@@ -16,7 +16,7 @@ On this Page:
 Additional pages:
 
 - [Main Page](README.md)
-- [Technology Used](TECHNOLOGY.md) (this page)
+- [Technology/Tools Used](TECHNOLOGY.md) (this page)
 - [Developing your own P2 Application](DEVELOP.md) using IoT gateway services
 
 ---
