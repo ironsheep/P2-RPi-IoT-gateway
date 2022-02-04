@@ -18,11 +18,13 @@ On this Page:
 
 Additional pages:
 
-- [Top README](https://github.com/ironsheep/P2-RPi-ioT-gateway)
 - [Configure Email Service](SETUP-EMAIL.md)
-- Configure Twitter Service - *TBA*
-- Configure SMS Service- *TBA*
-- Configure Apache/PHP Service- *TBA*
+- [Configure Web Server & PHP](SETUP-WEBSERV.md)
+- Configure SMS Service - *content TBA*
+- Configure Twitter Service - *content TBA*
+- [Technology/Tools Used](TECHNOLOGY.md) in this IoT Gateway
+- [Developing your own P2 Application](DEVELOP.md) using IoT gateway services
+- and experience I draw from wihile creating this project: [My Prior RPi Efforts](AUTHORS-RPI-WORK.md)
 
 ---
 
@@ -55,7 +57,7 @@ First install extra packages the script needs (select one of the two following c
 sudo apt-get install git python3 python3-pip python3-tzlocal python3-sdnotify python3-colorama python3-unidecode python3-paho-mqtt python3-watchdog
 ```
 
-### Finish the script install
+### Finish the Gateway Project install
 
 Now that the extra packages are installed let's install our script and any remaining supporting python modules.
 
@@ -73,17 +75,24 @@ sudo pip3 install -r requirements.txt
 
 ... need to have any mention of `/opt/P2-RPi-ioT-gateway` changed to your install location **before you can run this script as a service.**
 
+### install the gateway helper scripts
+
+In this project we've provided scripts you can use routinely on your RPi.  The following scrips are found in the `/opt/P2-RPi-ioT-gateway/scripts` directory.  During the setup of your RPi you created a ~/bin directory. And you adjusted your login (by editing ~/.profile) so that any scripts in ~/bin can be run my name (without providing any path to them.)  So let's copy these new script to your ~/bin directory:
+
+```shell
+cp -p /opt/P2-RPi-ioT-gateway/scripts/* ~/bin # -p means preserve file times, permissions, etc.
+```
 
 ### Make our gateway directories
 
-Our Gateway knows of seven directories we'll be using. These directories do not yet exist when you are first installing this script.
+Our Gateway knows of seven directories we'll be using. These directories do not yet exist when you are first installing this project.
 
-There are two helper shell scripts that installed along side our Daemon python script. These are `lsGwDirs` and `mkGwDirs`.
+There are two helper shell scripts that installed along side our Daemon python script. These are `scripts/lsGwDirs` and `mkGwDirs`.
 
 Let's create the needed directories by running:
 
 ```shell
-sudo mkGwDirs    # create the needed Daemon directories
+sudo ./mkGwDirs    # create the needed Daemon directories
 ```
 
 Now let's list ths directories we just created:
@@ -92,7 +101,9 @@ Now let's list ths directories we just created:
 lsGwDirs     # list all gateway directories and the files in them
 ```
 
-This was practice!  As you are creating projects that use our gateway you will want to locate files that your P2 project or a new web-backend page created. You will use `lsGwDirs` to list the files that have been created.
+**NOTE**: we didn't provide a path or use `sudo` in this case.  This is because we just placed `lsGwDirs` in your ~/bin and it should have been found automatically because of being in ~/bin.
+
+This was practice!  As you are creating projects that use our gateway you will want to locate files that your P2 project or a new web-backend page created. You will use `lsGwDirs` to list the files that have been created any time you need to find them or remember their names, etc.
 
 ## Configuration of gateway services
 
@@ -247,7 +258,7 @@ Set up the script to be run as a system service as follows:
 
 **NOTE:** *Please remember to run the 'systemctl enable ...' once at first install, if you want your script to start up every time your RPi reboots!*
 
-#### Run as Sys V init script (*your RPi is running 'jessie' or you just like this form*)
+#### Run as Sys V init script (*your RPi is running 'jessie' or you just like this older form*)
 
 In this form our wrapper script located in the /etc/init.d directory and is run according to symbolic links in the `/etc/rc.x` directories.
 
