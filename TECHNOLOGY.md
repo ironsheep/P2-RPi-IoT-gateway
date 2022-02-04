@@ -1,4 +1,4 @@
-# P2 RPi ioT Gateway - Technology used
+# P2 RPi ioT Gateway - Technology and Tools Used
 
 Enable an RPi to serve as an ioT gateway for our P2 Hardware - while dedicating only 2 pins for serial communication
 
