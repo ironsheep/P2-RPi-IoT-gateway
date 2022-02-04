@@ -12,60 +12,64 @@
 '' =================================================================================================
 
 ' Enum: Folder Id values (EFI_*) - use in fileAccess() calls
-  #100, EFI_VAR, EFI_TMP, EFI_CONTROL, EFI_STATUS, EFI_LOG, EFI_MAIL, EFI_PROC
-  #200, FM_READONLY, FM_WRITE, FM_WRITE_CREATE, FM_LISTEN
+    #100, EFI_VAR, EFI_TMP, EFI_CONTROL, EFI_STATUS, EFI_LOG, EFI_MAIL, EFI_PROC
+    #200, FM_READONLY, FM_WRITE, FM_WRITE_CREATE, FM_LISTEN
 
 CON { fixed io pins }
 
-  RX1      = 63  { I }                                          ' programming / debug
-  TX1      = 62  { O }
+    RX1      = 63  { I }                                          ' programming / debug
+    TX1      = 62  { O }
 
-  SF_CS    = 61  { O }                                          ' serial flash
-  SF_SCK   = 60  { O }
-  SF_SDO   = 59  { O }
-  SF_SDI   = 58  { I }
+    SF_CS    = 61  { O }                                          ' serial flash
+    SF_SCK   = 60  { O }
+    SF_SDO   = 59  { O }
+    SF_SDI   = 58  { I }
 
 OBJ { Objects Used by this Object }
 
-    RPi         : "jm_serial"                                   ' serial I/O
-    nstr        : "jm_nstrings"                                 ' number-to-string
+    RPi         : "isp_serial"                                   ' serial I/O
     RPiRxQ      : "isp_queue_serial"                            ' Queued Receive on top of serial I/O
 
 CON { Object Interface: PUBLIC ENUMs }
 
-  OP_SUCCESS = RPiRxQ.OP_SUCCESS
-  OP_FAILURE = RPiRxQ.OP_FAILURE
+    OP_SUCCESS = RPiRxQ.OP_SUCCESS
+    OP_FAILURE = RPiRxQ.OP_FAILURE
 
+    ' tx pin pull-up constants
+    PU_NONE = RPi.PU_NONE
+    PU_1K5 = RPi.PU_1K5
+    PU_3K3 = RPi.PU_3K3
+    PU_15K = RPi.PU_15K                           ' pull-up options
 
 CON { driver config values}
 
 
 DAT { pin info saves }
 
-pinRx               long    0
-pinTx               long    0
+    pinRx               long    0
+    pinTx               long    0
 
 DAT { string constants }
 
-spin2ver    byte    "0.0.4",0
+    spin2ver    byte    "1.0.0",0
 
-' -------------------------------
-' the following are identical to that found in our deamon python script
-'   (!!!they must be kept in sync!!!)
-parmSep     byte    "^|^",0     ' chars that will not be found in user data
-bodyStart   byte    "email|Start",0
-bodyEnd     byte    "email|End",0
-' -------------------------------
+    ' -------------------------------
+    ' the following are identical to that found in our deamon python script
+    '   (!!!they must be kept in sync!!!)
+    parmSep     byte    "^|^",0     ' chars that will not be found in user data
+    bodyStart   byte    "email|Start",0
+    bodyEnd     byte    "email|End",0
+    ' -------------------------------
 
 PUB null()
 '' This is not a top level object
 
-PUB startx(rxpin, txpin, baud)
+PUB startx(rxpin, txpin, baud, pullup)
 '' Start RPi gateway serial coms on rxpin and txpin at baud
     pinRx := rxpin
     pinTx := txpin
-    RPi.startx(pinRx, pinTx, baud)                              ' use user serial port
-    RPiRxQ.startx(pinRx, pinTx, baud)  ' start back-end cog
+    RPi.startx(pinRx, pinTx, baud, pullup)                              ' use user serial port
+    RPiRxQ.startx(pinRx, pinTx, baud, pullup)  ' start back-end cog
 
 PUB stop()
 '' Release the serial pins (if needed)

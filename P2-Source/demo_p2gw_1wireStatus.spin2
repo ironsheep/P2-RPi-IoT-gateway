@@ -45,7 +45,7 @@ OBJ { Objects Used by this Object }
 
     IoT_GW      :   "isp_rpi_iot_gw"        ' serial I/O to/from RPi
     ds18s20_OW  :   "isp_ds18s20"           ' DS18S20 one-wire temp sensor
-    strFmt      :   "isp_serial_singleton"  ' format to memory routines
+    strFmt      :   "isp_mem_strings"       ' format to memory routines
     srchOW      :   "isp_ow_search"         '   search routines for 1-Wire
 
 DAT { our hardware ID strings and 1-wire buffers, collection names }
@@ -86,8 +86,8 @@ PUB main() | opStatus, nIdx, nCollId, pRetString, owStatus, nTics, tempC, tempF,
         srchOW.stop()   ' release pin
 
         if sns_Ct > 0
-            '' DEMO tell our RPi send an email for us
-            IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)
+            '' DEMO tell our RPi the temperature values read from 1-wire sensor
+            IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE, IoT_GW.PU_15K)
 
             ' (one time) tell the RPi about how to identify this hardware
             IoT_GW.identify(@p2HardwareID)
@@ -114,11 +114,11 @@ PUB main() | opStatus, nIdx, nCollId, pRetString, owStatus, nTics, tempC, tempF,
                     tempC := ds18s20_OW.read_tca(bUseDelay, @sn_buff)                            ' read the temperature
                     tempF := tempC * 9 / 5 + 32_0000                              ' convert to Fahrenheit
 
-                    pBffr := strFmt.sStr1(string("%6.2f C"), (tempC + 50)/100, @fmtBuffer)
-                    debug("* main: 1-wire says [", zstr_(pBffr), "]")
+                    strFmt.sFormatStr1(@fmtBuffer, string("%6.2f C"), (tempC + 50)/100)
+                    debug("* main: 1-wire says [", zstr_(@fmtBuffer), "]")
 
-                    pBffr := strFmt.sStr1(string("%6.2f F"), (tempF + 50)/100, @fmtBuffer)
-                    debug("* main: 1-wire says [", zstr_(pBffr), "]")
+                    strFmt.sFormatStr1(@fmtBuffer, string("%6.2f F"), (tempF + 50)/100)
+                    debug("* main: 1-wire says [", zstr_(@fmtBuffer), "]")
 
                     ' write string value to collection
                     opStatus := IoT_GW.fileWriteString(nCollId, string("tempSensorStr"), pBffr)

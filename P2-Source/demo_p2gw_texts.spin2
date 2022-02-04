@@ -48,7 +48,7 @@ PUB main()
     '' DEMO Tell our RPi send a text message
 
     ' start the serial connection to our gateway RPi
-    IoT_GW.startx(RX_GW, RX_GW, GW_BAUDRATE)
+    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE, IoT_GW.PU_15K)
 
     ' tell the RPi about how to identify this hardware
     IoT_GW.identify(@p2HardwareID)

@@ -5,7 +5,7 @@
 ''               -- same features as original P1 FDS with minor enhancements/changes
 ''               -- VAR content moved to DAT so we could share this singleton object across all objects in demo
 ''   Authors.... Eric Smith, Chip Gracey, and Jon McPhalen
-''               (singleton adaptation by Stephen M. Moraco from older file jm_serial.spin2)
+''               (singleton adaptation by Stephen M. Moraco from original file jm_serial.spin2)
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started....

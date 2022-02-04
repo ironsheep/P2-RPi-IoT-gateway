@@ -36,6 +36,7 @@ CON { RPi Gateway io pins }
 OBJ { Objects Used by this Object }
 
     IoT_GW      :   "isp_rpi_iot_gw"                            ' serial I/O
+    strFmt      :   "isp_mem_strings"                           ' format to memory routines
 
 DAT { our email and hardware ID strings }
 
@@ -44,14 +45,29 @@ p2HardwareID    byte    "P2 Edge - GWDemo1",0
 emailTo         byte    "stephen@ironsheep.biz",0
 emailFrom       byte    "stephen@moraco.us",0
 emailSubj       byte    "Hello from P2!",0
-emailBody       byte    "hi,\n  This is being sent from the P2 via the RPi gateway\n\nRegards,\nYour friendly P2!\n",0
+emailBody       byte    0[1024]     ' 1k bytes in which to format the email text
 
-PUB main()
+sampleStrVar    byte    "72.6 Degr F",0
+sampleintVar    byte    124
+
+PUB main() | nLen
     '' DEMO tell our RPi send an email for us
-    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)
+    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE, IoT_GW.PU_15K)
 
     ' (one time) tell the RPi about how to identify this hardware
     IoT_GW.identify(@p2HardwareID)
+
+    nLen := strFmt.sFormatStr0(@emailBody, string("hi,\n"))
+
+    nLen += strFmt.sFormatStr0(@BYTE[@emailBody][nlen], string("  This is being sent from the P2 via the RPi gateway\n"))
+    nLen += strFmt.sFormatStr0(@BYTE[@emailBody][nlen], string("\n"))   ' blank line
+
+    nLen += strFmt.sFormatStr1(@BYTE[@emailBody][nlen], string("  Sample Temperature reading: %s\n"), @sampleStrVar)
+    nLen += strFmt.sFormatStr1(@BYTE[@emailBody][nlen], string("  Sample data value: %d\n"), sampleintVar)
+
+    nLen += strFmt.sFormatStr0(@BYTE[@emailBody][nlen], string("\n"))   ' blank line
+    nLen += strFmt.sFormatStr0(@BYTE[@emailBody][nlen], string("Regards,\n"))
+    nLen += strFmt.sFormatStr0(@BYTE[@emailBody][nlen], string("Your friendly P2!\n"))
 
     ' (each time we need to send) tell the RPi to send an email message
     IoT_GW.sendEmail(@emailTo, @emailFrom, @emailSubj, @emailBody)

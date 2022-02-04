@@ -47,7 +47,7 @@ OBJ { Objects Used by this Object }
     rxQue       :   "isp_queue_serial"          ' acces our received data
     ' our demo hardware
     LEDstr      :   "isp_ws2118_string"         ' string of 50 LED for demo
-    strFmt      :   "isp_serial_singleton"  ' format to memory routines
+    strFmt      :   "isp_mem_strings"           ' format to memory routines
 
 DAT { our hardware ID strings and 1-wire buffers, collection names }
 
@@ -71,7 +71,7 @@ VAR { demo buffers }
 PUB main() | eOpStatus, nIdx, nCollId, eRxQStatus, eCmdId, tmpVar
 
     '' DEMO send status values to a web page and act on control values sent by the web page
-    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)    ' tell singleton our pins and rate
+    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE, IoT_GW.PU_15K)    ' tell singleton our pins and rate
 
     ' (one time) tell the RPi about how to identify this hardware
     IoT_GW.identify(@p2HardwareID)
@@ -175,11 +175,11 @@ PRI updateOurStringStatus(nCollId) : opStatus | tmpValue, pValStr
 
 PRI colorAsHexString(nColor, pWorkBffr, nBffrLenMax) : pBffr | nIdx
     ' for now formatting rgbw as rgb (loosing w)
-    pBffr := strFmt.sStr1(string("0x%06x"), nColor >> 8, pWorkBffr)
-    repeat nIdx from 2 to strsize(pBffr) - 1
+    strFmt.sFormatStr1(pWorkBffr, string("0x%06x"), nColor >> 8)
+    repeat nIdx from 2 to strsize(pWorkBffr) - 1
         ' replace leading spaces with zeros
-        if BYTE[pBffr][nIdx] == $20     ' '
-            BYTE[pBffr][nIdx] := $30    '0'
+        if BYTE[pWorkBffr][nIdx] == $20     ' '
+            BYTE[pWorkBffr][nIdx] := $30    '0'
         else
             quit
     'debug("--> (", uhex_long_(nColor), ") str=[", zstr_(pBffr), "]")

@@ -43,7 +43,7 @@ CON { fixed io pins }
 
 OBJ { Objects Used by this Object }
 
-    RPi         : "jm_serial"                                   ' serial I/O
+    RPi         : "isp_serial"                                   ' serial I/O
     nstr        : "jm_nstrings"                                 ' number-to-string
 
 CON { driver config values }
@@ -172,7 +172,7 @@ PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus, nCtParm, bPassFail
 
     if bTestMode == TRUE
     ' but is our test code main for now...
-        'startx(RX_GW, TX_GW, GW_BAUDRATE)
+        'startx(RX_GW, TX_GW, GW_BAUDRATE, PU_15K)
         ' =========================================
         ' test code
         ' -----------------------------------------
@@ -298,11 +298,11 @@ PUB null() | pWrappedStr, bStatus, pStr, bWaitStatus, nCtParm, bPassFail
 
 CON { - - - - - }
 
-PUB startx(rxpin, txpin, baud)
+PUB startx(rxpin, txpin, baud, pullup)
 '' Start RPi gateway serial coms on rxpin and txpin at baud
     pinRx := rxpin
     pinTx := txpin
-    RPi.startx(pinRx, pinTx, baud)                              ' use user serial port
+    RPi.startx(pinRx, pinTx, baud, pullup)                              ' use user serial port
 
     prepStackForCheck() ' for our internal test use
 

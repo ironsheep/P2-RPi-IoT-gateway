@@ -52,8 +52,8 @@ VAR { demo buffers }
     byte    rdBuffer[RX_BFFR_LEN+1]
 
 PUB main() | opStatus, pNameSet, nNameCt, nIdx, pName, nCollId, pKeySet, nKeyCt, pRetString
-    '' DEMO Tell our RPi send an email for us
-    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)
+    '' DEMO show how to read /proc/ collections stored on RPi
+    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE, IoT_GW.PU_15K)
 
     ' (one time) tell the RPi about how to identify this hardware
     IoT_GW.identify(@p2HardwareID)

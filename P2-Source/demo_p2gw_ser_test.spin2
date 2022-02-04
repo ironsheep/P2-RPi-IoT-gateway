@@ -49,8 +49,8 @@ CON { TEST VALUES }
     COUNT_MESSAGES_TO_SEND = 100
 
 PUB main() | eOpStatus, nRpiErrCt, pRpiMsg, nRPiCt, nP2Ct
-    '' DEMO exchange messages with RPi to determine if serial link is OK
-    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE)
+    '' DEMO exchange message strings with RPi - comparing on both ends - to determine if serial link is OK
+    IoT_GW.startx(RX_GW, TX_GW, GW_BAUDRATE, IoT_GW.PU_15K)
 
     ' (one time) tell the RPi about how to identify this hardware
     IoT_GW.identify(@p2HardwareID)
