@@ -42,9 +42,9 @@ The following objects are compiled into your app.
 
 ## Gateway Deamon on RPi
 
-On the RPi we have a single Python3 script which is run interactively or from power-on which listens to the serial traffic arriving from the P2. It validates the requests coming from the P2, and then acts on the request. Validation status and, optionally, requested data are returned to the P2 for each request.
+On the RPi we have a single Python3 script which is run interactively (or from power-on as Daemon) which listens to the serial traffic arriving from the P2. It validates the requests coming from the P2, and then acts on the request. Validation status and, optionally, requested data are returned to the P2 for each request.
 
-The Daemon script also watches for directory changes (files to be modified or new files appearing) in the Control directory.  Web pages that want to send values to our P2 write to this Control directory. The P2 application tells the RPi if it wants to be told of changes to specific files on the RPi. If the RPi knows that the P2 is listening and the file is changes the RPi sends each KV pair found in the changed file to the waiting P2.
+The Daemon script also watches for directory changes (files to be modified or new files appearing) in the Control directory.  Web pages that want to send values to our P2 write to this Control directory. The P2 application tells the RPi if it wants to be told of changes to specific files on the RPi. If the RPi knows that the P2 is listening and the file is changed the RPi sends each KV pair found in the changed file to the waiting P2.
 
 ### Tools I use when working on the python Daemon script
 
@@ -52,6 +52,9 @@ I'm doing all of my Python editing in [Visual Studio Code](https://code.visualst
 
 - [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh)
 - [Remote - SSH: Editing Configuration Files](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh-edit)
+- [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
+- [Python Extension Pack](https://marketplace.visualstudio.com/items?itemName=donjayamanne.python-extension-pack)
+- [Python Indent](https://marketplace.visualstudio.com/items?itemName=KevinRose.vsc-python-indent)
 
 ### Python References
 
