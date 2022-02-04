@@ -82,8 +82,8 @@ If it is your first time using a new service of this gateway you may have to pla
 
 | Service | config needed |
 | --- | --- |
-| email | if using **sendmail** the default values should work, if using **SendGrid** then enable sendgrid, set from address and add API key
-| (more sevices TBA) |
+| email | if using **[sendmail(1)](https://www.unix.com/man-page/linux/1/sendmail/)** the default values should work (`use_sendgrid = false`),<br/>if using **[SendGrid](https://sendgrid.com/)** then enable sendgrid (`use_sendgrid = true`), set the from address and add your API key
+|  | (more services TBA)
 
 
 ## Make calls to gateway object
