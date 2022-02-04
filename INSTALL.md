@@ -115,9 +115,9 @@ sudo cp /opt/P2-RPi-ioT-gateway/config.{ini.dist,ini}
 sudo vim /opt/P2-RPi-ioT-gateway/config.ini
 ```
 
-There are two reasons to adjust your **config.ini** at this release version:
+There are two possible reasons to adjust your **config.ini** at this release version:
 
-1. `hostname --fqdn` returns only a machine name and no domain
+1. `hostname --fqdn` returns only a machine name and no domain (**Only if your location is setup with its own domain - some homes are not!)**
   - FIX: uncomment `fallback_domain` in [DAEMON] section and enter the domain for your RPi
 
    ```shell
@@ -138,7 +138,7 @@ There are two reasons to adjust your **config.ini** at this release version:
 
 **NOTE** If you are using SendGrid there are more complete setup instructions which you will follow in later steps when you get to the [Configure Email Service](SETUP-EMAIL.md) step.
 
-Now that your config.ini is setup let's test!
+Now that your **config.ini** is setup let's test!
 
 ## Execution
 
