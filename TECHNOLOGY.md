@@ -39,6 +39,23 @@ The following objects are compiled into your app.
 
 ### Tools I use when working on the .spin2 Gateway Objects
 
+I have two different approaches when developing Spin2/Pasm2 code. When I'm working on a new project doing stuff that I've not done before I'll do my compilation and download/flashing with [Propeller Tool](https://www.parallax.com/package/propeller-tool-software-for-windows-spin-assembly-2/) and/or [PNut](https://forums.parallax.com/discussion/171196/pnut-spin2-latest-version-v35r-pc-keyboard-and-mouse-feedback-for-debug-displays/p1) running on windows.  When I'm expanding a project or making minor tweaks I'll then use [FlexProp](https://github.com/totalspectrum/flexprop) on my mac desktop or on one of my RPi's for compilation and download/flashing.
+
+But, I'm doing all of my Spin2/Pasm2 editing in [Visual Studio Code](https://code.visualstudio.com/) (VSCode) which I run on my desktop.  But where are the files I'm editing??  
+
+1. If I'm targeting my Windows machine for compile and download I place my project files in a [Dropbox](https://www.dropbox.com/) folder which the windows machine also shares. I save my changes from my VSCode and then on the Windows machine I run Propeller Tool/PNut to compile and download.
+
+2. If, instead, I'm running with my P2 hardware attached to my Mac or an RPi then I'm editing in VSCode and I've configured the VSCode to compile and download the code using the FlexProp compiler/downloader. My Spin2/Pasm2 source files are on the RPi or on my Mac (along with FlexProp). If my files are on the RPi then my VSCode is remoted into the RPi working on files on the RPi itself.
+
+VSCode extensions supporting my efforts:
+
+| VSCode Extension | Purpose |
+| --- | --- |
+| [Spin2](https://marketplace.visualstudio.com/items?itemName=IronSheepProductionsLLC.spin2) | Spin2/Pasm2 syntax/semantic hightlighting
+| [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh) | work remotely via SSH
+| [Remote - SSH: Editing Configuration Files](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh-edit) | Edit config files remotely via SSH
+
+
 
 ## Gateway Deamon on RPi
 
@@ -50,11 +67,16 @@ The Daemon script also watches for directory changes (files to be modified or ne
 
 I'm doing all of my Python editing in [Visual Studio Code](https://code.visualstudio.com/) (VSCode) which I run on my desktop and remote into my RPi containing the python scripts using SSH. In order to use SSH to get into my RPi's I have the following extensions installed into VSCode:
 
-- [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh)
-- [Remote - SSH: Editing Configuration Files](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh-edit)
-- [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
-- [Python Extension Pack](https://marketplace.visualstudio.com/items?itemName=donjayamanne.python-extension-pack)
-- [Python Indent](https://marketplace.visualstudio.com/items?itemName=KevinRose.vsc-python-indent)
+
+VSCode extensions supporting  my efforts:
+
+| VSCode Extension | Purpose |
+| --- | --- |
+| [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh) | work remotely via SSH
+| [Remote - SSH: Editing Configuration Files](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh-edit) | Edit config files remotely via SSH
+| [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
+| [Python Extension Pack](https://marketplace.visualstudio.com/items?itemName=donjayamanne.python-extension-pack)
+| [Python Indent](https://marketplace.visualstudio.com/items?itemName=KevinRose.vsc-python-indent)
 
 ### Python References
 
@@ -105,8 +127,12 @@ I run on a Mac desktop.  My favorite tool for creating web pages is [Bootstrap S
 
 However, I edit the PHP and make final tweaks to the HTML/CSS by hand. Yes I'm doing all of the "by hand editing" in [Visual Studio Code](https://code.visualstudio.com/) (VSCode) which I run on my desktop and remote into my RPi containing the pages using SSH. In order to use SSH to get into my RPi's I have the following extensions installed into VSCode:
 
-- [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh)
-- [Remote - SSH: Editing Configuration Files](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh-edit)
+VSCode extensions supporting  my efforts:
+
+| VSCode Extension | Purpose |
+| --- | --- |
+| [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh) | work remotely via SSH
+| [Remote - SSH: Editing Configuration Files](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh-edit) | Edit config files remotely via SSH
 
 ### HTML, CSS and PHP References
 
