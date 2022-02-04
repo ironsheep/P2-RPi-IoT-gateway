@@ -57,8 +57,16 @@ PUB main() | nLen
     ' (one time) tell the RPi about how to identify this hardware
     IoT_GW.identify(@p2HardwareID)
 
+    ' ---------------------------------------------------------------
+    ' build up our email message by appending strings into the buffer
+    '  used to hold our email body text
+    ' ---------------------------------------------------------------
+
+    ' this first one assigns the current length value
     nLen := strFmt.sFormatStr0(@emailBody, string("hi,\n"))
 
+    ' from here on, we simply add to the current length with each new string append.
+    ' (this allows us to know where to place next string in buffer)
     nLen += strFmt.sFormatStr0(@BYTE[@emailBody][nlen], string("  This is being sent from the P2 via the RPi gateway\n"))
     nLen += strFmt.sFormatStr0(@BYTE[@emailBody][nlen], string("\n"))   ' blank line
 
@@ -69,7 +77,7 @@ PUB main() | nLen
     nLen += strFmt.sFormatStr0(@BYTE[@emailBody][nlen], string("Regards,\n"))
     nLen += strFmt.sFormatStr0(@BYTE[@emailBody][nlen], string("Your friendly P2!\n"))
 
-    ' (each time we need to send) tell the RPi to send an email message
+    ' Tell the RPi to send an email message
     IoT_GW.sendEmail(@emailTo, @emailFrom, @emailSubj, @emailBody)
 
     debug("***  DONE  ***")
