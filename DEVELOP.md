@@ -9,15 +9,15 @@ Enable an RPi to serve as an ioT gateway for our P2 Hardware - while dedicating 
 
 On this Page:
 
-- [Add Gateway to P2 Project]() 
-- [Configure and Restart Daemon if turning on new service]() 
-- [Make calls to gateway object]() 
+- [Add Gateway to P2 Project](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/DEVELOP.md#add-gateway-to-p2-project) 
+- [Configure and Restart Daemon if turning on new service](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/DEVELOP.md#configure-and-restart-daemon-if-turning-on-new-service) 
+- [Make calls to gateway object](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/DEVELOP.md#make-calls-to-gateway-object) 
 
 Additional pages:
 
 - [Main Page](README.md)
-- [Technology Used](TECHNOLOGY.md) (this page)
-- [Developing your own P2 Application](DEVELOP.md) using IoT gateway services
+- [Technology Used](TECHNOLOGY.md)
+- [Developing your own P2 Application](DEVELOP.md)  (this page)
 
 ---
 
