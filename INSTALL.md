@@ -18,6 +18,7 @@ On this Page:
 
 Additional pages:
 
+- [Unbox & setup new RPI](RPI-SETUP.md) 
 - [Configure Email Service](SETUP-EMAIL.md)
 - [Configure Web Server & PHP](SETUP-WEBSERV.md)
 - Configure SMS Service - *content TBA*
@@ -82,6 +83,8 @@ In this project we've provided scripts you can use routinely on your RPi.  The f
 ```shell
 cp -p /opt/P2-RPi-ioT-gateway/scripts/* ~/bin # -p means preserve file times, permissions, etc.
 ```
+
+**NOTE**: *if you appear to be missing the `~/bin` directory please refer back to the section [Install the latest software Updates](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/RPI-SETUP.md#install-the-latest-software-updates-os-security-patches-etc) of the "Unbox & setup new RPI"  instructions where this directory was first made.*
 
 ### Make our gateway directories
 
