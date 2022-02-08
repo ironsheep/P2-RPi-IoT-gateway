@@ -169,7 +169,7 @@ From this interface, do the following:
 
 Now that your RPi is fully set up and is a proper citizen of your network it's time to set up a couple of scripts which will help you keep your RPi up-to-date with latest versions of the OS Kernal, all installed packages and of course will apply security updates to our packages.
 
-I always create a user script directory  **~/bin** in our home directory. I then also tell the shell that it can find unknown commands in this **~/bin** directory. First let's make the directory:
+I always create a user script directory  **~/bin** in our home directory. The home directory is /home/pi but we use the shortcut `~/` which means the home directory of the currently logged in user (which is `pi` in our case.) So, `~/bin` means `/home/pi/bin`. I then also tell the shell that it can find unknown commands in this **~/bin** directory. First let's make the directory:
 
 ```shell
 mkdir ~/bin  # create bin directory
@@ -232,7 +232,7 @@ fi
 cd bin   # navigate to the ~/bin directory
 ```
 
-If you had to add this content then rerun the **~/.profile** file using:
+If you had to add this content then rerun the **~/.profile** (/home/pi/.profile) file using:
 
 ```shell
 source ~/.profile  # reread and process the .profile content
