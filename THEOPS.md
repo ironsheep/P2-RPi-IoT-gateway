@@ -37,7 +37,7 @@ A custom protocol using service specific messages is sent over the serial interf
 | --- | --- | --- | --- |
 | EFI_VAR | 100 | /var/{p2gwdir}/ folder | General purpose file store - not erased
 | EFI_TMP | 101 | /tmp/{p2gwdir}/ folder | Temporary file store - may be erased by RPi
-| EFI_CONTROL | 102 | /var/{p2gwdir}/control folder | values written by web server
+| EFI_CONTROL | 102 | /var/www/html/{p2gwdir}/control folder | values written by web server
 | EFI_STATUS | 103 | /var/{p2gwdir}/status folder | values to be sent to web server
 | EFI_LOG | 104 | /var/{p2gwdir}/log folder | logs (written by gateway daemon)
 | EFI_MAIL | 105 | /var/{p2gwdir}/mail | record of mail sent by gateway daemon
@@ -51,13 +51,13 @@ A custom protocol using service specific messages is sent over the serial interf
 | FM_READONLY | 200 | Open for read access
 | FM_WRITE | 201 | Open for write (must already exist)
 | FM\_WRITE_CREATE | 202 | Open for write
-| FM_LISTEN | 203 | Inform that P2 want to be notified if content changes
+| FM_LISTEN | 203 | Inform that P2 wants to be notified if content changes
 
 ---
 
 > If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices!
 >
-> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep)
+> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](./Docs/images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
 
 ---
 
