@@ -46,6 +46,7 @@ Additional pages:
 - Configure SMS Service - *content TBA*
 - Configure Twitter Service - *content TBA*
 - [Technology/Tools Used](TECHNOLOGY.md) in this IoT Gateway
+- [Configuring SSH access to your RPi](SETUP-SSH.md) enhance your development environment by allowing remote access
 - [Developing your own P2 Application](DEVELOP.md) using IoT gateway services
 - and experience I draw from wihile creating this project: [My Prior RPi Efforts](AUTHORS-RPI-WORK.md)
 
