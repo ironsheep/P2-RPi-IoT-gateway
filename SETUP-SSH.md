@@ -19,21 +19,23 @@ When I work remotely from my RPi's i'm logging into them using the secure shell 
 Logging in to run commands on RPi:
 
 ```script
-ssh pi@pip2iotgw-wifi.home    # log into RPi pip2iotgw-wifi as the pi user
+ssh pi@pip2iotgw.home    # log onto RPi pip2iotgw as the pi user
 
 ```
 
 Copying a file to the RPi:
 
 ```script
-scp file.txt pi@pip2iotgw-wifi.home:~/Documents  # place file in RPi:/home/pi/Documents/
+scp file.txt pi@pip2iotgw.home:~/Documents  # copy your file to RPi:/home/pi/Documents/ folder
 ```
 
 Copying the same file back to my current directory:
 
 ```script
-scp pi@pip2iotgw-wifi.home:~/Documents/file.txt .  # place file in Desktop current folder
+scp pi@pip2iotgw.home:~/Documents/file.txt .  # copy file from RPi to your current folder
 ```
+
+**NOTE** in these examples you see the use of the `.home` domain. This is true for my home network but most likely your network is configured differently! Please use whatever is appropriate for your network environment.
 
 ### Why I use SSH and related tools
 
@@ -41,14 +43,14 @@ I set up password-less ssh access to my RPi's for two major reasons:
 
 1. I can from the command line on my desktop log into the RPi and run commands, or copy files to and from the RPi to my desktop
 
-1. With SSH access enables I can work within VSCode on my Desktop but VSCode logs into the RPi for me and presents the files from the RPi to me as if they were on the Desktop machine. And with the terminal access built into VSCode the commands I run in termal are actually running on the RPi itself.  
+1. With SSH access enabled, I can work within VSCode on my Desktop but VSCode logs into the remote RPi for me and presents the files from the RPi to me as if they were on my Desktop machine. And with the terminal access built into VSCode, the commands I run in terminal are actually running on the RPi itself.  
 
 ### Enable password-less access
 
-To work with SSH you will setup public/private keypair on your Desktop (if you haven't already) and you will tell the RPi about your ssh key by running the ssh-copy-id(1) command:
+To work with SSH you will setup public/private keypair on your Desktop (if you haven't already, most of us already have) and you will tell the RPi about your ssh key by running the ssh-copy-id(1) command:
 
 ```script
-ssh-copy-id pi@pip2iotgw-wifi.home  # then answer with RPi password and follow instructions
+ssh-copy-id pi@pip2iotgw.home  # then answer with RPi password and follow instructions
 ```
 
 *This will prompt for the RPi password once during the setup but thereafter you can get in with out being prompted for a password.*
@@ -57,7 +59,7 @@ ssh-copy-id pi@pip2iotgw-wifi.home  # then answer with RPi password and follow i
 
 - SSH over WiFi can sometimes be blocked by your Wifi Access Point - it may need to be configured to allow the ssh traffic to be forwarded.  (e.g., Google Home APs can be difficult to set up - if you can even find a way to do it.)
 
-- Sometimes your network is not fully setup for name resolution for your RPi naems. In this case you can use the IP address of your RPi instead of the hostname to gain access
+- Sometimes your network is not fully setup for name resolution for your RPi names. In this case you can use the IP address of your RPi instead of the hostname to gain access
 
 - Don't expect to be able to gain access to devices within your home from outside your home network. This is likely blocked unless you've specifically (and carefully configured it).  My firewall blocks all such access from outside my home and this is intentional!  I can get to any external machine (for which I'm granted access) from within my home. THis is not normally blocked.
 
