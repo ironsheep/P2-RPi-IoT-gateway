@@ -89,7 +89,13 @@ When browsing to your new project your URL looks someting like: `http://{mypihos
 
 ### Create PHP Test page
 
-Create a simple but useful PHP test file `info.php` and place it in `/var/www/html` - the file should contain the following 3 lines:
+Create a simple but useful PHP test file. Let's change to our web server directory:
+
+```bash
+cd /var/www/html
+```
+
+Now create the file  `info.php` in this directory. The file should contain the following 3 lines:
 
 ```php
 <?php  
