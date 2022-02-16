@@ -1,10 +1,13 @@
----
-name: Bug report
+description: Bug report
 about: Report an issue you are experiencing with the P2 RPi ioT Gateway
 title: ''
 labels: bug
 assignees: ''
----
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this issue.
 
 <!-- READ THIS FIRST:
 - Provide as many details as possible. Do not delete any text from this template!
@@ -31,6 +34,16 @@ Provide details about what you are seeing. Also which operating system this is o
 Provide details about your P2 development environment. What P2 boards are you using? What compiler? Does it happen when using alternate compilers?
 -->
 
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Description of problem:
+      description: Also tell us, what did you expect to happen?
+      placeholder:
+      value: "A bug happened!"
+    validations:
+      required: true
+
 **Description of problem:**
 
 <!--
@@ -43,9 +56,16 @@ Explain what the issue is, and how things should look/behave. If possible provid
 
 **Python errors shown in the logs (if applicable):**
 
-```
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Description of problem:
+      description: Also tell us, what did you expect to happen?
+      placeholder:
+      value: "A bug happened!"
+    validations:
+      required: true
 
-```
 
 **Additional information:**
 
