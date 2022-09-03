@@ -159,7 +159,7 @@ sudo python3 /opt/P2-RPi-ioT-gateway/P2-RPi-ioT-gw-daemon.py -d -v
 
 **NOTE2:** the optional command line options `-d` and `-v` enable `debug` and `verbose` runtime options that can possibly provide more detail if you are experiencing problems!
 
-additionally, the optional command line argument `--config`, can be used to specify a directory from where to read the config.ini file, e.g.
+Additionally, the optional command line argument `--config`, can be used to specify a directory from where to read the config.ini file, e.g.
 
 ```shell
 sudo python3 /opt/P2-RPi-ioT-gateway/P2-RPi-ioT-gw-daemon.py --config /opt/P2-RPi-ioT-gateway
