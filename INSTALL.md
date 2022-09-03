@@ -157,7 +157,7 @@ sudo python3 /opt/P2-RPi-ioT-gateway/P2-RPi-ioT-gw-daemon.py -d -v
 
 **NOTE2:** the optional command line options `-d` and `-v` enable `debug` and `verbose` runtime options that can possibly provide more detail if you are experiencing problems!
 
-**NOTE3:** if you seems to have **communications issues with serial** it may be because you didn't disable the "console over serial port" feature. The symptoms of this are discussed in [P2 Forum thread](https://forums.parallax.com/discussion/comment/1542826/#Comment_1542826) You need to ensure you kept the serial port operational but turned off the "console over serial port" feature.  Review the section [Setting up your 1st Raspberry Pi: Configure services you need] (https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/RPI-SETUP.md#configure-services-you-need) to double check your initial RPi configuration effort.
+**NOTE3:** if you seems to have **communications issues with serial** it may be because you didn't disable the "console over serial port" feature. The symptoms of this are discussed in [P2 Forum thread](https://forums.parallax.com/discussion/comment/1542826/#Comment_1542826) You need to ensure you kept the serial port operational but turned off the "console over serial port" feature.  Review the section [Setting up your 1st Raspberry Pi: Configure services you need](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/RPI-SETUP.md#configure-services-you-need) to double check your initial RPi configuration effort.
 
 Using the optional command line argument `--config`, a directory where to read the config.ini file from can be specified, e.g.
 
