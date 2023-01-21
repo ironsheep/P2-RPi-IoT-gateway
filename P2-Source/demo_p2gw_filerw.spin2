@@ -54,7 +54,7 @@ CON
 
 VAR { demo buffers }
 
-    byte    rdBuffer[RX_BFFR_LEN+1]
+  byte  rdBuffer[RX_BFFR_LEN+1]
 
 PUB main() | opStatus, fileId, tmpValue, pRetString, bCompStatus, lenResult, nIdx
     '' DEMO exercise various collection reads and writes

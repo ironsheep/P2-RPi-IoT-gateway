@@ -353,13 +353,11 @@ class RuntimeConfig:
 
 #  Object used to track gateway files
 class FileDetails:
-    fileName = ''
-    fileMode = ''
-    fileSpec = ''
-    dirSpec = ''
+    # (declare class variables here)
 
     # create a new instance with all details given!
     def __init__(self, fileName, fileMode, dirSpec):
+        # (declare instance variables here)
         self.fileName = fileName + '.json'
         self.fileMode = fileMode
         self.dirSpec = dirSpec
@@ -367,10 +365,13 @@ class FileDetails:
 
 # object tracking the gateway files providing access via handles
 class FileHandleStore:
+    # (declare class variables here)
 
-    dctLiveFiles = {}  # runtime hash of known files (not persisted)
-    dctWatchedFiles = {}  # runtime hash of files being watched (not persisted)
-    nNextFileId = 1  # initial collId value (1 - 99,999)
+    def __init__(self):
+        # (declare instance variables here)
+        self.dctLiveFiles = {}  # runtime hash of known files (not persisted)
+        self.dctWatchedFiles = {}  # runtime hash of files being watched (not persisted)
+        self.nNextFileId = 1  # initial collId value (1 - 99,999)
 
     def handleStringForFile(self, fileName, fileMode, dirSpec):
         # create and return a new fileIdKey for this new file and save file details with the key
@@ -443,10 +444,12 @@ class FileHandleStore:
 
 # object that does the watching
 class FileSystemWatcher:
-    DIRECTORY_TO_WATCH = folder_control
+    # (declare class variables here)
 
-    def __init__(self):
+    def __init__(self, folderName):
+        # (declare instance variables here)
         self.observer = Observer()
+        self.DIRECTORY_TO_WATCH = folderName
 
     def run(self):
         print_line('Thread: FileSystemWatcher() started', verbose=True)
@@ -489,8 +492,11 @@ class Handler(FileSystemEventHandler):
 #  these arrive at a rate different from our handling them rate
 #  so we put them in a queue while they wait to be handled
 class RxLineQueue:
+    # (declare class variables here)
 
-    lineBuffer = deque()
+    def __init__(self):
+        # (declare instance variables here)
+        self.lineBuffer = deque()
 
     def pushLine(self, newLine):
         self.lineBuffer.append(newLine)
@@ -1189,7 +1195,7 @@ queueRxLines = RxLineQueue()
 _thread.start_new_thread(taskSerialListener, ( serialPort, ))
 
 # start our file-system watcher
-dirWatcher = FileSystemWatcher()
+dirWatcher = FileSystemWatcher(folder_control)
 #dirWatcher.run()
 _thread.start_new_thread(dirWatcher.run, ( ))
 
