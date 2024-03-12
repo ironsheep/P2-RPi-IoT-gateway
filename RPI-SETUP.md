@@ -3,6 +3,7 @@
 New to Raspberry Pi? This is your quick-start for setting getting a Raspberry Pi ready to use as a P2 Gateway to the internet!
 
 ![Project Maintenance][maintenance-shield]
+
 [![License][license-shield]](LICENSE)
 
 ## Raspberry Pi - Setup Overview
@@ -53,7 +54,7 @@ Now you'll want to copy the downloaded image to the new uSD card. The Raspberry 
 
 If you are new to this then I suggest you follow their instructions.
 
-**HEADS UP!!!** If you are new to all of this please SKIP the next sections headed with **"Reference ONLY..."** as this reference info is for advanced users only!  As a beginner you can skip to the section **[Boot the RPi after insterting the uSD card](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/RPI-SETUP.md#boot-the-rpi-after-insterting-the-usd-card)** after copying the new image to your uSD card.
+**HEADS UP!!!** If you are new to all of this please SKIP the next sections headed with **"Reference ONLY..."** as this reference info is for advanced users only!  As a beginner you can skip to the section **[Boot the RPi after inserting the uSD card](https://github.com/ironsheep/P2-RPi-IoT-gateway/blob/main/RPI-SETUP.md#boot-the-rpi-after-insterting-the-usd-card)** after copying the new image to your uSD card.
 
 **--->>> Begin SKIP <<<---**
 
@@ -282,8 +283,6 @@ Well, that's it. Your new Raspberry Pi is set up and ready for you to install ou
 
 ## License
 
-Copyright © 2022 Iron Sheep Productions, LLC. All rights reserved.
-
 Licensed under the MIT License.
 
 Follow these links for more information:
@@ -298,4 +297,4 @@ Follow these links for more information:
 
 [marketplace-rating]: https://vsmarketplacebadge.apphb.com/rating-short/ironsheepproductionsllc.spin2.svg
 
-[license-shield]: https://camo.githubusercontent.com/bc04f96d911ea5f6e3b00e44fc0731ea74c8e1e9/68747470733a2f2f696d672e736869656c64732e696f2f6769746875622f6c6963656e73652f69616e74726963682f746578742d646976696465722d726f772e7376673f7374796c653d666f722d7468652d6261646765
+[license-shield]: https://img.shields.io/badge/License-MIT-yellow.svg
